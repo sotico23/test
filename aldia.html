@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Marca & Módulos - Al Día</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .bg-crea-red {
+            background-color: #E72B49;
+        }
+
+        .text-crea-red {
+            color: #E72B49;
+        }
+
+        .border-crea-yellow {
+            border-color: #FEC925;
+        }
+
+        .bg-crea-blue {
+            background-color: #15B1E8;
+        }
+
+        .header-gradient {
+            background: linear-gradient(135deg, #E72B49 0%, #15B1E8 100%);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+
+    <header class="header-gradient text-white py-16 px-6 text-center shadow-lg">
+        <h1 class="text-5xl font-black uppercase tracking-tighter">Al Día</h1>
+        <p class="text-xl font-light mt-4">Ecosistema SaaS Integral: Gestión y Control Total</p>
+    </header>
+
+    <main class="max-w-6xl mx-auto py-12 px-6">
+
+        <section class="mb-16 bg-white p-8 rounded-2xl shadow-sm border-l-8 border-crea-yellow">
+            <h2 class="text-3xl font-black text-crea-red mb-6 uppercase">Carga de Activos de Marca</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div
+                    class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-crea-red transition-colors">
+                    <label class="block cursor-pointer">
+                        <span class="text-sm font-bold text-gray-600 block mb-2">Logo Principal (PNG/SVG)</span>
+                        <input type="file"
+                            class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-crea-red hover:file:bg-red-100"
+                            accept="image/*">
+                    </label>
+                </div>
+                <div
+                    class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-crea-blue transition-colors">
+                    <label class="block cursor-pointer">
+                        <span class="text-sm font-bold text-gray-600 block mb-2">Captura Dashboard ERP</span>
+                        <input type="file"
+                            class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-crea-blue hover:file:bg-blue-100"
+                            accept="image/*">
+                    </label>
+                </div>
+                <div
+                    class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-crea-yellow transition-colors">
+                    <label class="block cursor-pointer">
+                        <span class="text-sm font-bold text-gray-600 block mb-2">Iconografía Personalizada</span>
+                        <input type="file"
+                            class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+                            accept="image/*">
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <h2 class="text-4xl font-black text-center mb-12 uppercase tracking-tight">Módulos del Sistema</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-red">
+                <div class="p-6">
+                    <h3 class="font-black text-xl mb-4 text-crea-red">GESTIÓN COMERCIAL</h3>
+                    <ul class="text-sm space-y-2 text-gray-600">
+                        <li>• Leads & Pipeline</li>
+                        <li>• Oportunidades</li>
+                        <li>• Clientes y Productos</li>
+                        <li>• Cotizaciones y Ventas (SFA)</li>
+                        <li>• Campañas y Tickets Soporte</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-blue">
+                <div class="p-6">
+                    <h3 class="font-black text-xl mb-4 text-crea-blue">OPERACIONES E INVENTARIO</h3>
+                    <ul class="text-sm space-y-2 text-gray-600">
+                        <li>• Inventario y Almacenes (WMS)</li>
+                        <li>• Movimientos y Lotes</li>
+                        <li>• Proveedores</li>
+                        <li>• Órdenes de Compra</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-red">
+                <div class="p-6">
+                    <h3 class="font-black text-xl mb-4 text-crea-red">PRODUCCIÓN (MRP)</h3>
+                    <ul class="text-sm space-y-2 text-gray-600">
+                        <li>• BOM (Listado de Materiales)</li>
+                        <li>• Órdenes de Producción</li>
+                        <li>• Control de Calidad</li>
+                        <li>• Planificación</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-blue">
+                <div class="p-6">
+                    <h3 class="font-black text-xl mb-4 text-crea-blue">FINANZAS Y TESORERÍA</h3>
+                    <ul class="text-sm space-y-2 text-gray-600">
+                        <li>• Facturación (AR) y Cobranzas</li>
+                        <li>• Pagos (AP) y Tesorería</li>
+                        <li>• Contabilidad General (GL)</li>
+                        <li>• Gestión de Impuestos</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-red">
+                <div class="p-6">
+                    <h3 class="font-black text-xl mb-4 text-crea-red">GESTIÓN HUMANA</h3>
+                    <ul class="text-sm space-y-2 text-gray-600">
+                        <li>• Gestión de Empleados</li>
+                        <li>• Nómina y Asistencia</li>
+                        <li>• Reclutamiento</li>
+                        <li>• Evaluaciones de Desempeño</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-blue">
+                <div class="p-6">
+                    <h3 class="font-black text-xl mb-4 text-crea-blue">LOGÍSTICA & POS</h3>
+                    <ul class="text-sm space-y-2 text-gray-600">
+                        <li>• Gestión de Flota y Vehículos</li>
+                        <li>• Terminal de Punto de Venta (POS)</li>
+                        <li>• Cierre de Caja y Facturación POS</li>
+                        <li>• Mensajes Marketplace</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="bg-gray-900 text-gray-400 py-8 text-center text-xs">
+        <p>Al Día SaaS - Desarrollado bajo estándares de Geometría Modular</p>
+        <p class="mt-2">Basado en el Manual de Marca de Crea Marketing</p>
+    </footer>
+
+</body>
+
+</html>

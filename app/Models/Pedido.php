@@ -1,0 +1,71 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Pedido extends Model
+{
+    protected $fillable = [
+        'user_id',
+        'public_profile_id',
+        'cliente_id',
+        'numero_pedido',
+        'estado',
+        'subtotal',
+        'impuesto',
+        'total',
+        'notas',
+        'nombre_cliente',
+        'telefono_cliente',
+        'direccion_cliente',
+        'metodo_pago',
+        'fecha_confirmacion',
+        'fecha_entrega',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'estado' => 'string',
+            'subtotal' => 'decimal:2',
+            'impuesto' => 'decimal:2',
+            'total' => 'decimal:2',
+            'fecha_confirmacion' => 'datetime',
+            'fecha_entrega' => 'datetime',
+        ];
+    }
+
+    public static function generarNumeroPedido(): string
+    {
+        return 'PED-'.date('Ymd').'-'.str_pad(self::max('id') + 1, 5, '0', STR_PAD_LEFT);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function publicProfile(): BelongsTo
+    {
+        return $this->belongsTo(PublicProfile::class);
+    }
+
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cliente_id');
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(PedidoItem::class);
+    }
+
+    public function conversacion(): HasOne
+    {
+        return $this->hasOne(Conversacion::class);
+    }
+}

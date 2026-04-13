@@ -1,0 +1,334 @@
+<?php
+
+namespace App\Http\Controllers\Backend;
+
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\FiltraPorCliente;
+use App\Models\Almacen;
+use App\Models\Cliente;
+use App\Models\DetalleFactura;
+use App\Models\DetalleVenta;
+use App\Models\Factura;
+use App\Models\Producto;
+use App\Models\Tesoreria;
+use App\Models\Venta;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+
+class FacturacionController extends Controller
+{
+    use FiltraPorCliente;
+
+    public function index(): Response
+    {
+        $ownerId = auth()->user()->getOwnerId();
+
+        $query = Factura::with(['cliente', 'detalles.producto', 'emisor'])
+            ->where('owner_id', $ownerId)
+            ->orderBy('fecha', 'desc')
+            ->orderBy('numero', 'desc');
+
+        if ($this->usuarioEsCliente()) {
+            $query->where('cliente_id', $this->getClienteAuth()->id);
+        }
+
+        $facturas = $query->paginate(15);
+        $clientes = Cliente::where('activo', true)->where('owner_id', $ownerId)->orderBy('nombre')->get();
+        $productos = Producto::where('activo', true)->where('owner_id', $ownerId)->with('inventarios')->get();
+        $almacenes = Almacen::where('activo', true)->where('owner_id', $ownerId)->orderBy('nombre')->get();
+
+        return Inertia::render('Backend/Facturacion/Index', [
+            'facturas' => $facturas,
+            'clientes' => $clientes,
+            'productos' => $productos,
+            'almacenes' => $almacenes,
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'numero' => 'required|string|max:20|unique:facturas,numero',
+            'cliente_id' => 'required|exists:clientes,id',
+            'fecha' => 'required|date',
+            'fecha_vencimiento' => 'nullable|date',
+            'tipo' => 'required|string|max:20|in:venta,compra,cotizacion,proforma',
+            'notas' => 'nullable|string',
+            'iva_porcentaje' => 'nullable|numeric|min:0',
+            'iva_incluido' => 'nullable|boolean',
+            'descuento_tipo' => 'nullable|string|in:none,porcentaje,monto',
+            'descuento_valor' => 'nullable|numeric|min:0',
+            'detalles' => 'required|array|min:1',
+            'detalles.*.producto_id' => 'required|exists:productos,id',
+            'almacen_id' => 'required|exists:almacenes,id',
+            'detalles.*.cantidad' => 'required|numeric|min:0.01',
+            'detalles.*.precio_unitario' => 'required|numeric|min:0',
+        ]);
+
+        $ivaPorcentaje = $validated['iva_porcentaje'] ?? 19;
+        $ivaIncluido = $validated['iva_incluido'] ?? true;
+        $descuentoTipo = $validated['descuento_tipo'] ?? 'none';
+        $descuentoValor = $validated['descuento_valor'] ?? 0;
+
+        $totalBruto = 0;
+        foreach ($validated['detalles'] as $detalle) {
+            $totalBruto += $detalle['cantidad'] * $detalle['precio_unitario'];
+        }
+
+        $totalDescuento = 0;
+        if ($descuentoTipo === 'porcentaje') {
+            $totalDescuento = round($totalBruto * ($descuentoValor / 100), 0);
+        } elseif ($descuentoTipo === 'monto') {
+            $totalDescuento = round($descuentoValor, 0);
+        }
+
+        $montoFinal = round($totalBruto - $totalDescuento, 0);
+
+        if ($ivaIncluido) {
+            $total = $montoFinal;
+            $subtotal = round($total / (1 + ($ivaPorcentaje / 100)), 0);
+            $impuesto = $total - $subtotal;
+        } else {
+            $subtotal = $montoFinal;
+            $impuesto = round($subtotal * ($ivaPorcentaje / 100), 0);
+            $total = $subtotal + $impuesto;
+        }
+
+        $factura = Factura::create([
+            'numero' => $validated['numero'],
+            'owner_id' => auth()->user()->getOwnerId(),
+            'user_id' => auth()->id(),
+            'cliente_id' => $validated['cliente_id'],
+            'fecha' => $validated['fecha'],
+            'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? null,
+            'tipo' => $validated['tipo'],
+            'subtotal' => $subtotal, // Neto
+            'impuesto' => $impuesto, // IVA
+            'total' => $total,
+            'iva_porcentaje' => $ivaPorcentaje,
+            'iva_incluido' => $ivaIncluido,
+            'descuento_tipo' => $descuentoTipo,
+            'descuento_valor' => $descuentoValor,
+            'total_descuento' => $totalDescuento,
+            'almacen_id' => $validated['almacen_id'],
+            'estado' => 'pendiente',
+            'notas' => $validated['notas'] ?? null,
+        ]);
+
+        foreach ($validated['detalles'] as $detalle) {
+            $itemTotalBruto = $detalle['cantidad'] * $detalle['precio_unitario'];
+
+            // Proportional discount if applicable
+            $itemDescuento = $totalBruto > 0 ? ($itemTotalBruto / $totalBruto) * $totalDescuento : 0;
+            $itemMontoFinal = $itemTotalBruto - $itemDescuento;
+
+            if ($ivaIncluido) {
+                $itemTotal = round($itemMontoFinal, 0);
+                $itemNeto = round($itemTotal / (1 + ($ivaPorcentaje / 100)), 0);
+                $itemIVA = $itemTotal - $itemNeto;
+            } else {
+                $itemNeto = round($itemMontoFinal, 0);
+                $itemIVA = round($itemNeto * ($ivaPorcentaje / 100), 0);
+                $itemTotal = $itemNeto + $itemIVA;
+            }
+
+            $factura->detalles()->create([
+                'producto_id' => $detalle['producto_id'],
+                'cantidad' => $detalle['cantidad'],
+                'precio_unitario' => $detalle['precio_unitario'],
+                'subtotal' => $itemNeto,
+                'impuesto' => $itemIVA,
+                'total' => $itemTotal,
+            ]);
+        }
+
+        return redirect()->route('facturacion.index');
+    }
+
+    public function update(Request $request, int $id): RedirectResponse
+    {
+        $factura = Factura::withoutGlobalScopes()->findOrFail($id);
+
+        $validated = $request->validate([
+            'numero' => 'required|string|unique:facturas,numero,'.$factura->id,
+            'cliente_id' => 'required|exists:clientes,id',
+            'fecha' => 'required|date',
+            'fecha_vencimiento' => 'nullable|date',
+            'tipo' => 'required|string|in:venta,compra,cotizacion,proforma',
+            'notas' => 'nullable|string',
+            'iva_porcentaje' => 'required|numeric|min:0',
+            'iva_incluido' => 'required|boolean',
+            'descuento_tipo' => 'required|string|in:none,porcentaje,monto',
+            'descuento_valor' => 'required|numeric|min:0',
+            'almacen_id' => 'nullable|exists:almacenes,id',
+            'estado' => 'required|string|in:pendiente,pagada,anulada',
+            'detalles' => 'required|array|min:1',
+            'detalles.*.producto_id' => 'required|exists:productos,id',
+            'detalles.*.cantidad' => 'required|numeric|min:0.01',
+            'detalles.*.precio_unitario' => 'required|numeric|min:0',
+        ]);
+
+        $oldEstado = $factura->estado;
+        $newEstado = $validated['estado'];
+
+        try {
+            DB::transaction(function () use ($factura, $validated, $oldEstado, $newEstado) {
+                $ivaPorcentaje = $validated['iva_porcentaje'];
+                $ivaIncluido = $validated['iva_incluido'];
+                $descuentoTipo = $validated['descuento_tipo'];
+                $descuentoValor = $validated['descuento_valor'];
+
+                $totalBruto = 0;
+                foreach ($validated['detalles'] as $detalle) {
+                    $totalBruto += $detalle['cantidad'] * $detalle['precio_unitario'];
+                }
+
+                $totalDescuento = 0;
+                if ($descuentoTipo === 'porcentaje') {
+                    $totalDescuento = round($totalBruto * ($descuentoValor / 100), 0);
+                } elseif ($descuentoTipo === 'monto') {
+                    $totalDescuento = round($descuentoValor, 0);
+                }
+
+                $montoFinal = round($totalBruto - $totalDescuento, 0);
+
+                if ($ivaIncluido) {
+                    $total = $montoFinal;
+                    $subtotal = round($total / (1 + ($ivaPorcentaje / 100)), 0);
+                    $impuesto = $total - $subtotal;
+                } else {
+                    $subtotal = $montoFinal;
+                    $impuesto = round($subtotal * ($ivaPorcentaje / 100), 0);
+                    $total = $subtotal + $impuesto;
+                }
+
+                $factura->update([
+                    'numero' => $validated['numero'],
+                    'cliente_id' => $validated['cliente_id'],
+                    'fecha' => $validated['fecha'],
+                    'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? null,
+                    'tipo' => $validated['tipo'],
+                    'subtotal' => $subtotal,
+                    'impuesto' => $impuesto,
+                    'total' => $total,
+                    'iva_porcentaje' => $ivaPorcentaje,
+                    'iva_incluido' => $ivaIncluido,
+                    'descuento_tipo' => $descuentoTipo,
+                    'descuento_valor' => $descuentoValor,
+                    'total_descuento' => $totalDescuento,
+                    'almacen_id' => $validated['almacen_id'],
+                    'estado' => $newEstado,
+                    'notas' => $validated['notas'] ?? null,
+                ]);
+
+                $factura->refresh();
+                $facturaId = $factura->id;
+                \Log::info('facturaId antes de delete:', ['facturaId' => $facturaId, 'tipo' => gettype($facturaId)]);
+                DetalleFactura::where('factura_id', $facturaId)->delete();
+
+                foreach ($validated['detalles'] as $idx => $detalle) {
+                    $itemTotalBruto = $detalle['cantidad'] * $detalle['precio_unitario'];
+                    $itemDescuento = $totalBruto > 0 ? ($itemTotalBruto / $totalBruto) * $totalDescuento : 0;
+                    $itemMontoFinal = $itemTotalBruto - $itemDescuento;
+
+                    if ($ivaIncluido) {
+                        $itemTotal = round($itemMontoFinal, 0);
+                        $itemNeto = round($itemTotal / (1 + ($ivaPorcentaje / 100)), 0);
+                        $itemIVA = $itemTotal - $itemNeto;
+                    } else {
+                        $itemNeto = round($itemMontoFinal, 0);
+                        $itemIVA = round($itemNeto * ($ivaPorcentaje / 100), 0);
+                        $itemTotal = $itemNeto + $itemIVA;
+                    }
+
+                    $dataToCreate = [
+                        'factura_id' => (int) $facturaId,
+                        'producto_id' => (int) $detalle['producto_id'],
+                        'cantidad' => (int) $detalle['cantidad'],
+                        'precio_unitario' => (float) $detalle['precio_unitario'],
+                        'subtotal' => (float) $itemNeto,
+                        'impuesto' => (float) $itemIVA,
+                        'total' => (float) $itemTotal,
+                    ];
+                    \Log::info('Creando detalle '.$idx.':', $dataToCreate);
+                    DetalleFactura::create($dataToCreate);
+                }
+
+                if ($oldEstado !== 'pagada' && $newEstado === 'pagada') {
+                    $factura->load(['cliente', 'detalles.producto']);
+
+                    $venta = Venta::create([
+                        'numero' => $factura->numero,
+                        'owner_id' => $factura->owner_id,
+                        'cliente_id' => $factura->cliente_id,
+                        'user_id' => auth()->id(),
+                        'fecha' => now(),
+                        'subtotal' => $factura->subtotal,
+                        'iva' => $factura->impuesto,
+                        'total' => $factura->total,
+                        'metodo_pago' => 'transferencia',
+                        'tipo_documento' => 'factura',
+                        'es_pos' => false,
+                        'estado' => 'pagada',
+                        'notas' => $factura->notas,
+                    ]);
+
+                    foreach ($factura->detalles as $detalle) {
+                        DetalleVenta::create([
+                            'venta_id' => $venta->id,
+                            'producto_id' => $detalle->producto_id,
+                            'cantidad' => $detalle->cantidad,
+                            'precio_unitario' => $detalle->precio_unitario,
+                            'subtotal' => $detalle->subtotal,
+                        ]);
+
+                        $producto = $detalle->producto;
+                        if ($producto) {
+                            $stock = $producto->inventarios()->where('almacen_id', $factura->almacen_id)->first();
+                            if ($stock) {
+                                $stock->decrement('cantidad', $detalle->cantidad);
+                            } else {
+                                $producto->inventarios()->create([
+                                    'almacen_id' => $factura->almacen_id ?? 1,
+                                    'cantidad' => -$detalle->cantidad,
+                                    'cantidad_minima' => 0,
+                                ]);
+                            }
+                        }
+                    }
+
+                    Tesoreria::create([
+                        'owner_id' => $factura->owner_id,
+                        'tipo' => 'ingreso',
+                        'monto' => $factura->total,
+                        'descripcion' => 'Pago de factura #'.$factura->numero.' - Cliente: '.($factura->cliente?->nombre ?? 'N/A'),
+                        'fecha' => now(),
+                        'referencia' => 'FACT-'.$factura->numero,
+                        'categoria' => 'ventas',
+                        'estado' => 'confirmado',
+                    ]);
+                }
+            });
+
+            return redirect()->route('facturacion.index')->with('success', 'Factura actualizada correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('facturacion.index')->with('error', 'Error al actualizar factura: '.$e->getMessage());
+        }
+    }
+
+    public function downloadPdf(Factura $factura): SymfonyResponse
+    {
+        $factura->load(['cliente', 'detalles.producto', 'emisor']);
+
+        $pdf = Pdf::loadView('pdf.billing_pdf', [
+            'factura' => $factura,
+        ])->setPaper('a4');
+
+        return $pdf->download($factura->tipo.'-'.$factura->numero.'.pdf');
+    }
+}
