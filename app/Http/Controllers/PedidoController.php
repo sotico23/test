@@ -12,6 +12,7 @@ use App\Models\Producto;
 use App\Models\PublicProfile;
 use App\Models\Tesoreria;
 use App\Models\Venta;
+use App\Scopes\OwnerScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,7 +35,7 @@ class PedidoController extends Controller
             'notas' => 'nullable|string',
         ]);
 
-        $publicProfile = PublicProfile::findOrFail($validated['public_profile_id']);
+        $publicProfile = PublicProfile::withoutGlobalScope(OwnerScope::class)->findOrFail($validated['public_profile_id']);
 
         $pedido = Pedido::create([
             'user_id' => $publicProfile->user_id,
@@ -52,7 +53,7 @@ class PedidoController extends Controller
         $subtotal = 0;
 
         foreach ($validated['items'] as $item) {
-            $producto = Producto::findOrFail($item['producto_id']);
+            $producto = Producto::withoutGlobalScope(OwnerScope::class)->findOrFail($item['producto_id']);
             $cantidad = $item['cantidad'];
             $precio = $producto->precio_venta;
             $itemSubtotal = $precio * $cantidad;
@@ -79,18 +80,19 @@ class PedidoController extends Controller
 
         // --- ERP SYNC: Create Cliente and create Venta with Financials ---
         $vendedorId = $publicProfile->user_id;
+        $vendedorOwnerId = $publicProfile->owner_id;
         $compradorLogueado = Auth::user();
 
         // Find or create Cliente for the Seller
         // We use the email provided in the auth or a fallback if it's a guest purchase
-        // For marketplace, we should probably use a unique identifier or just the name if guest
-        $clienteErp = Cliente::updateOrCreate(
+        $clienteErp = Cliente::withoutGlobalScope(OwnerScope::class)->updateOrCreate(
             ['email' => $compradorLogueado?->email ?? 'guest_'.time().'@marketplace.com', 'user_id' => $vendedorId],
             [
                 'nombre' => $validated['nombre_cliente'],
                 'telefono' => $validated['telefono_cliente'] ?? $compradorLogueado?->phone ?? '',
                 'direccion' => $validated['direccion_cliente'] ?? '',
                 'activo' => true,
+                'owner_id' => $vendedorOwnerId,
             ]
         );
 
@@ -103,10 +105,11 @@ class PedidoController extends Controller
         };
 
         // Create Venta record in ERP as 'pagada'
-        $venta = Venta::create([
+        $venta = Venta::withoutGlobalScope(OwnerScope::class)->create([
             'numero_factura' => str_replace('PED-', 'VMT-', $pedido->numero_pedido),
             'cliente_id' => $clienteErp->id,
             'user_id' => $vendedorId,
+            'owner_id' => $vendedorOwnerId,
             'fecha' => now(),
             'subtotal' => $subtotal,
             'iva' => $impuesto,
@@ -130,18 +133,20 @@ class PedidoController extends Controller
         // --- FINANZAS SYNC: Tesorería y Contabilidad ---
 
         // 1. Registro en Tesorería (Flujo de Caja)
-        Tesoreria::create([
+        Tesoreria::withoutGlobalScope(OwnerScope::class)->create([
             'tipo' => 'ingreso',
             'monto' => $total,
             'cuenta' => 'Caja/Banco',
             'descripcion' => "Venta Marketplace - Pedido #{$pedido->numero_pedido}",
             'fecha' => now(),
             'referencia' => $venta->numero_factura,
+            'owner_id' => $vendedorOwnerId,
         ]);
 
         // 2. Registro Contable (Asiento Diario)
-        $asiento = Asiento::create([
+        $asiento = Asiento::withoutGlobalScope(OwnerScope::class)->create([
             'user_id' => $vendedorId,
+            'owner_id' => $vendedorOwnerId,
             'fecha' => now(),
             'numero' => 'AS-VMT-'.time(),
             'descripcion' => "Registro de venta marketplace #{$pedido->numero_pedido}",
@@ -158,6 +163,7 @@ class PedidoController extends Controller
             'descripcion' => 'Ingreso por venta marketplace',
             'debe' => $total,
             'haber' => 0,
+            'owner_id' => $vendedorOwnerId,
         ]);
 
         // Detalle 2: Ingreso por Ventas (Haber - Subtotal)
@@ -167,6 +173,7 @@ class PedidoController extends Controller
             'descripcion' => 'Venta de productos',
             'debe' => 0,
             'haber' => $subtotal,
+            'owner_id' => $vendedorOwnerId,
         ]);
 
         // Detalle 3: IVA por Pagar (Haber - Impuesto)
@@ -177,6 +184,7 @@ class PedidoController extends Controller
                 'descripcion' => 'Impuesto sobre ventas',
                 'debe' => 0,
                 'haber' => $impuesto,
+                'owner_id' => $vendedorOwnerId,
             ]);
         }
         // --- END ERP SYNC ---
@@ -197,7 +205,9 @@ class PedidoController extends Controller
 
     public function confirmacion(string $slug, int $pedidoId): Response
     {
-        $pedido = Pedido::with('items', 'publicProfile')
+        $pedido = Pedido::with(['items', 'publicProfile' => function ($query) {
+            $query->withoutGlobalScope(OwnerScope::class);
+        }])
             ->where('id', $pedidoId)
             ->where('cliente_id', Auth::id())
             ->firstOrFail();
@@ -210,7 +220,9 @@ class PedidoController extends Controller
 
     public function misPedidos(): Response
     {
-        $pedidos = Pedido::with('publicProfile', 'items')
+        $pedidos = Pedido::with(['publicProfile' => function ($query) {
+            $query->withoutGlobalScope(OwnerScope::class);
+        }, 'items'])
             ->where('cliente_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->get();
@@ -226,7 +238,13 @@ class PedidoController extends Controller
             abort(403);
         }
 
-        $pedido->load('items', 'publicProfile', 'conversacion.mensajes');
+        $pedido->load([
+            'items',
+            'publicProfile' => function ($query) {
+                $query->withoutGlobalScope(OwnerScope::class);
+            },
+            'conversacion.mensajes',
+        ]);
 
         return Inertia::render('marketplace/PedidoDetalle', [
             'pedido' => $pedido,

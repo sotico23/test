@@ -9,3 +9,9 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('uptime:check')->everyMinute();
+
+Schedule::call(function () {
+    \Illuminate\Support\Facades\DB::table('notifications')
+        ->where('created_at', '<', now()->subDays(7))
+        ->delete();
+})->daily();

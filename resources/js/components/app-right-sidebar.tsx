@@ -15,6 +15,7 @@ import {
     Users,
     Heart,
     ThumbsUp,
+    X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
@@ -261,7 +262,7 @@ export function AppRightSidebar() {
                                         <div
                                             key={notification.id}
                                             className={cn(
-                                                "rounded-lg border border-border/50 text-xs transition-colors hover:bg-sidebar-accent/50 relative overflow-hidden",
+                                                "group rounded-lg border border-border/50 text-xs transition-colors hover:bg-sidebar-accent/50 relative overflow-hidden",
                                                 !notification.read_at && "bg-primary/5 border-primary/20"
                                             )}
                                         >
@@ -300,6 +301,18 @@ export function AppRightSidebar() {
                                                     </span>
                                                 </div>
                                             </div>
+                                            
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    router.delete(`/notifications/${notification.id}`, { preserveScroll: true });
+                                                }}
+                                                className="absolute top-1 right-1 z-20 p-1 rounded-full text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                                title="Eliminar notificación"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
                                         </div>
                                     ))}
                                     {(auth.user.unread_notifications || 0) > 0 && (

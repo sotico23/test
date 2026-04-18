@@ -4,8 +4,10 @@ namespace App\Http\Middleware;
 
 use App\Models\Mensaje;
 use App\Models\MensajeConversacion;
+use App\Models\Message;
 use App\Models\Pedido;
 use App\Models\WebSetting;
+use App\Scopes\OwnerScope;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -95,7 +97,17 @@ class HandleInertiaRequests extends Middleware
                         ->orWhere('vendedor_id', $userId);
                 })->count();
 
-            return $directMessages + $conversationMessages;
+            $marketplaceMessages = Message::where('sender_id', '!=', $userId)
+                ->whereNull('read_at')
+                ->whereHas('conversation', function ($q) use ($userId) {
+                    $q->where('buyer_id', $userId)
+                        ->orWhereHas('store', function ($q2) use ($userId) {
+                            $q2->withoutGlobalScope(OwnerScope::class)
+                                ->where('user_id', $userId);
+                        });
+                })->count();
+
+            return $directMessages + $conversationMessages + $marketplaceMessages;
         });
     }
 

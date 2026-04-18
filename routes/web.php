@@ -37,6 +37,14 @@ Route::middleware(['auth'])->group(function () {
 
         return back();
     })->name('notifications.mark-as-read');
+    
+    Route::delete('/notifications/{id}', function (string $id) {
+        $notification = auth()->user()->notifications()->find($id);
+        if ($notification) {
+            $notification->delete();
+        }
+        return back();
+    })->name('notifications.destroy');
 
     // Seguidores
     Route::post('/usuarios/{user}/follow', [FollowerController::class, 'follow'])->name('usuarios.follow');
