@@ -6,19 +6,27 @@ interface WhatsAppButtonProps {
     phone: string | null | undefined;
     nombre?: string;
     className?: string;
+    appName?: string;
 }
 
-export function WhatsAppButton({ phone, nombre, className }: WhatsAppButtonProps) {
+export function WhatsAppButton({
+    phone,
+    nombre,
+    className,
+    appName = 'GrowERP',
+}: WhatsAppButtonProps) {
     if (!phone) return null;
 
-    const message = nombre ? `Hola ${nombre}, te contacto desde el sistema...` : 'Hola, te contacto desde el sistema...';
+    const message = nombre
+        ? `Hola ${nombre}, te contacto desde ${appName}... y quiero más información sobre tus productos`
+        : `Hola, te contacto desde ${appName}...`;
     const link = getWhatsAppLink(phone, message);
 
     return (
         <Button
             variant="ghost"
             size="icon"
-            className={`h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 ${className}`}
+            className={`h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700 ${className}`}
             onClick={() => window.open(link, '_blank')}
             title="Contactar por WhatsApp"
         >

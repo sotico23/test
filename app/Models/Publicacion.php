@@ -18,6 +18,7 @@ class Publicacion extends Model
         'content',
         'image_path',
         'likes_count',
+        'hearts_count',
         'comments_count',
     ];
 
@@ -27,6 +28,7 @@ class Publicacion extends Model
     {
         return [
             'likes_count' => 'integer',
+            'hearts_count' => 'integer',
             'comments_count' => 'integer',
         ];
     }
@@ -39,6 +41,11 @@ class Publicacion extends Model
     public function comentarios(): HasMany
     {
         return $this->hasMany(ComentarioPublicacion::class);
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->withoutGlobalScopes()->where($field ?? $this->getRouteKeyName(), $value)->first();
     }
 
     public function getImageUrlAttribute(): ?string

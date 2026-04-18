@@ -71,9 +71,9 @@ const mainNavItems: NavItem[] = [
         items: [
             { title: 'Leads & Pipeline', href: buildRouteUrl('/prospectos') },
             { title: 'Oportunidades', href: buildRouteUrl('/oportunidades') },
-            { title: 'Clientes', href: buildRouteUrl('/clientes') },
-            { title: 'Productos', href: buildRouteUrl('/productos') },
             { title: 'Categorías', href: buildRouteUrl('/categorias') },
+            { title: 'Productos', href: buildRouteUrl('/productos') },
+            { title: 'Clientes', href: buildRouteUrl('/clientes') },
             { title: 'Cotizaciones', href: buildRouteUrl('/cotizaciones') },
             { title: 'Ventas (SFA)', href: buildRouteUrl('/ventas') },
 

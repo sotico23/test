@@ -15,13 +15,13 @@ class DatabaseSeeder extends Seeder
         $this->call([
             PermissionsSeeder::class,
             UsersTestSeeder::class,
-            CategoriaSeeder::class,
-            // DataSeeder::class,
-            MassiveDataSeeder::class,
-            VentaSeeder::class,
-            CotizacionSeeder::class,
-            ClienteSeeder::class,
-            ProveedorSeeder::class,
+            //  CategoriaSeeder::class ,
+            // DataSeeder::class ,
+            // MassiveDataSeeder::class,
+            // VentaSeeder::class,
+            // CotizacionSeeder::class,
+            // ClienteSeeder::class,
+            // ProveedorSeeder::class,
         ]);
     }
 }

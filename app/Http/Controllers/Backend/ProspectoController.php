@@ -11,9 +11,13 @@ use Inertia\Response;
 
 class ProspectoController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $prospectos = Prospecto::orderBy('created_at', 'desc')->get();
+        $perPage = $request->input('per_page', 15);
+
+        $prospectos = Prospecto::orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->withQueryString();
 
         return Inertia::render('Backend/Prospectos/Index', ['prospectos' => $prospectos]);
     }

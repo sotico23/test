@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Categoria;
 use App\Models\Producto;
 use App\Models\PublicProfile;
+use App\Models\StoreReaction;
 use App\Scopes\OwnerScope;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class MarketplaceController extends Controller
@@ -43,9 +46,82 @@ class MarketplaceController extends Controller
             }])
             ->firstOrFail();
 
+        $userReaction = null;
+        if (Auth::check()) {
+            $userReaction = StoreReaction::where('user_id', Auth::id())
+                ->where('public_profile_id', $publicProfile->id)
+                ->first();
+        }
+
         return Inertia::render('marketplace/show', [
             'store' => $publicProfile,
+            'userReaction' => $userReaction,
         ]);
+    }
+
+    public function react(Request $request, $slug)
+    {
+        if (! Auth::check()) {
+            return back()->with('error', 'Debes iniciar sesión para interactuar');
+        }
+
+        $publicProfile = PublicProfile::withoutGlobalScope(OwnerScope::class)
+            ->where('slug', $slug)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        $userId = Auth::id();
+        $existingReaction = StoreReaction::where('user_id', $userId)
+            ->where('public_profile_id', $publicProfile->id)
+            ->first();
+
+        $wasLiked = $existingReaction?->like ?? 0;
+        $previousRating = $existingReaction?->rating;
+
+        if ($request->has('like')) {
+            $newLike = $request->boolean('like', false) ? 1 : 0;
+            $likeDiff = $newLike - $wasLiked;
+            $publicProfile->increment('likes_count', $likeDiff);
+
+            if ($existingReaction) {
+                $existingReaction->update(['like' => $newLike]);
+            } else {
+                StoreReaction::create([
+                    'user_id' => $userId,
+                    'public_profile_id' => $publicProfile->id,
+                    'like' => $newLike,
+                ]);
+            }
+        }
+
+        if ($request->has('rating')) {
+            $rating = $request->integer('rating');
+            $rating = max(0, min(5, $rating));
+
+            if ($existingReaction) {
+                $oldRating = $existingReaction->rating ?? 0;
+                if ($oldRating > 0) {
+                    $publicProfile->decrement('rating_total', $oldRating);
+                }
+                if ($rating > 0) {
+                    $publicProfile->increment('rating_total', $rating);
+                    $existingReaction->update(['rating' => $rating]);
+                } else {
+                    $existingReaction->update(['rating' => null]);
+                    $publicProfile->decrement('rating_count');
+                }
+            } elseif ($rating > 0) {
+                StoreReaction::create([
+                    'user_id' => $userId,
+                    'public_profile_id' => $publicProfile->id,
+                    'rating' => $rating,
+                ]);
+                $publicProfile->increment('rating_count');
+                $publicProfile->increment('rating_total', $rating);
+            }
+        }
+
+        return back();
     }
 
     public function category($slug, $categoriaId)

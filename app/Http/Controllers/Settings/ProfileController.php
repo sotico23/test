@@ -10,6 +10,7 @@ use App\Models\Cotizacion;
 use App\Models\Factura;
 use App\Models\Follower;
 use App\Models\Publicacion;
+use App\Models\User;
 use App\Models\Venta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,69 +21,89 @@ use Inertia\Response;
 
 class ProfileController extends Controller
 {
-    /**
-     * Show the user's profile settings page.
-     */
     public function edit(Request $request): Response
     {
-        $user = $request->user();
-        $esSuperAdmin = $user->hasRole('Super Admin');
+        return $this->renderProfile($request->user());
+    }
 
-        $startOfWeek = now()->startOfWeek();
-        $endOfWeek = now()->endOfWeek();
-        $startOfMonth = now()->startOfMonth();
+    public function show(User $user): Response
+    {
+        return $this->renderProfile($user);
+    }
 
-        // Stats filtradas por usuario o globales para Super Admin
-        $ventasEstaSemana = Venta::where('fecha', '>=', $startOfWeek)
-            ->where('fecha', '<=', $endOfWeek)
-            ->where('estado', 'pagada')
-            ->when(! $esSuperAdmin, fn ($q) => $q->where('user_id', $user->id))
-            ->count();
+    private function renderProfile(User $profileUser): Response
+    {
+        /** @var User|null $currentUser */
+        $currentUser = Auth::user();
+        $isOwnProfile = $currentUser && $currentUser->id === $profileUser->id;
+        $esSuperAdmin = $isOwnProfile && $profileUser->hasRole('Super Admin');
 
-        $nuevosClientes = Cliente::where('activo', true)
-            ->whereBetween('created_at', [$startOfMonth, now()])
-            ->when(! $esSuperAdmin, fn ($q) => $q->where('user_id', $user->id))
-            ->count();
-
-        $cotizacionesPendientes = Cotizacion::where('estado', 'pendiente')
-            ->when(! $esSuperAdmin, fn ($q) => $q->where('user_id', $user->id))
-            ->count();
-
-        $facturasPendientes = Factura::where('estado', 'pendiente')
-            ->when(! $esSuperAdmin, fn ($q) => $q->where('user_id', $user->id))
-            ->count();
-
-        // Datos para el gráfico de rendimiento (Últimos 7 días)
+        // Solo mostrar stats financieras si es el propio perfil
+        $ventasEstaSemana = 0;
+        $nuevosClientes = 0;
+        $cotizacionesPendientes = 0;
+        $facturasPendientes = 0;
         $ventasDiarias = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = now()->subDays($i);
-            $total = Venta::whereDate('created_at', $date)
-                ->where(fn ($q) => $esSuperAdmin ? $q : $q->where('user_id', $user->id))
-                ->sum('total');
+        $proyeccionProximaSemana = 0;
 
-            $ventasDiarias[] = [
-                'dia' => $date->format('D'),
-                'total' => (float) $total,
-            ];
+        if ($isOwnProfile) {
+            $startOfWeek = now()->startOfWeek();
+            $endOfWeek = now()->endOfWeek();
+            $startOfMonth = now()->startOfMonth();
+
+            $ventasEstaSemana = Venta::where('fecha', '>=', $startOfWeek)
+                ->where('fecha', '<=', $endOfWeek)
+                ->where('estado', 'pagada')
+                ->when(! $esSuperAdmin, fn ($q) => $q->where('user_id', $profileUser->id))
+                ->count();
+
+            $nuevosClientes = Cliente::where('activo', true)
+                ->whereBetween('created_at', [$startOfMonth, now()])
+                ->when(! $esSuperAdmin, fn ($q) => $q->where('user_id', $profileUser->id))
+                ->count();
+
+            $cotizacionesPendientes = Cotizacion::where('estado', 'pendiente')
+                ->when(! $esSuperAdmin, fn ($q) => $q->where('user_id', $profileUser->id))
+                ->count();
+
+            $facturasPendientes = Factura::where('estado', 'pendiente')
+                ->when(! $esSuperAdmin, fn ($q) => $q->where('user_id', $profileUser->id))
+                ->count();
+
+            for ($i = 6; $i >= 0; $i--) {
+                $date = now()->subDays($i);
+                $total = Venta::whereDate('created_at', $date)
+                    ->where(fn ($q) => $esSuperAdmin ? $q : $q->where('user_id', $profileUser->id))
+                    ->sum('total');
+
+                $ventasDiarias[] = [
+                    'dia' => $date->format('D'),
+                    'total' => (float) $total,
+                ];
+            }
+
+            $promedioDiario = count($ventasDiarias) > 0 ? array_sum(array_column($ventasDiarias, 'total')) / 7 : 0;
+            $proyeccionProximaSemana = $promedioDiario * 7 * 1.05;
         }
 
-        // Proyección simple basada en el promedio de los últimos 7 días
-        $promedioDiario = count($ventasDiarias) > 0 ? array_sum(array_column($ventasDiarias, 'total')) / 7 : 0;
-        $proyeccionProximaSemana = $promedioDiario * 7 * 1.05; // 5% de crecimiento estimado
+        $publicacionesRealCount = Publicacion::withoutGlobalScopes()->where('user_id', $profileUser->id)->count();
+        $seguidoresCount = Follower::where('followed_id', $profileUser->id)->count();
+        $siguiendoCount = Follower::where('user_id', $profileUser->id)->count();
 
-        $publicacionesRealCount = Publicacion::where('user_id', $user->id)->count();
-        $seguidoresCount = Follower::where('followed_id', $user->id)->count();
-        $siguiendoCount = Follower::where('user_id', $user->id)->count();
-
-        // Buscar publicaciones reales para el feed
-        $publicaciones = Publicacion::with(['user', 'comentarios.user'])
-            ->where('user_id', $user->id)
+        $publicaciones = Publicacion::withoutGlobalScopes()
+            ->with([
+                'user',
+                'comentarios' => function ($query) {
+                    $query->withoutGlobalScopes()->with('user');
+                },
+            ])
+            ->where('user_id', $profileUser->id)
             ->latest()
             ->take(15)
             ->get();
 
-        // Galería de fotos reales de las publicaciones
-        $fotosReales = Publicacion::where('user_id', $user->id)
+        $fotosReales = Publicacion::withoutGlobalScopes()
+            ->where('user_id', $profileUser->id)
             ->whereNotNull('image_path')
             ->latest()
             ->take(9)
@@ -90,9 +111,9 @@ class ProfileController extends Controller
             ->map(fn ($p) => $p->image_url);
 
         return Inertia::render('settings/profile', [
-            'auth' => [
-                'user' => $user,
-            ],
+            'profileUser' => $profileUser,
+            'isOwnProfile' => $isOwnProfile,
+            'isFollowing' => $currentUser ? $profileUser->isFollowedBy($currentUser) : false,
             'stats' => [
                 'ventasEstaSemana' => $ventasEstaSemana,
                 'nuevosClientes' => $nuevosClientes,

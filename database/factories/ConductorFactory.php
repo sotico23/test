@@ -18,7 +18,7 @@ class ConductorFactory extends Factory
             'email' => fake()->safeEmail(),
             'licencia' => fake()->randomElement(['A1', 'A2', 'A3', 'A4', 'B']),
             'fecha_vencimiento_licencia' => fake()->dateTimeBetween('now', '+5 years'),
-            'estado' => fake()->randomElement(['disponible', 'en_servicio', 'vacaciones', 'suspendido']),
+            'estado' => fake()->randomElement(['activo', 'inactivo', 'licencia_vencida']),
         ];
     }
 }

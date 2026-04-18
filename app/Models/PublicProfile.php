@@ -21,12 +21,18 @@ class PublicProfile extends Model
         'phone',
         'email',
         'is_active',
+        'likes_count',
+        'rating_total',
+        'rating_count',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'likes_count' => 'integer',
+            'rating_total' => 'integer',
+            'rating_count' => 'integer',
         ];
     }
 

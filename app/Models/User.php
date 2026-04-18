@@ -141,6 +141,15 @@ class User extends Authenticatable
         return $this->hasRole('Cliente') && $this->cliente !== null;
     }
 
+    public function isFollowedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->followers()->whereUserId($user->id)->exists();
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

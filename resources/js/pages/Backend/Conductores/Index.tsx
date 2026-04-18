@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { WhatsAppButton } from '@/components/whatsapp-button';
 import Pagination from '@/components/ui/Pagination';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,6 +45,36 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+
+const ESTADOS = [
+    { value: 'activo', label: 'Activo', color: 'bg-green-500 border-green-600 text-white', hover: 'hover:bg-green-500 hover:text-white hover:border-green-500' },
+    { value: 'inactivo', label: 'Inactivo', color: 'bg-gray-500 border-gray-500 text-white', hover: 'hover:bg-gray-500 hover:text-white hover:border-gray-500' },
+    { value: 'licencia_vencida', label: 'Lic. Vencida', color: 'bg-red-500 border-red-500 text-white', hover: 'hover:bg-red-500 hover:text-white hover:border-red-500' },
+] as const;
+
+function StatusDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+    const current = ESTADOS.find((e) => e.value === value) ?? ESTADOS[2];
+
+    return (
+        <Select value={value} onValueChange={onChange}>
+            <SelectTrigger
+                className={`h-7 w-32 rounded-md border px-2 text-xs font-semibold shadow-sm transition-all focus:ring-0 focus:ring-offset-0 ${current.color}`}
+            >
+                <SelectValue>{current.label}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+                {ESTADOS.map((e) => (
+                    <SelectItem key={e.value} value={e.value} className="text-xs">
+                        <div className="flex items-center gap-2">
+                            <div className={`h-2 w-2 rounded-full ${e.value === 'activo' ? 'bg-green-500' : e.value === 'inactivo' ? 'bg-gray-500' : 'bg-red-500'}`} />
+                            {e.label}
+                        </div>
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
 
 interface Conductor {
     id: number;
@@ -200,13 +230,23 @@ export default function Index({
         router.post(`/conductores/${id}/limpiar`);
     };
 
+    const estadoLabels: Record<string, string> = {
+        activo: 'Activo',
+        inactivo: 'Inactivo',
+        licencia_vencida: 'Lic. Vencida',
+    };
+
     const getEstadoBadge = (e: string) => {
         const colores: Record<string, string> = {
             activo: 'bg-green-500',
             inactivo: 'bg-gray-500',
             licencia_vencida: 'bg-red-500',
         };
-        return <Badge className={colores[e] || 'bg-gray-500'}>{e}</Badge>;
+        return (
+            <Badge className={colores[e] || 'bg-gray-500'}>
+                {estadoLabels[e] ?? e}
+            </Badge>
+        );
     };
 
     return (
@@ -332,42 +372,19 @@ export default function Index({
                                                     </div>
                                                 </td>
                                                 <td className="py-2 text-center">
-                                                    <Select
+                                                    <StatusDropdown
                                                         value={c.estado}
-                                                        onValueChange={(val) =>
+                                                        onChange={(val) =>
                                                             router.put(
                                                                 `/conductores/${c.id}`,
                                                                 { estado: val },
                                                                 {
-                                                                    preserveState: true,
                                                                     preserveScroll: true,
+                                                                    only: ['conductores'],
                                                                 },
                                                             )
                                                         }
-                                                    >
-                                                        <SelectTrigger className="h-7 w-28 px-2 py-0 text-xs">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {[
-                                                                'activo',
-                                                                'inactivo',
-                                                                'licencia_vencida',
-                                                            ].map((e) => (
-                                                                <SelectItem
-                                                                    key={e}
-                                                                    value={e}
-                                                                >
-                                                                    {e
-                                                                        .toUpperCase()
-                                                                        .replace(
-                                                                            '_',
-                                                                            ' ',
-                                                                        )}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                    />
                                                 </td>
                                                 <td className="py-2 text-right">
                                                     <div className="flex justify-end gap-1">

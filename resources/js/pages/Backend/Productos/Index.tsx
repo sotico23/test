@@ -10,8 +10,7 @@ import {
     Search,
     Eye,
 } from 'lucide-react';
-import { useState, useRef } from 'react';
-import { useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +41,41 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import Pagination from '@/components/ui/Pagination';
+
+function ActiveDropdown({ activo, onChange }: { activo: boolean; onChange: (v: boolean) => void }) {
+    return (
+        <Select
+            value={activo ? '1' : '0'}
+            onValueChange={(v) => onChange(v === '1')}
+        >
+            <SelectTrigger
+                className={`h-7 w-24 rounded-full border px-2.5 text-xs font-semibold shadow-sm transition-all focus:ring-0 focus:ring-offset-0 ${
+                    activo
+                        ? 'border-green-600 bg-green-500 text-white hover:bg-green-600'
+                        : 'border-gray-500 bg-gray-500 text-white hover:bg-gray-600'
+                }`}
+            >
+                <SelectValue>
+                    {activo ? 'Activo' : 'Inactivo'}
+                </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="1" className="text-xs">
+                    <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                        Activo
+                    </div>
+                </SelectItem>
+                <SelectItem value="0" className="text-xs">
+                    <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-gray-500" />
+                        Inactivo
+                    </div>
+                </SelectItem>
+            </SelectContent>
+        </Select>
+    );
+}
 
 interface Categoria {
     id: number;
@@ -777,44 +811,32 @@ export default function Index({
                                                 <div className="flex flex-col items-center">
                                                     <span
                                                         className={`font-bold ${
-                                                            (producto.inventario
-                                                                ?.cantidad ||
-                                                                0) <=
-                                                            (producto.stock_minimo ||
+                                                            Math.round(producto.inventario
+                                                                ?.cantidad || 0) <=
+                                                            Math.round(producto.stock_minimo ||
                                                                 0)
                                                                 ? 'text-destructive'
                                                                 : 'text-blue-600'
                                                         }`}
                                                     >
-                                                        {producto.inventario
-                                                            ?.cantidad || 0}
+                                                        {Math.round(producto.inventario
+                                                            ?.cantidad || 0)}
                                                     </span>
                                                     <span className="text-[10px] text-muted-foreground">
                                                         Mín:{' '}
-                                                        {producto.stock_minimo}
+                                                        {Math.round(producto.stock_minimo || 0)}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="px-1 py-2 text-center">
-                                                <button
-                                                    onClick={() =>
-                                                        toggleActivo(producto)
-                                                    }
-                                                    className="cursor-pointer"
-                                                >
-                                                    <Badge
-                                                        variant={
-                                                            producto.activo
-                                                                ? 'default'
-                                                                : 'destructive'
+                                                <ActiveDropdown
+                                                    activo={producto.activo}
+                                                    onChange={(val) => {
+                                                        if (val !== producto.activo) {
+                                                            toggleActivo(producto);
                                                         }
-                                                        className="px-1.5 py-0 text-[10px]"
-                                                    >
-                                                        {producto.activo
-                                                            ? 'Activo'
-                                                            : 'Inactivo'}
-                                                    </Badge>
-                                                </button>
+                                                    }}
+                                                />
                                             </td>
                                             <td className="px-1 py-2 text-right">
                                                 <div className="flex justify-end gap-1">

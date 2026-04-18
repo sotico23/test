@@ -11,7 +11,12 @@ class ComunidadController extends Controller
 {
     public function index(): Response
     {
-        $publicaciones = Publicacion::with(['user', 'comentarios'])
+        $publicaciones = Publicacion::withoutGlobalScopes()
+            ->with(['user', 'comentarios' => function ($q) {
+                $q->withoutGlobalScopes()->whereNull('parent_id')->with(['user', 'replies' => function ($sq) {
+                    $sq->withoutGlobalScopes()->with('user');
+                }])->latest();
+            }])
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 

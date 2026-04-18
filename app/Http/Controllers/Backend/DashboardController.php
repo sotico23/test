@@ -3,16 +3,21 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\DashboardConfig;
 use App\Models\Mensaje;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
+
+        $dashboardConfig = DashboardConfig::getForUser($user->id);
+
         $ownerId = $user->getOwnerId();
         $anioActual = now()->year;
         $mesActual = now()->month;
@@ -202,11 +207,54 @@ class DashboardController extends Controller
             'esCliente' => $esCliente,
             'mensajesSinLeer' => $mensajesSinLeer,
             'userName' => $user->name,
+            'dashboardConfig' => $dashboardConfig,
         ]);
     }
 
     private function formatCurrency($value)
     {
         return '$'.number_format($value, 0, ',', '.');
+    }
+
+    public function saveConfig(Request $request)
+    {
+        $user = Auth::user();
+
+        $data = [
+            'mode' => $request->input('mode', 'grid'),
+            'is_default' => true,
+        ];
+
+        $widgets = $request->input('widgets');
+        if ($widgets) {
+            if (is_string($widgets)) {
+                $data['widgets'] = json_decode($widgets, true);
+            } else {
+                $data['widgets'] = $widgets;
+            }
+        }
+
+        $layout = $request->input('layout');
+        if ($layout) {
+            if (is_string($layout)) {
+                $data['layout'] = json_decode($layout, true);
+            } else {
+                $data['layout'] = $layout;
+            }
+        }
+
+        $config = DashboardConfig::where('user_id', $user->id)
+            ->where('is_default', true)
+            ->first();
+
+        if ($config) {
+            $config->update($data);
+        } else {
+            DashboardConfig::create(array_merge($data, [
+                'user_id' => $user->id,
+            ]));
+        }
+
+        return back()->with('success', 'Configuración guardada');
     }
 }

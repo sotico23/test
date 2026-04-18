@@ -12,7 +12,7 @@ class Conductor extends Model
 
     protected $table = 'conductores';
 
-    protected $fillable = ['owner_id', 'nombre', 'rut', 'licencia', 'fecha_vencimiento_licencia', 'telefono', 'email', 'estado', 'notas'];
+    protected $fillable = ['owner_id', 'nombre', 'rut', 'licencia', 'fecha_vencimiento_licencia', 'telefono', 'email', 'estado', 'notas', 'lat', 'lng', 'ultima_actualizacion'];
 
     protected function casts(): array
     {

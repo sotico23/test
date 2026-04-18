@@ -38,42 +38,41 @@ class ConductorController extends Controller
         return redirect()->route('conductores.index');
     }
 
-    public function update(Request $request, Conductor $conductor): RedirectResponse
+    public function update(Request $request, Conductor $conductore): RedirectResponse
     {
-        if ($request->has('rut') && $request->rut) {
+        if ($request->filled('rut')) {
             $request->merge(['rut' => strtoupper(trim($request->rut))]);
         }
 
-        $validated = $request->validate([
-            'nombre' => 'nullable|string|max:255',
-            'rut' => 'nullable|string|max:20|unique:conductores,rut,'.$conductor->id,
-            'licencia' => 'nullable|string|max:50',
-            'telefono' => 'nullable|string|max:50',
-            'email' => 'nullable|email',
-            'estado' => 'nullable|string|max:50',
-            'notas' => 'nullable|string',
-        ]);
+        $rules = [
+            'nombre' => 'sometimes|string|max:255',
+            'rut' => 'sometimes|nullable|string|max:20|unique:conductores,rut,'.$conductore->id,
+            'licencia' => 'sometimes|nullable|string|max:50',
+            'telefono' => 'sometimes|nullable|string|max:50',
+            'email' => 'sometimes|nullable|email',
+            'estado' => 'sometimes|nullable|string|in:activo,inactivo,licencia_vencida',
+            'notas' => 'sometimes|nullable|string',
+        ];
 
-        $updateData = [];
-        foreach ($validated as $key => $value) {
-            if ($value !== null) {
-                $updateData[$key] = $value;
-            }
-        }
-        if ($request->filled('rut')) {
-            $updateData['rut'] = strtoupper(trim($validated['rut']));
-        }
+        $validated = $request->validate($rules);
 
-        if (! empty($updateData)) {
-            $conductor->update($updateData);
+        // Convert empty strings to null so blank fields don't overwrite existing data
+        $toSave = array_map(fn ($v) => $v === '' ? null : $v, $validated);
+        // Remove null values so we only update fields that have real content
+        $toSave = array_filter($toSave, fn ($v) => $v !== null);
+
+        // Always allow explicit null for fields sent with intent to clear
+        // (Only preserve non-empty values from the form)
+        if (! empty($toSave)) {
+            $conductore->update($toSave);
         }
 
         return redirect()->route('conductores.index');
     }
 
-    public function destroy(Conductor $conductor): RedirectResponse
+    public function destroy(Conductor $conductore): RedirectResponse
     {
-        $conductor->delete();
+        $conductore->delete();
 
         return redirect()->route('conductores.index');
     }

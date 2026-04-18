@@ -18,8 +18,12 @@ import {
     MessageCircle,
     ArrowRight,
     MessageSquare,
+    Copy,
+    Check,
+    Link2,
+    Send,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -37,6 +41,12 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { WhatsAppButton } from '@/components/whatsapp-button';
 import AppLayout from '@/layouts/app-layout';
 import chat from '@/routes/chat';
@@ -65,6 +75,11 @@ interface Producto {
     categoria_id: number;
 }
 
+interface UserReaction {
+    like: number;
+    rating: number | null;
+}
+
 interface StoreProfile {
     id: number;
     title: string;
@@ -76,18 +91,29 @@ interface StoreProfile {
     categorias: Categoria[];
     productos: Producto[];
     created_at: string;
+    likes_count: number;
+    rating_total: number;
+    rating_count: number;
 }
 
-export default function MarketplaceShow({ store }: { store: StoreProfile }) {
-    const { auth, web_settings } = usePage<{ 
-        auth: { user?: User },
-        web_settings: any 
+export default function MarketplaceShow({
+    store,
+    userReaction,
+}: {
+    store: StoreProfile;
+    userReaction?: UserReaction;
+}) {
+    const { auth, web_settings } = usePage<{
+        auth: { user?: User };
+        web_settings: any;
     }>().props;
     const [categoriaExpandida, setCategoriaExpandida] = useState<number | null>(
         null,
     );
     const [carrito, setCarrito] = useState<{ [key: number]: number }>({});
-    const [cantidadesAgregar, setCantidadesAgregar] = useState<{ [key: number]: number }>({});
+    const [cantidadesAgregar, setCantidadesAgregar] = useState<{
+        [key: number]: number;
+    }>({});
     const [productoAgregado, setProductoAgregado] = useState<number | null>(
         null,
     );
@@ -101,6 +127,16 @@ export default function MarketplaceShow({ store }: { store: StoreProfile }) {
         notas: '',
     });
     const [procesando, setProcesando] = useState(false);
+    const [shareOpen, setShareOpen] = useState(false);
+    const [ratingHover, setRatingHover] = useState(0);
+    const [localLike, setLocalLike] = useState(userReaction?.like ?? 0);
+    const [localRating, setLocalRating] = useState(userReaction?.rating ?? 0);
+
+    const averageRating =
+        store.rating_count > 0
+            ? (store.rating_total / store.rating_count).toFixed(1)
+            : '0.0';
+    const progressTo1000 = Math.min((store.likes_count / 1000) * 100, 100);
 
     const agregarAlCarrito = (productoId: number) => {
         const cantidadAEnviar = cantidadesAgregar[productoId] || 1;
@@ -213,6 +249,98 @@ export default function MarketplaceShow({ store }: { store: StoreProfile }) {
 
     const totalItems = Object.values(carrito).reduce((a, b) => a + b, 0);
 
+    const sugerencias = useMemo(() => {
+        return [...store.productos].sort(() => 0.5 - Math.random()).slice(0, 4);
+    }, [store.productos]);
+
+    const ProductCard = ({ producto }: { producto: Producto }) => (
+        <div
+            className="group relative flex flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-primary hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
+        >
+            <div className="relative aspect-square overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-700">
+                {producto.imagen ? (
+                    <img
+                        src={`/storage/${producto.imagen}`}
+                        alt={producto.nombre}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                        <Store className="h-12 w-12 text-slate-300" />
+                    </div>
+                )}
+            </div>
+            <div className="mt-3 flex flex-1 flex-col">
+                <h4 className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-white">
+                    {producto.nombre}
+                </h4>
+                {producto.descripcion && (
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+                        {producto.descripcion}
+                    </p>
+                )}
+                <div className="mt-auto pt-2">
+                    <p className="text-lg font-bold text-primary">
+                        $
+                        {Number(producto.precio_venta).toFixed(0)}
+                        <span className="text-xs font-normal text-slate-500">
+                            /{producto.unidad_medida}
+                        </span>
+                    </p>
+                </div>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-200 p-1 dark:border-slate-700">
+                <button
+                    onClick={() => cambiarCantidadLocal(producto.id, -1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                    <Minus className="h-4 w-4" />
+                </button>
+                <input
+                    type="number"
+                    min="1"
+                    value={cantidadesAgregar[producto.id] || 1}
+                    onChange={(e) =>
+                        setCantidadManualLocal(
+                            producto.id,
+                            parseInt(e.target.value) || 1,
+                        )
+                    }
+                    className="h-8 w-12 border-none bg-transparent p-0 text-center text-sm font-semibold focus:ring-0 dark:text-white"
+                />
+                <button
+                    onClick={() => cambiarCantidadLocal(producto.id, 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                    <Plus className="h-4 w-4" />
+                </button>
+            </div>
+
+            <button
+                onClick={() => agregarAlCarrito(producto.id)}
+                disabled={productoAgregado === producto.id}
+                className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                    productoAgregado === producto.id
+                        ? 'bg-green-600 text-white'
+                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
+            >
+                {productoAgregado === producto.id ? (
+                    <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        Añadido
+                    </>
+                ) : (
+                    <>
+                        <ShoppingCart className="h-4 w-4" />
+                        Añadir al carrito
+                    </>
+                )}
+            </button>
+        </div>
+    );
+
     return (
         <AppLayout
             breadcrumbs={[
@@ -220,8 +348,13 @@ export default function MarketplaceShow({ store }: { store: StoreProfile }) {
                 { title: store.title, href: `/tienda/${store.slug}` },
             ]}
         >
-            <Head title={`${store.title} | ${web_settings?.app_name || 'Tienda'}`}>
-                <meta name="description" content={store.description || web_settings?.app_description} />
+            <Head
+                title={`${store.title} | ${web_settings?.app_name || 'Tienda'}`}
+            >
+                <meta
+                    name="description"
+                    content={store.description || web_settings?.app_description}
+                />
                 <meta name="keywords" content={web_settings?.app_keywords} />
             </Head>
 
@@ -267,17 +400,146 @@ export default function MarketplaceShow({ store }: { store: StoreProfile }) {
                                 </p>
                             </div>
 
-                            <div className="mt-6 flex flex-wrap gap-3 sm:mt-0 sm:shrink-0">
-                                <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none dark:focus:ring-offset-slate-950">
-                                    <ShoppingBag className="h-4 w-4" />
-                                    Ver Catálogo
-                                </button>
-                                <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-900 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700 dark:hover:bg-slate-700 dark:hover:text-white">
-                                    <Heart className="h-4 w-4" />
-                                </button>
-                                <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-900 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700 dark:hover:bg-slate-700 dark:hover:text-white">
-                                    <Share2 className="h-4 w-4" />
-                                </button>
+                            <div className="mt-6 flex flex-wrap items-center gap-3 sm:mt-0 sm:shrink-0">
+                                {auth.user && (
+                                    <button
+                                        onClick={() => {
+                                            const newValue = localLike ? 0 : 1;
+                                            setLocalLike(newValue);
+                                            router.post(
+                                                `/tienda/${store.slug}/react`,
+                                                { like: newValue },
+                                                { replace: true },
+                                            );
+                                        }}
+                                        className={`inline-flex h-10 w-10 items-center justify-center rounded-xl shadow-sm ring-1 transition-all focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none ${
+                                            localLike
+                                                ? 'bg-red-50 text-red-500 ring-red-200 dark:bg-red-900/30 dark:ring-red-800'
+                                                : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700 dark:hover:bg-slate-700 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        <Heart
+                                            className={`h-4 w-4 ${
+                                                localLike ? 'fill-current' : ''
+                                            }`}
+                                        />
+                                    </button>
+                                )}
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-50 hover:text-slate-900 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700 dark:hover:bg-slate-700 dark:hover:text-white">
+                                            <Share2 className="h-4 w-4" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                        align="end"
+                                        className="w-56"
+                                    >
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                const url = `${window.location.origin}/tienda/${store.slug}`;
+                                                navigator.clipboard.writeText(
+                                                    url,
+                                                );
+                                            }}
+                                        >
+                                            <Copy className="h-4 w-4" />
+                                            <span>Copiar enlace</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
+                                            <a
+                                                href={`https://wa.me/?text=${encodeURIComponent(
+                                                    `${store.title} - ${window.location.origin}/tienda/${store.slug}`,
+                                                )}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <Send className="h-4 w-4" />
+                                                <span>WhatsApp</span>
+                                            </a>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
+                                            <a
+                                                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                                                    `${window.location.origin}/tienda/${store.slug}`,
+                                                )}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <Link2 className="h-4 w-4" />
+                                                <span>Facebook</span>
+                                            </a>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
+                                            <a
+                                                href={`https://t.me/share/url?url=${encodeURIComponent(
+                                                    `${window.location.origin}/tienda/${store.slug}`,
+                                                )}&text=${encodeURIComponent(
+                                                    store.title,
+                                                )}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <Send className="h-4 w-4" />
+                                                <span>Telegram</span>
+                                            </a>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                <div className="flex h-10 items-center gap-2 rounded-xl bg-white px-3 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
+                                    <div className="flex items-center gap-0.5">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <button
+                                                key={star}
+                                                disabled={!auth.user}
+                                                onClick={() => {
+                                                    setLocalRating(star);
+                                                    router.post(
+                                                        `/tienda/${store.slug}/react`,
+                                                        { rating: star },
+                                                        { replace: true },
+                                                    );
+                                                }}
+                                                onMouseEnter={() =>
+                                                    auth.user &&
+                                                    setRatingHover(star)
+                                                }
+                                                onMouseLeave={() =>
+                                                    auth.user &&
+                                                    setRatingHover(0)
+                                                }
+                                                className={`p-0.5 transition-transform ${auth.user ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
+                                            >
+                                                <Star
+                                                    className={`h-4 w-4 ${
+                                                        star <=
+                                                        (ratingHover ||
+                                                            localRating ||
+                                                            Math.round(
+                                                                Number(
+                                                                    averageRating,
+                                                                ),
+                                                            ))
+                                                            ? 'fill-yellow-400 text-yellow-400'
+                                                            : 'text-slate-300 dark:text-slate-600'
+                                                    }`}
+                                                />
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                        {averageRating}
+                                    </span>
+                                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                                        ({store.rating_count})
+                                    </span>
+                                </div>
+
+                                <div className="flex h-10 items-center px-3 text-xs text-slate-500 dark:text-slate-400">
+                                    {store.likes_count} / 1000 ventas
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -360,19 +622,27 @@ export default function MarketplaceShow({ store }: { store: StoreProfile }) {
                                             </div>
                                         )}
 
-                                    {/* Invitación a comprar */}
-                                    {store.productos.length > 0 && (
-                                        <div className="mt-8 rounded-xl bg-gradient-to-r from-primary/10 to-purple-500/10 p-4 text-center dark:from-primary/5 dark:to-purple-500/5">
-                                            <ShoppingCart className="mx-auto h-8 w-8 text-primary" />
-                                            <p className="mt-2 font-medium text-slate-900 dark:text-white">
-                                                ¡Explora nuestros productos y
-                                                añade lo que necesites a tu
-                                                carrito!
-                                            </p>
-                                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                                                Haz clic en una categoría para
-                                                ver los productos disponibles
-                                            </p>
+                                    {/* Sugerencias de productos */}
+                                    {sugerencias.length > 0 && (
+                                        <div className="mt-12">
+                                            <div className="mb-6 flex items-center justify-between">
+                                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                                                    Sugerencias para ti
+                                                </h3>
+                                                <span className="text-xs text-slate-500">
+                                                    Basado en nuestro catálogo
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-4">
+                                                {sugerencias.map(
+                                                    (producto: Producto) => (
+                                                        <ProductCard
+                                                            key={producto.id}
+                                                            producto={producto}
+                                                        />
+                                                    ),
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </>
@@ -407,112 +677,16 @@ export default function MarketplaceShow({ store }: { store: StoreProfile }) {
                                             }{' '}
                                             productos disponibles
                                         </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                                        {productosDeCategoria(
-                                            categoriaExpandida,
-                                        ).map((producto) => (
-                                            <div
-                                                key={producto.id}
-                                                className="group relative flex flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-primary hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-                                            >
-                                                <div className="relative aspect-square overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-700">
-                                                    {producto.imagen ? (
-                                                        <img
-                                                            src={`/storage/${producto.imagen}`}
-                                                            alt={
-                                                                producto.nombre
-                                                            }
-                                                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                                                        />
-                                                    ) : (
-                                                        <div className="flex h-full w-full items-center justify-center">
-                                                            <Store className="h-12 w-12 text-slate-300" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="mt-3 flex flex-1 flex-col">
-                                                    <h4 className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-white">
-                                                        {producto.nombre}
-                                                    </h4>
-                                                    {producto.descripcion && (
-                                                        <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
-                                                            {
-                                                                producto.descripcion
-                                                            }
-                                                        </p>
-                                                    )}
-                                                    <div className="mt-auto pt-2">
-                                                        <p className="text-lg font-bold text-primary">
-                                                            $
-                                                            {Number(
-                                                                producto.precio_venta,
-                                                            ).toFixed(0)}
-                                                            <span className="text-xs font-normal text-slate-500">
-                                                                /
-                                                                {
-                                                                    producto.unidad_medida
-                                                                }
-                                                            </span>
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-200 p-1 dark:border-slate-700">
-                                                    <button
-                                                        onClick={() => cambiarCantidadLocal(producto.id, -1)}
-                                                        className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                                                    >
-                                                        <Minus className="h-4 w-4" />
-                                                    </button>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={cantidadesAgregar[producto.id] || 1}
-                                                        onChange={(e) => setCantidadManualLocal(producto.id, parseInt(e.target.value) || 1)}
-                                                        className="h-8 w-12 border-none bg-transparent p-0 text-center text-sm font-semibold focus:ring-0 dark:text-white"
-                                                    />
-                                                    <button
-                                                        onClick={() => cambiarCantidadLocal(producto.id, 1)}
-                                                        className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                                                    >
-                                                        <Plus className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-
-                                                <button
-                                                    onClick={() =>
-                                                        agregarAlCarrito(
-                                                            producto.id,
-                                                        )
-                                                    }
-                                                    disabled={
-                                                        productoAgregado ===
-                                                        producto.id
-                                                    }
-                                                    className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                                                        productoAgregado ===
-                                                        producto.id
-                                                            ? 'bg-green-600 text-white'
-                                                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                                                    }`}
-                                                >
-                                                    {productoAgregado ===
-                                                    producto.id ? (
-                                                        <>
-                                                            <CheckCircle2 className="h-4 w-4" />
-                                                            Añadido
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <ShoppingCart className="h-4 w-4" />
-                                                            Añadir al carrito
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </div>
-                                        ))}
+                                        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                                            {productosDeCategoria(
+                                                categoriaExpandida,
+                                            ).map((producto: Producto) => (
+                                                <ProductCard
+                                                    key={producto.id}
+                                                    producto={producto}
+                                                />
+                                            ))}
+                                        </div>
                                     </div>
                                 </>
                             )}
@@ -546,6 +720,7 @@ export default function MarketplaceShow({ store }: { store: StoreProfile }) {
                                             phone={store.phone}
                                             nombre={store.title}
                                             className="h-5 w-5"
+                                            appName={web_settings?.app_name}
                                         />
                                         <span>{store.phone}</span>
                                     </li>

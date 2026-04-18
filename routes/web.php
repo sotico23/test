@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\Backend\ConversacionPedidoController;
 use App\Http\Controllers\Backend\CotizacionController;
 use App\Http\Controllers\Backend\DashboardController;
+use App\Http\Controllers\Backend\FollowerController;
 use App\Http\Controllers\Backend\MensajeController;
 use App\Http\Controllers\Backend\OnboardingController;
 use App\Http\Controllers\Backend\PedidoRecibidoController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Backend\VentaController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\PedidoController;
+use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\StatusPageController;
 use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
@@ -25,11 +27,28 @@ Route::get('/status/embed', [StatusPageController::class, 'embed'])->name('statu
 
 Route::middleware(['auth'])->group(function () {
     Route::post('publicaciones', [PublicacionController::class, 'store'])->name('publicaciones.store');
-    Route::post('publicaciones/{publicacion}/like', [PublicacionController::class, 'like'])->name('publicaciones.like');
-    Route::post('publicaciones/{publicacion}/comment', [PublicacionController::class, 'comment'])->name('publicaciones.comment');
-    Route::post('publicaciones/{publicacion}/share', [PublicacionController::class, 'share'])->name('publicaciones.share');
+    Route::post('/publicaciones/{publicacion}/react', [PublicacionController::class, 'react'])->name('publicaciones.react');
+    Route::post('/comentarios/{comentario}/react', [PublicacionController::class, 'reactComment'])->name('comentarios.react');
+    Route::post('/publicaciones/{publicacion}/comment', [PublicacionController::class, 'comment'])->name('publicaciones.comment');
+    Route::put('/publicaciones/{publicacion}', [PublicacionController::class, 'update'])->name('publicaciones.update');
+    Route::delete('/publicaciones/{publicacion}', [PublicacionController::class, 'destroy'])->name('publicaciones.destroy');
+    Route::post('/notifications/mark-as-read', function () {
+        auth()->user()->unreadNotifications->markAsRead();
 
+        return back();
+    })->name('notifications.mark-as-read');
+
+    // Seguidores
+    Route::post('/usuarios/{user}/follow', [FollowerController::class, 'follow'])->name('usuarios.follow');
+    Route::delete('/usuarios/{user}/unfollow', [FollowerController::class, 'unfollow'])->name('usuarios.unfollow');
+});
+
+Route::get('/perfil/{user}', [ProfileController::class, 'show'])->name('profile.show');
+Route::post('/publicaciones/{publicacion}/share', [PublicacionController::class, 'share'])->name('publicaciones.share');
+
+Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('dashboard/config', [DashboardController::class, 'saveConfig'])->name('dashboard.config');
 
     Route::get('cotizaciones/export', [CotizacionController::class, 'exportCsv'])->name('cotizaciones.export');
     Route::get('cotizaciones/export-excel', [CotizacionController::class, 'exportExcel'])->name('cotizaciones.export_excel');
@@ -104,6 +123,7 @@ Route::group(['prefix' => 'auth/{provider}'], function () {
 
 Route::get('/tienda', [MarketplaceController::class, 'index'])->name('marketplace.index');
 Route::get('/tienda/{slug}', [MarketplaceController::class, 'show'])->name('marketplace.show');
+Route::post('/tienda/{slug}/react', [MarketplaceController::class, 'react'])->name('marketplace.react');
 Route::get('/tienda/{slug}/categoria/{categoria}', [MarketplaceController::class, 'category'])->name('marketplace.category');
 Route::post('/tienda/{slug}/checkout', [PedidoController::class, 'crear'])->name('tienda.checkout');
 Route::get('/tienda/{slug}/confirmacion/{pedido}', [PedidoController::class, 'confirmacion'])->name('tienda.confirmacion');

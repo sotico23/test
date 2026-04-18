@@ -2,10 +2,6 @@ import type { PropsWithChildren } from 'react';
 import { Separator } from '@/components/ui/separator';
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
-    if (typeof window === 'undefined') {
-        return null;
-    }
-
     return (
         <div className="px-4 py-6">
             <div className="flex flex-col lg:flex-row lg:space-x-12">

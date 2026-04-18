@@ -17,9 +17,11 @@ class CategoriaController extends Controller
     public function index(): Response
     {
         $categorias = Categoria::where('owner_id', Auth::user()->getOwnerId())->orderBy('created_at', 'desc')->paginate(15);
+        $publicProfile = PublicProfile::where('user_id', Auth::user()->getOwnerId())->first();
 
         return Inertia::render('Backend/Categorias/Index', [
             'categorias' => $categorias,
+            'tiendaSlug' => $publicProfile?->slug,
         ]);
     }
 
@@ -69,6 +71,8 @@ class CategoriaController extends Controller
                 Storage::disk('public')->delete($categoria->imagen);
             }
             $validated['imagen'] = $request->file('imagen')->store('categorias', 'public');
+        } else {
+            unset($validated['imagen']);
         }
 
         $publicProfile = PublicProfile::where('user_id', Auth::user()->getOwnerId())->first();

@@ -4,162 +4,307 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual de Marca & Módulos - Al Día</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Crea Marketing | Manual + Sistema</title>
+
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;900&display=swap" rel="stylesheet">
+
     <style>
-        body {
+        :root {
+            --primary: #E72B49;
+            --white: #FFFFFF;
+            --yellow: #FEC925;
+            --blue: #15B1E8;
+            --green: #5AB190;
+            --light-green: #C9E3D6;
+            --dark: #111;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
             font-family: 'Montserrat', sans-serif;
         }
 
-        .bg-crea-red {
-            background-color: #E72B49;
+        body {
+            background: var(--white);
+            color: var(--dark);
         }
 
-        .text-crea-red {
-            color: #E72B49;
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
         }
 
-        .border-crea-yellow {
-            border-color: #FEC925;
+        header h1 {
+            font-weight: 900;
+            font-size: 3rem;
         }
 
-        .bg-crea-blue {
-            background-color: #15B1E8;
+        header p {
+            font-weight: 300;
+            margin-top: 10px;
         }
 
-        .header-gradient {
-            background: linear-gradient(135deg, #E72B49 0%, #15B1E8 100%);
+        section {
+            padding: 60px 20px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .card {
+            padding: 20px;
+            border-radius: 12px;
+            background: #f8f8f8;
+            transition: 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .module {
+            background: white;
+            border-left: 5px solid var(--primary);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .module h3 {
+            margin-bottom: 10px;
+        }
+
+        .module ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .module li {
+            padding: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        .colors {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .color-box {
+            width: 120px;
+            height: 120px;
+            border-radius: 10px;
+            display: flex;
+            align-items: flex-end;
+            padding: 10px;
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .team {
+            text-align: center;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        footer {
+            background: #111;
+            color: white;
+            text-align: center;
+            padding: 30px;
         }
     </style>
 </head>
 
-<body class="bg-gray-50">
+<body>
 
-    <header class="header-gradient text-white py-16 px-6 text-center shadow-lg">
-        <h1 class="text-5xl font-black uppercase tracking-tighter">Al Día</h1>
-        <p class="text-xl font-light mt-4">Ecosistema SaaS Integral: Gestión y Control Total</p>
+    <header>
+        <h1>CREA MARKETING</h1>
+        <p>Manual de Marca + Plataforma ERP/CRM</p>
     </header>
 
-    <main class="max-w-6xl mx-auto py-12 px-6">
+    <!-- CONCEPTO -->
+    <section>
+        <h2>Concepto</h2>
+        <p>
+            Marca inspirada en el marketing y la creatividad. Su diseño simple y elegante transmite confianza,
+            seguridad y profesionalismo, adaptándose a las diferentes personalidades del equipo.
+        </p>
+    </section>
 
-        <section class="mb-16 bg-white p-8 rounded-2xl shadow-sm border-l-8 border-crea-yellow">
-            <h2 class="text-3xl font-black text-crea-red mb-6 uppercase">Carga de Activos de Marca</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div
-                    class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-crea-red transition-colors">
-                    <label class="block cursor-pointer">
-                        <span class="text-sm font-bold text-gray-600 block mb-2">Logo Principal (PNG/SVG)</span>
-                        <input type="file"
-                            class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-crea-red hover:file:bg-red-100"
-                            accept="image/*">
-                    </label>
-                </div>
-                <div
-                    class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-crea-blue transition-colors">
-                    <label class="block cursor-pointer">
-                        <span class="text-sm font-bold text-gray-600 block mb-2">Captura Dashboard ERP</span>
-                        <input type="file"
-                            class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-crea-blue hover:file:bg-blue-100"
-                            accept="image/*">
-                    </label>
-                </div>
-                <div
-                    class="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center hover:border-crea-yellow transition-colors">
-                    <label class="block cursor-pointer">
-                        <span class="text-sm font-bold text-gray-600 block mb-2">Iconografía Personalizada</span>
-                        <input type="file"
-                            class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
-                            accept="image/*">
-                    </label>
-                </div>
+    <!-- COLORES -->
+    <section>
+        <h2>Paleta de Colores</h2>
+        <div class="colors">
+            <div class="color-box" style="background:#E72B49">#E72B49</div>
+            <div class="color-box" style="background:#FEC925">#FEC925</div>
+            <div class="color-box" style="background:#15B1E8">#15B1E8</div>
+            <div class="color-box" style="background:#5AB190">#5AB190</div>
+            <div class="color-box" style="background:#C9E3D6; color:#000">#C9E3D6</div>
+        </div>
+    </section>
+
+    <!-- TIPOGRAFIA -->
+    <section>
+        <h2>Tipografía</h2>
+        <div class="grid grid-3">
+            <div class="card">
+                <h3 style="font-weight:900;">Montserrat Black</h3>
+                <p>Títulos fuertes y llamativos.</p>
             </div>
-        </section>
-
-        <h2 class="text-4xl font-black text-center mb-12 uppercase tracking-tight">Módulos del Sistema</h2>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
-            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-red">
-                <div class="p-6">
-                    <h3 class="font-black text-xl mb-4 text-crea-red">GESTIÓN COMERCIAL</h3>
-                    <ul class="text-sm space-y-2 text-gray-600">
-                        <li>• Leads & Pipeline</li>
-                        <li>• Oportunidades</li>
-                        <li>• Clientes y Productos</li>
-                        <li>• Cotizaciones y Ventas (SFA)</li>
-                        <li>• Campañas y Tickets Soporte</li>
-                    </ul>
-                </div>
+            <div class="card">
+                <h3 style="font-weight:300;">Montserrat Light</h3>
+                <p>Textos elegantes y minimalistas.</p>
             </div>
+        </div>
+    </section>
 
-            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-blue">
-                <div class="p-6">
-                    <h3 class="font-black text-xl mb-4 text-crea-blue">OPERACIONES E INVENTARIO</h3>
-                    <ul class="text-sm space-y-2 text-gray-600">
-                        <li>• Inventario y Almacenes (WMS)</li>
-                        <li>• Movimientos y Lotes</li>
-                        <li>• Proveedores</li>
-                        <li>• Órdenes de Compra</li>
-                    </ul>
-                </div>
+    <!-- ELEMENTOS -->
+    <section>
+        <h2>Elementos Gráficos</h2>
+        <p>
+            Mosaico de geometría modular que representa la unión de piezas para formar un sistema creativo,
+            dinámico y cohesionado.
+        </p>
+    </section>
+
+    <!-- EQUIPO -->
+    <section>
+        <h2>Equipo Creativo</h2>
+        <div class="grid grid-3">
+
+            <div class="card team">
+                <h3>Tivito</h3>
+                <p>Alma creativa. Fusiona estrategia, código y diseño.</p>
             </div>
 
-            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-red">
-                <div class="p-6">
-                    <h3 class="font-black text-xl mb-4 text-crea-red">PRODUCCIÓN (MRP)</h3>
-                    <ul class="text-sm space-y-2 text-gray-600">
-                        <li>• BOM (Listado de Materiales)</li>
-                        <li>• Órdenes de Producción</li>
-                        <li>• Control de Calidad</li>
-                        <li>• Planificación</li>
-                    </ul>
-                </div>
+            <div class="card team">
+                <h3>Rec</h3>
+                <p>Testigo visual. Representa lo que vales.</p>
             </div>
 
-            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-blue">
-                <div class="p-6">
-                    <h3 class="font-black text-xl mb-4 text-crea-blue">FINANZAS Y TESORERÍA</h3>
-                    <ul class="text-sm space-y-2 text-gray-600">
-                        <li>• Facturación (AR) y Cobranzas</li>
-                        <li>• Pagos (AP) y Tesorería</li>
-                        <li>• Contabilidad General (GL)</li>
-                        <li>• Gestión de Impuestos</li>
-                    </ul>
-                </div>
+            <div class="card team">
+                <h3>Bit</h3>
+                <p>Genio del código. Hace que todo funcione.</p>
             </div>
 
-            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-red">
-                <div class="p-6">
-                    <h3 class="font-black text-xl mb-4 text-crea-red">GESTIÓN HUMANA</h3>
-                    <ul class="text-sm space-y-2 text-gray-600">
-                        <li>• Gestión de Empleados</li>
-                        <li>• Nómina y Asistencia</li>
-                        <li>• Reclutamiento</li>
-                        <li>• Evaluaciones de Desempeño</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-crea-blue">
-                <div class="p-6">
-                    <h3 class="font-black text-xl mb-4 text-crea-blue">LOGÍSTICA & POS</h3>
-                    <ul class="text-sm space-y-2 text-gray-600">
-                        <li>• Gestión de Flota y Vehículos</li>
-                        <li>• Terminal de Punto de Venta (POS)</li>
-                        <li>• Cierre de Caja y Facturación POS</li>
-                        <li>• Mensajes Marketplace</li>
-                    </ul>
-                </div>
+            <div class="card team">
+                <h3>Mark</h3>
+                <p>Estratega de marketing. Conecta con clientes.</p>
             </div>
 
         </div>
-    </main>
 
-    <footer class="bg-gray-900 text-gray-400 py-8 text-center text-xs">
-        <p>Al Día SaaS - Desarrollado bajo estándares de Geometría Modular</p>
-        <p class="mt-2">Basado en el Manual de Marca de Crea Marketing</p>
+        <button class="btn" onclick="mostrarMensaje()">Conocer más</button>
+    </section>
+
+    <!-- MODULOS ERP -->
+    <section>
+        <h2>Módulos del Sistema</h2>
+
+        <div class="grid grid-3">
+
+            <div class="module">
+                <h3>Gestión Comercial</h3>
+                <ul>
+                    <li>• Leads & Pipeline</li>
+                    <li>• Oportunidades</li>
+                    <li>• Clientes y Productos</li>
+                    <li>• Cotizaciones y Ventas (SFA)</li>
+                    <li>• Campañas y Tickets Soporte</li>
+                </ul>
+            </div>
+
+            <div class="module">
+                <h3>Operaciones e Inventario</h3>
+                <ul>
+                    <li>• Inventario y Almacenes (WMS)</li>
+                    <li>• Movimientos y Lotes</li>
+                    <li>• Proveedores</li>
+                    <li>• Órdenes de Compra</li>
+                </ul>
+            </div>
+
+            <div class="module">
+                <h3>Producción (MRP)</h3>
+                <ul>
+                    <li>• BOM (Listado de Materiales)</li>
+                    <li>• Órdenes de Producción</li>
+                    <li>• Control de Calidad</li>
+                    <li>• Planificación</li>
+                </ul>
+            </div>
+
+            <div class="module">
+                <h3>Finanzas y Tesorería</h3>
+                <ul>
+                    <li>• Facturación (AR) y Cobranzas</li>
+                    <li>• Pagos (AP) y Tesorería</li>
+                    <li>• Contabilidad General (GL)</li>
+                    <li>• Gestión de Impuestos</li>
+                </ul>
+            </div>
+
+            <div class="module">
+                <h3>Gestión Humana</h3>
+                <ul>
+                    <li>• Gestión de Empleados</li>
+                    <li>• Nómina y Asistencia</li>
+                    <li>• Reclutamiento</li>
+                    <li>• Evaluaciones de Desempeño</li>
+                </ul>
+            </div>
+
+            <div class="module">
+                <h3>Logística & POS</h3>
+                <ul>
+                    <li>• Gestión de Flota y Vehículos</li>
+                    <li>• Terminal de Punto de Venta (POS)</li>
+                    <li>• Cierre de Caja y Facturación POS</li>
+                    <li>• Mensajes Marketplace</li>
+                </ul>
+            </div>
+
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2026 CREA MARKETING</p>
     </footer>
+
+    <script>
+        function mostrarMensaje() {
+            alert("Bienvenido a CREA MARKETING 🚀");
+        }
+    </script>
 
 </body>
 

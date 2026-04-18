@@ -39,6 +39,8 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
                 'unread_messages' => $unreadMessages,
                 'pending_orders' => $pendingOrders,
+                'unread_notifications' => $user->unreadNotifications->count(),
+                'recent_notifications' => $user->notifications()->latest()->limit(10)->get(),
             ];
         }
 

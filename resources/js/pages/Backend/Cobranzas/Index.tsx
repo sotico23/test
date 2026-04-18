@@ -24,7 +24,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import Pagination from '@/components/ui/Pagination';
-import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
 interface Cobranza {

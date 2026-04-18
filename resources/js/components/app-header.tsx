@@ -1,5 +1,7 @@
-import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Menu, Search, Bell, MessageSquare, ShoppingCart } from 'lucide-react';
+import { Link, usePage, router } from '@inertiajs/react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { BookOpen, Folder, LayoutGrid, Menu, Search, Bell, MessageSquare, ShoppingCart, Info, User as UserIcon } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -66,7 +68,7 @@ const activeItemStyles =
 
 export function AppHeader({ breadcrumbs = [] }: Props) {
     const page = usePage();
-    const { auth } = page.props;
+    const { auth } = page.props as any;
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
     return (
@@ -224,30 +226,95 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                     className="relative size-10 rounded-full"
                                 >
                                     <Bell className="size-5" />
-                                    {((auth.user.unread_messages || 0) > 0 || (auth.user.pending_orders || 0) > 0) && (
-                                        <span className="absolute top-1.5 right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                                            {(auth.user.unread_messages || 0) + (auth.user.pending_orders || 0)}
+                                    {((auth.user.unread_messages || 0) > 0 || (auth.user.pending_orders || 0) > 0 || (auth.user.unread_notifications || 0) > 0) && (
+                                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-background">
+                                            {(auth.user.unread_messages || 0) + (auth.user.pending_orders || 0) + (auth.user.unread_notifications || 0)}
                                         </span>
                                     )}
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-64 p-2" align="end">
-                                <div className="mb-2 px-2 py-1.5 text-sm font-semibold">Notificaciones</div>
-                                {((auth.user.unread_messages || 0) > 0) && (
-                                    <Link href="/mensajes" className="flex items-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground text-sm">
-                                        <MessageSquare className="mr-2 size-4 text-violet-500" />
-                                        <span>Tienes {auth.user.unread_messages} mensajes nuevos</span>
-                                    </Link>
-                                )}
-                                {((auth.user.pending_orders || 0) > 0) && (
-                                    <Link href="/pedidos-recibidos" className="flex items-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground text-sm">
-                                        <ShoppingCart className="mr-2 size-4 text-amber-500" />
-                                        <span>Tienes {auth.user.pending_orders} pedidos nuevos</span>
-                                    </Link>
-                                )}
-                                {((auth.user.unread_messages || 0) === 0 && (auth.user.pending_orders || 0) === 0) && (
-                                    <div className="p-4 text-center text-sm text-muted-foreground">No tienes notificaciones nuevas</div>
-                                )}
+                            <DropdownMenuContent className="w-80 p-0" align="end">
+                                <div className="flex items-center justify-between border-b px-3 py-2">
+                                    <div className="text-sm font-semibold">Notificaciones</div>
+                                    {(auth.user.unread_notifications || 0) > 0 && (
+                                        <button 
+                                            onClick={() => router.post('/notifications/mark-as-read', {}, { preserveScroll: true })}
+                                            className="text-[11px] text-primary hover:underline"
+                                        >
+                                            Marcar todo como leído
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="max-h-[400px] overflow-y-auto">
+                                    {(auth.user.recent_notifications && auth.user.recent_notifications.length > 0) ? (
+                                        auth.user.recent_notifications.map((notification: any) => (
+                                            <div 
+                                                key={notification.id} 
+                                                className={cn(
+                                                    "flex items-start gap-3 border-b p-3 last:border-0 hover:bg-muted/50 transition-colors relative",
+                                                    !notification.read_at && "bg-primary/5"
+                                                )}
+                                            >
+                                                {/* Background link for the whole notification */}
+                                                <Link 
+                                                    href={notification.data.link || '/comunidad'}
+                                                    className="absolute inset-0 z-0"
+                                                />
+
+                                                <Avatar className="h-8 w-8 shrink-0 relative z-10 pointer-events-none">
+                                                    <AvatarImage src={notification.data.user_avatar} />
+                                                    <AvatarFallback>
+                                                        <UserIcon className="h-4 w-4" />
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                
+                                                <div className="flex-1 space-y-1 relative z-10 pointer-events-none">
+                                                    <p className="text-xs text-balance leading-relaxed">
+                                                        {notification.data.user_id ? (
+                                                            <Link 
+                                                                href={`/perfil/${notification.data.user_id}`}
+                                                                className="font-semibold hover:text-primary hover:underline pointer-events-auto"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                {notification.data.user_name}
+                                                            </Link>
+                                                        ) : (
+                                                            <span className="font-semibold">{notification.data.user_name || 'Usuario'}</span>
+                                                        )}
+                                                        {" "}{(notification.data.message && notification.data.user_name) 
+                                                            ? (notification.data.message.split(notification.data.user_name)[1] || notification.data.message)
+                                                            : (notification.data.message || '')}
+                                                    </p>
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        {format(new Date(notification.created_at), "d 'de' MMM, HH:mm", { locale: es })}
+                                                    </p>
+                                                </div>
+                                                {!notification.read_at && (
+                                                    <div className="mt-2 h-2 w-2 rounded-full bg-primary shrink-0 relative z-10" />
+                                                )}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-8 text-center text-sm text-muted-foreground">
+                                            No tienes notificaciones
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="border-t p-2">
+                                    {((auth.user.unread_messages || 0) > 0) && (
+                                        <Link href="/mensajes" className="flex items-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground text-sm">
+                                            <MessageSquare className="mr-2 size-4 text-violet-500" />
+                                            <span>Tienes {auth.user.unread_messages} mensajes</span>
+                                        </Link>
+                                    )}
+                                    {((auth.user.pending_orders || 0) > 0) && (
+                                        <Link href="/pedidos-recibidos" className="flex items-center rounded-md p-2 hover:bg-accent hover:text-accent-foreground text-sm">
+                                            <ShoppingCart className="mr-2 size-4 text-amber-500" />
+                                            <span>Tienes {auth.user.pending_orders} pedidos</span>
+                                        </Link>
+                                    )}
+                                </div>
                             </DropdownMenuContent>
                         </DropdownMenu>
 

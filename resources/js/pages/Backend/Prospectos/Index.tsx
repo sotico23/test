@@ -1,4 +1,4 @@
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import {
     Pencil,
     Plus,
@@ -8,6 +8,8 @@ import {
     GripVertical,
     Kanban,
     List,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +47,19 @@ interface Prospecto {
     valor_estimado: number;
     fecha_seguimiento: string | null;
     notas: string | null;
+}
+
+interface PaginatedData<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+    next_page_url: string | null;
+    prev_page_url: string | null;
+    links: { url: string | null; label: string; active: boolean }[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -92,16 +107,30 @@ const estadoConfig: Record<
 
 const fuentes = ['web', 'referido', 'telefono', 'feria', 'otro'];
 
-export default function Index({ prospectos }: { prospectos: Prospecto[] }) {
+export default function Index({
+    prospectos,
+}: {
+    prospectos: PaginatedData<Prospecto>;
+}) {
     const [vistaKanban, setVistaKanban] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Prospecto | null>(null);
     const [draggingId, setDraggingId] = useState<number | null>(null);
-    const [localProspectos, setLocalProspectos] = useState(prospectos);
+    const [localProspectos, setLocalProspectos] = useState(prospectos.data);
 
     useEffect(() => {
-        setLocalProspectos(prospectos);
-    }, [prospectos]);
+        setLocalProspectos(prospectos.data);
+    }, [prospectos.data]);
+
+    const goToPage = (url: string | null) => {
+        if (url) router.get(url);
+    };
+
+    const changePerPage = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', e.target.value);
+        router.get(url.toString());
+    };
     const [filtros, setFiltros] = useState({
         busqueda: '',
         estado: '',
@@ -533,19 +562,20 @@ export default function Index({ prospectos }: { prospectos: Prospecto[] }) {
                                         return (
                                             <div
                                                 key={estado}
-                                                className={`relative overflow-hidden rounded-2xl border-0 shadow-sm ${isDraggingOver ? 'ring-2 ring-primary/30' : ''} ${estado === 'nuevo'
+                                                className={`relative overflow-hidden rounded-2xl border-0 shadow-sm ${isDraggingOver ? 'ring-2 ring-primary/30' : ''} ${
+                                                    estado === 'nuevo'
                                                         ? 'bg-gradient-to-b from-blue-50/80 to-blue-100/30'
                                                         : estado ===
                                                             'contactado'
-                                                            ? 'bg-gradient-to-b from-amber-50/80 to-amber-100/30'
+                                                          ? 'bg-gradient-to-b from-amber-50/80 to-amber-100/30'
+                                                          : estado ===
+                                                              'calificado'
+                                                            ? 'bg-gradient-to-b from-violet-50/80 to-violet-100/30'
                                                             : estado ===
-                                                                'calificado'
-                                                                ? 'bg-gradient-to-b from-violet-50/80 to-violet-100/30'
-                                                                : estado ===
-                                                                    'perdido'
-                                                                    ? 'bg-gradient-to-b from-rose-50/80 to-rose-100/30'
-                                                                    : 'bg-gradient-to-b from-emerald-50/80 to-emerald-100/30'
-                                                    }`}
+                                                                'perdido'
+                                                              ? 'bg-gradient-to-b from-rose-50/80 to-rose-100/30'
+                                                              : 'bg-gradient-to-b from-emerald-50/80 to-emerald-100/30'
+                                                }`}
                                                 onDragOver={handleDragOver}
                                                 onDrop={(e) =>
                                                     handleDrop(e, estado)
@@ -555,36 +585,38 @@ export default function Index({ prospectos }: { prospectos: Prospecto[] }) {
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <div
-                                                                className={`flex h-8 w-8 items-center justify-center rounded-xl ${estado ===
-                                                                        'nuevo'
+                                                                className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+                                                                    estado ===
+                                                                    'nuevo'
                                                                         ? 'bg-blue-100'
                                                                         : estado ===
                                                                             'contactado'
-                                                                            ? 'bg-amber-100'
+                                                                          ? 'bg-amber-100'
+                                                                          : estado ===
+                                                                              'calificado'
+                                                                            ? 'bg-violet-100'
                                                                             : estado ===
-                                                                                'calificado'
-                                                                                ? 'bg-violet-100'
-                                                                                : estado ===
-                                                                                    'perdido'
-                                                                                    ? 'bg-rose-100'
-                                                                                    : 'bg-emerald-100'
-                                                                    }`}
+                                                                                'perdido'
+                                                                              ? 'bg-rose-100'
+                                                                              : 'bg-emerald-100'
+                                                                }`}
                                                             >
                                                                 <span
-                                                                    className={`text-sm font-bold ${estado ===
-                                                                            'nuevo'
+                                                                    className={`text-sm font-bold ${
+                                                                        estado ===
+                                                                        'nuevo'
                                                                             ? 'text-blue-600'
                                                                             : estado ===
                                                                                 'contactado'
-                                                                                ? 'text-amber-600'
+                                                                              ? 'text-amber-600'
+                                                                              : estado ===
+                                                                                  'calificado'
+                                                                                ? 'text-violet-600'
                                                                                 : estado ===
-                                                                                    'calificado'
-                                                                                    ? 'text-violet-600'
-                                                                                    : estado ===
-                                                                                        'perdido'
-                                                                                        ? 'text-rose-600'
-                                                                                        : 'text-emerald-600'
-                                                                        }`}
+                                                                                    'perdido'
+                                                                                  ? 'text-rose-600'
+                                                                                  : 'text-emerald-600'
+                                                                    }`}
                                                                 >
                                                                     {getTotalProspectos(
                                                                         estado,
@@ -610,7 +642,7 @@ export default function Index({ prospectos }: { prospectos: Prospecto[] }) {
                                                 </div>
                                                 <div className="space-y-2 px-2 pb-3">
                                                     {prospectosEnEstado.length ===
-                                                        0 ? (
+                                                    0 ? (
                                                         <div className="py-8 text-center text-xs text-gray-400">
                                                             Sin prospectos
                                                         </div>
@@ -852,6 +884,83 @@ export default function Index({ prospectos }: { prospectos: Prospecto[] }) {
                             )}
                         </CardContent>
                     </Card>
+
+                    {prospectos.last_page > 1 && (
+                        <div className="flex flex-col items-center justify-between gap-4 border-t px-4 py-3 sm:flex-row">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span>Mostrando</span>
+                                <span className="font-medium">
+                                    {prospectos.from}
+                                </span>
+                                <span>a</span>
+                                <span className="font-medium">
+                                    {prospectos.to}
+                                </span>
+                                <span>de</span>
+                                <span className="font-medium">
+                                    {prospectos.total}
+                                </span>
+                                <span>resultados</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">
+                                    Por página:
+                                </span>
+                                <select
+                                    value={prospectos.per_page}
+                                    onChange={changePerPage}
+                                    className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                >
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() =>
+                                        goToPage(prospectos.prev_page_url)
+                                    }
+                                    disabled={!prospectos.prev_page_url}
+                                    className="h-8 w-8"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                {prospectos.links
+                                    .slice(1, -1)
+                                    .map((link, i) => (
+                                        <Button
+                                            key={i}
+                                            variant={
+                                                link.active
+                                                    ? 'default'
+                                                    : 'outline'
+                                            }
+                                            size="icon"
+                                            onClick={() => goToPage(link.url)}
+                                            disabled={!link.url}
+                                            className="h-8 w-8"
+                                        >
+                                            {link.label}
+                                        </Button>
+                                    ))}
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() =>
+                                        goToPage(prospectos.next_page_url)
+                                    }
+                                    disabled={!prospectos.next_page_url}
+                                    className="h-8 w-8"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </AppLayout>
 
