@@ -456,7 +456,7 @@ export default function Promociones({ promociones, categorias, flash }: Props) {
                                             setData(
                                                 'categoria_id',
                                                 e.target.value
-                                                    ? Number(e.target.value)
+                                                    ? parseInt(e.target.value)
                                                     : ('' as any),
                                             )
                                         }

@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOwner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class GastoProyecto extends Model
 {
-    use HasFactory;
+    use BelongsToOwner, HasFactory;
 
     protected $table = 'gastos_proyecto';
 
-    protected $fillable = ['proyecto_id', 'categoria', 'descripcion', 'monto', 'fecha', 'referencia', 'aprobado', 'aprobador_id'];
+    protected $fillable = ['owner_id', 'proyecto_id', 'categoria', 'descripcion', 'monto', 'fecha', 'referencia', 'aprobado', 'aprobador_id'];
 
     protected function casts(): array
     {

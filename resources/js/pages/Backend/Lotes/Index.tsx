@@ -1,7 +1,32 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
-import { useState } from 'react';
-import { useMemo } from 'react';
+import { Head, useForm, router } from '@inertiajs/react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    Package,
+    Calendar,
+    CheckCircle2,
+    Clock,
+    AlertCircle,
+    Download,
+    Upload,
+    FileSpreadsheet,
+    FileText,
+    TrendingUp,
+    Hash,
+    MoreHorizontal,
+    MoreVertical,
+    ChevronRight,
+    ArrowUpRight,
+    LayoutGrid,
+    Archive,
+    History,
+    FileWarning,
+    Layers
+} from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,34 +42,71 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
+import { formatDateCLP } from '@/lib/utils';
 import Pagination from '@/components/ui/Pagination';
 import type { BreadcrumbItem } from '@/types';
+import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 
 interface Lote {
     id: number;
     numero_lote: string;
-    producto_id: number | null;
+    producto: string | null;
     cantidad: number;
-    fecha_produccion: string | null;
     fecha_vencimiento: string | null;
     estado: string;
-    almacen_id: number | null;
+    notas: string | null;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Lotes', href: '/lotes' },
+    { title: 'Inventarios', href: '/inventarios' },
+    { title: 'Gestión de Lotes', href: '/lotes' },
 ];
 
-const estados = ['activo', 'agotado', 'vencido', 'en_proceso', 'cancelado'];
+const ESTADOS = [
+    { value: 'activo', label: 'Activo', color: 'bg-green-500/10 text-green-600', icon: CheckCircle2 },
+    { value: 'vencido', label: 'Vencido', color: 'bg-red-500/10 text-red-600', icon: FileWarning },
+    { value: 'agotado', label: 'Agotado', color: 'bg-orange-500/10 text-orange-600', icon: Archive },
+    { value: 'cuarentena', label: 'Cuarentena', color: 'bg-yellow-500/10 text-yellow-600', icon: Clock },
+    { value: 'rechazado', label: 'Rechazado', color: 'bg-slate-500/10 text-slate-600', icon: X },
+];
 
-export default function Index({ lotes }: { lotes: { data: Lote[]; links: any[]; from?: number; to?: number; total?: number; meta?: any } }) {
+export default function Index({
+    lotes,
+    filters,
+}: {
+    lotes: { data: Lote[]; links: any[]; meta: any };
+    filters: {
+        search?: string;
+        estado?: string;
+    };
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Lote | null>(null);
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [estadoFilter, setEstadoFilter] = useState(filters.estado || 'all');
+    const csvInputRef = useRef<HTMLInputElement>(null);
+    const excelInputRef = useRef<HTMLInputElement>(null);
+
     const {
         data,
         setData,
@@ -52,62 +114,64 @@ export default function Index({ lotes }: { lotes: { data: Lote[]; links: any[]; 
         put,
         delete: destroy,
         reset,
+        processing,
+        errors,
     } = useForm({
         numero_lote: '',
-        producto_id: '' as string,
+        producto: '',
         cantidad: 0,
-        fecha_produccion: '',
         fecha_vencimiento: '',
         estado: 'activo',
-        almacen_id: '' as string,
+        notas: '',
     });
 
-    const [filtros, setFiltros] = useState({
-        busqueda: '',
-        estado: '',
-    });
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const query: any = {};
+            if (searchTerm) query.search = searchTerm;
+            if (estadoFilter !== 'all') query.estado = estadoFilter;
 
-    const lotesFiltrados = useMemo(() => {
-        return lotes.data.filter((l) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (!l.numero_lote.toLowerCase().includes(busca)) {
-                    return false;
-                }
-            }
-            if (filtros.estado && l.estado !== filtros.estado) return false;
+            router.get('/lotes', query, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            });
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm, estadoFilter]);
 
-            return true;
-        });
-    }, [lotes.data, filtros]);
+    const handleExport = (type: 'csv' | 'excel') => {
+        const baseUrl = type === 'csv' ? '/lotes/export' : '/lotes/export-excel';
+        const params = new URLSearchParams();
+        if (searchTerm) params.append('search', searchTerm);
+        if (estadoFilter !== 'all') params.append('estado', estadoFilter);
+        window.location.href = `${baseUrl}?${params.toString()}`;
+    };
 
-    const limpiarFiltros = () => {
-        setFiltros({
-            busqueda: '',
-            estado: '',
-        });
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>, type: 'csv' | 'excel') => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append('archivo', file);
+            router.post('/lotes/import', formData, {
+                onSuccess: () => {
+                    if (csvInputRef.current) csvInputRef.current.value = '';
+                    if (excelInputRef.current) excelInputRef.current.value = '';
+                    toast.success('Lotes importados correctamente');
+                },
+            });
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const payload = {
-            ...data,
-            producto_id: data.producto_id ? Number(data.producto_id) : null,
-            almacen_id: data.almacen_id ? Number(data.almacen_id) : null,
-        };
         if (editando) {
             put(`/lotes/${editando.id}`, {
-                onSuccess: () => {
-                    setIsOpen(false);
-                    reset();
-                },
+                onSuccess: () => { setIsOpen(false); setEditando(null); reset(); toast.success('Lote actualizado'); },
             });
         } else {
             post('/lotes', {
-                onSuccess: () => {
-                    setIsOpen(false);
-                    reset();
-                },
+                onSuccess: () => { setIsOpen(false); reset(); toast.success('Lote registrado'); },
             });
         }
     };
@@ -116,310 +180,260 @@ export default function Index({ lotes }: { lotes: { data: Lote[]; links: any[]; 
         setEditando(l);
         setData({
             numero_lote: l.numero_lote,
-            producto_id: String(l.producto_id || ''),
+            producto: l.producto || '',
             cantidad: l.cantidad,
-            fecha_produccion: l.fecha_produccion || '',
-            fecha_vencimiento: l.fecha_vencimiento || '',
+            fecha_vencimiento: l.fecha_vencimiento ? l.fecha_vencimiento.substring(0, 10) : '',
             estado: l.estado,
-            almacen_id: String(l.almacen_id || ''),
+            notas: l.notas || '',
         });
-        setIsOpen(true);
-    };
-
-    const handleNew = () => {
-        reset();
-        setData({
-            numero_lote: `LOTE-${Date.now().toString().slice(-6)}`,
-            producto_id: '',
-            cantidad: 0,
-            fecha_produccion: new Date().toISOString().split('T')[0],
-            fecha_vencimiento: '',
-            estado: 'activo',
-            almacen_id: '',
-        });
-        setEditando(null);
         setIsOpen(true);
     };
 
     const handleDelete = (id: number) => {
-        if (confirm('¿Eliminar?')) destroy(`/lotes/${id}`);
+        if (confirm('¿Desea eliminar este lote?')) {
+            destroy(`/lotes/${id}`, {
+                onSuccess: () => toast.success('Lote eliminado'),
+            });
+        }
     };
 
-    const getEstadoBadge = (estado: string) => {
-        const colores: Record<string, string> = {
-            activo: 'bg-green-500',
-            agotado: 'bg-red-500',
-            vencido: 'bg-orange-500',
-            en_proceso: 'bg-blue-500',
-            cancelado: 'bg-gray-500',
-        };
-        return (
-            <Badge className={colores[estado] || 'bg-gray-500'}>{estado}</Badge>
-        );
+    const getEstadoConfig = (val: string) => {
+        return ESTADOS.find(e => e.value === val) || { label: val, color: 'bg-gray-500/10 text-gray-600', icon: AlertCircle };
     };
 
     return (
-        <>
-            <Head title="Lotes" />
-            <AppLayout breadcrumbs={breadcrumbs}>
-                <div className="flex flex-col gap-4 p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold">Lotes</h1>
-                            <p className="text-muted-foreground">
-                                Gestión de lotes de inventario
-                            </p>
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Gestión de Lotes" />
+            <Toaster position="bottom-right" />
+            
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <Layers className="h-5 w-5 text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Batch & Inventory Control</span>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo
+                        <h1 className="text-3xl font-black tracking-tight text-foreground">Gestión de Lotes</h1>
+                        <p className="text-sm font-medium text-muted-foreground">
+                            Control de trazabilidad, vencimientos y estados de inventario por lotes
+                        </p>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                        <input type="file" ref={csvInputRef} className="hidden" accept=".csv" onChange={(e) => handleImport(e, 'csv')} />
+                        <input type="file" ref={excelInputRef} className="hidden" accept=".xlsx,.xls" onChange={(e) => handleImport(e, 'excel')} />
+                        
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-9 px-3 gap-2 rounded-xl">
+                                    <Download className="h-4 w-4 text-primary" /> Herramientas
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl border-none shadow-2xl">
+                                <DropdownMenuItem onClick={() => csvInputRef.current?.click()} className="rounded-lg py-3">
+                                    <Upload className="mr-2 h-4 w-4 text-blue-500" /> Importar Lotes
+                                </DropdownMenuItem>
+                                <hr className="my-2" />
+                                <DropdownMenuItem onClick={() => handleExport('csv')} className="rounded-lg py-3">
+                                    <Download className="mr-2 h-4 w-4 text-green-500" /> Exportar a CSV
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        
+                        <Button onClick={() => { setEditando(null); reset(); setIsOpen(true); }} className="h-9 px-5 bg-primary shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all font-bold rounded-full">
+                            <Plus className="mr-2 h-4 w-4" /> Registrar Lote
                         </Button>
                     </div>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Lotes</CardTitle>
-                            <CardDescription>
-                                {lotesFiltrados.length} registros encontrados
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="mb-4 flex flex-wrap gap-2 rounded-lg bg-muted/30 p-3 text-xs sm:text-sm">
-                                <div className="min-w-[200px] flex-1">
-                                    <div className="relative">
-                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            placeholder="Buscar por número de lote..."
-                                            value={filtros.busqueda}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    busqueda: e.target.value,
-                                                })
-                                            }
-                                            className="h-9 pl-8"
-                                        />
-                                    </div>
-                                </div>
-                                <select
-                                    value={filtros.estado}
-                                    onChange={(e) =>
-                                        setFiltros({
-                                            ...filtros,
-                                            estado: e.target.value,
-                                        })
-                                    }
-                                    className="flex h-9 rounded-md border bg-background px-3 py-1 min-w-[150px]"
-                                >
-                                    <option value="">Todos los estados</option>
-                                    {estados.map((est) => (
-                                        <option key={est} value={est}>
-                                            {est.replace('_', ' ').charAt(0).toUpperCase() + est.replace('_', ' ').slice(1)}
-                                        </option>
+                </div>
+
+                <div className="grid gap-6">
+                    {/* Filters Bar */}
+                    <div className="flex flex-col p-4 gap-4 md:flex-row md:items-center bg-muted/40 rounded-3xl border border-muted/50">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar por número de lote o producto..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="h-11 pl-12 border-none bg-background shadow-sm focus-visible:ring-primary/20 rounded-2xl"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+                                <SelectTrigger className="h-11 w-[180px] border-none bg-background shadow-sm rounded-2xl font-bold">
+                                    <SelectValue placeholder="Estado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los estados</SelectItem>
+                                    {ESTADOS.map((e) => (
+                                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
                                     ))}
-                                </select>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-9"
-                                    onClick={limpiarFiltros}
-                                >
-                                    <X className="mr-1 h-4 w-4" />
-                                    Limpiar
-                                </Button>
-                            </div>
+                                </SelectContent>
+                            </Select>
+                            <Button variant="outline" size="icon" className="h-11 w-11 border-none bg-background shadow-sm rounded-2xl text-muted-foreground" onClick={() => { setSearchTerm(''); setEstadoFilter('all'); }}>
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    <Card className="border-none shadow-xl shadow-foreground/5 overflow-hidden rounded-[32px]">
+                        <CardContent className="p-0">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-xs sm:text-sm">
+                                <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="border-b">
-                                            <th className="py-2 text-left font-medium">
-                                                Número Lote
-                                            </th>
-                                            <th className="py-2 text-right font-medium">
-                                                Cantidad
-                                            </th>
-                                            <th className="py-2 text-left font-medium">
-                                                Producción
-                                            </th>
-                                            <th className="py-2 text-left font-medium">
-                                                Vencimiento
-                                            </th>
-                                            <th className="py-2 text-center font-medium">
-                                                Estado
-                                            </th>
-                                            <th className="py-2 text-right font-medium">
-                                                Acciones
-                                            </th>
+                                        <tr className="bg-muted/5 border-b text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                                            <th className="px-6 py-4 text-left">N° Lote / Batch</th>
+                                            <th className="px-6 py-4 text-left">Producto / SKU</th>
+                                            <th className="px-6 py-4 text-center">Estado</th>
+                                            <th className="px-6 py-4 text-center">Cantidad</th>
+                                            <th className="px-6 py-4 text-center">Vencimiento</th>
+                                            <th className="px-6 py-4 text-right">Acciones</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        {lotesFiltrados.map((l) => (
-                                            <tr
-                                                key={l.id}
-                                                className="border-b transition-colors hover:bg-muted/30"
-                                            >
-                                                <td className="py-2 font-mono text-muted-foreground">
-                                                    {l.numero_lote}
-                                                </td>
-                                                <td className="py-2 text-right font-medium">
-                                                    {l.cantidad}
-                                                </td>
-                                                <td className="py-2">
-                                                    {l.fecha_produccion
-                                                        ? new Date(
-                                                            l.fecha_produccion,
-                                                        ).toLocaleDateString()
-                                                        : '-'}
-                                                </td>
-                                                <td className="py-2">
-                                                    {l.fecha_vencimiento
-                                                        ? new Date(
-                                                            l.fecha_vencimiento,
-                                                        ).toLocaleDateString()
-                                                        : '-'}
-                                                </td>
-                                                <td className="py-2 text-center">
-                                                    {getEstadoBadge(
-                                                        l.estado,
-                                                    )}
-                                                </td>
-                                                <td className="py-2 text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0"
-                                                            onClick={() =>
-                                                                handleEdit(l)
-                                                            }
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                            onClick={() =>
-                                                                handleDelete(
-                                                                    l.id,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {lotesFiltrados.length === 0 && (
-                                            <tr>
-                                                <td
-                                                    colSpan={6}
-                                                    className="py-8 text-center text-muted-foreground"
-                                                >
-                                                    No se encontraron lotes con los filtros aplicados
-                                                </td>
-                                            </tr>
-                                        )}
+                                    <tbody className="divide-y divide-muted/50 font-medium">
+                                        {lotes.data.map((l) => {
+                                            const config = getEstadoConfig(l.estado);
+                                            return (
+                                                <tr key={l.id} className="group transition-colors hover:bg-muted/30">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="p-2 bg-background border rounded-xl shadow-sm text-primary group-hover:scale-110 transition-transform">
+                                                                <Hash className="h-4 w-4" />
+                                                            </div>
+                                                            <span className="font-black text-foreground">{l.numero_lote}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-foreground">{l.producto || 'N/A'}</span>
+                                                            <span className="text-[10px] text-muted-foreground font-black uppercase tracking-tight">Stock Reference</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <Badge variant="outline" className={`${config.color} border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 w-fit mx-auto`}>
+                                                            <config.icon className="h-3 w-3" />
+                                                            {config.label}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="font-black text-foreground">{l.cantidad} units</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-xs font-bold">{l.fecha_vencimiento ? formatDateCLP(l.fecha_vencimiento) : 'Indefinido'}</span>
+                                                            {l.fecha_vencimiento && new Date(l.fecha_vencimiento) < new Date() && (
+                                                                <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter">Expirado</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10 rounded-xl" onClick={() => handleEdit(l)}>
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => handleDelete(l.id)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
-                                <Pagination links={lotes.links} meta={lotes.meta || lotes} />
+                            </div>
+                            <div className="p-6 border-t border-muted/50 bg-muted/5">
+                                <Pagination links={lotes.links} meta={lotes.meta} />
                             </div>
                         </CardContent>
                     </Card>
                 </div>
-            </AppLayout >
+            </div>
+
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editando ? 'Editar' : 'Nuevo'} Lote
+                <DialogContent className="max-w-[95vw] md:max-w-3xl border-none shadow-2xl p-0 overflow-hidden rounded-[40px]">
+                    <DialogHeader className="bg-gradient-to-r from-primary/10 to-transparent p-8 pb-4 text-left">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Layers className="h-5 w-5 text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Traceability Control Unit</span>
+                        </div>
+                        <DialogTitle className="text-3xl font-black tracking-tight text-primary">
+                            {editando ? 'Editar Lote de Producción' : 'Registrar Nuevo Lote'}
                         </DialogTitle>
+                        <DialogDescription className="text-muted-foreground font-medium">Asigne parámetros de identificación y control de calidad al lote.</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleSubmit}>
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Número Lote *</Label>
-                                <Input
-                                    value={data.numero_lote}
-                                    onChange={(e) =>
-                                        setData('numero_lote', e.target.value)
-                                    }
-                                    required
-                                />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Cantidad *</Label>
-                                    <Input
-                                        type="number"
-                                        value={data.cantidad}
-                                        onChange={(e) =>
-                                            setData(
-                                                'cantidad',
-                                                Number(e.target.value),
-                                            )
-                                        }
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Estado</Label>
-                                    <select
-                                        value={data.estado}
-                                        onChange={(e) =>
-                                            setData('estado', e.target.value)
-                                        }
-                                        className="flex h-10 w-full rounded-md border bg-background px-3 py-2"
-                                    >
-                                        {estados.map((e) => (
-                                            <option key={e} value={e}>
-                                                {e}
-                                            </option>
-                                        ))}
-                                    </select>
+                    
+                    <form onSubmit={handleSubmit} className="p-8 pt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
+                            <div className="space-y-6">
+                                <h3 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                    <Hash className="h-4 w-4" /> Identificación
+                                </h3>
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold uppercase text-muted-foreground">Número de Lote *</Label>
+                                        <Input value={data.numero_lote} onChange={(e) => setData('numero_lote', e.target.value)} required className="h-12 border-none bg-muted/30 font-bold rounded-2xl" placeholder="Ej: LOT-2024-001" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold uppercase text-muted-foreground">Producto / Descripción</Label>
+                                        <Input value={data.producto} onChange={(e) => setData('producto', e.target.value)} className="h-12 border-none bg-muted/30 font-bold rounded-2xl" placeholder="Nombre o SKU del producto" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold uppercase text-muted-foreground">Cantidad Inicial</Label>
+                                            <Input type="number" value={data.cantidad} onChange={(e) => setData('cantidad', parseInt(e.target.value))} required className="h-12 border-none bg-muted/30 font-bold rounded-2xl text-center" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold uppercase text-muted-foreground">Estado</Label>
+                                            <Select value={data.estado} onValueChange={(v: any) => setData('estado', v)}>
+                                                <SelectTrigger className="h-12 border-none bg-muted/10 border-2 border-primary/20 font-bold rounded-2xl">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {ESTADOS.map((e) => (
+                                                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Fecha Producción</Label>
-                                    <Input
-                                        type="date"
-                                        value={data.fecha_produccion}
-                                        onChange={(e) =>
-                                            setData(
-                                                'fecha_produccion',
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Fecha Vencimiento</Label>
-                                    <Input
-                                        type="date"
-                                        value={data.fecha_vencimiento}
-                                        onChange={(e) =>
-                                            setData(
-                                                'fecha_vencimiento',
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
+
+                            <div className="space-y-6">
+                                <h3 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" /> Control de Tiempo
+                                </h3>
+                                <div className="space-y-4 p-8 rounded-[40px] bg-primary/5 border-2 border-dashed border-primary/20">
+                                    <div className="space-y-2 text-center">
+                                        <Label className="text-xs font-black uppercase text-muted-foreground">Fecha de Vencimiento (Opcional)</Label>
+                                        <Input type="date" value={data.fecha_vencimiento} onChange={(e) => setData('fecha_vencimiento', e.target.value)} className="h-12 border-none bg-background shadow-sm font-black rounded-2xl text-center mt-2 focus:ring-primary/20" />
+                                        <p className="text-[9px] text-muted-foreground mt-3 font-medium px-4">
+                                            El sistema alertará automáticamente cuando el lote se encuentre próximo a expirar.
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2 mt-4 pt-4 border-t border-primary/10">
+                                        <Label className="text-xs font-black uppercase text-muted-foreground">Notas Internas / Control Calidad</Label>
+                                        <textarea 
+                                            value={data.notas} 
+                                            onChange={(e) => setData('notas', e.target.value)} 
+                                            className="flex min-h-[120px] w-full rounded-[24px] border-none bg-background shadow-sm px-5 py-4 text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary/20 outline-none mt-2" 
+                                            placeholder="Detalles de inspección, procedencia, etc."
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsOpen(false)}
-                            >
-                                Cancelar
+                        
+                        <DialogFooter className="gap-2 mt-8 pt-6 border-t uppercase font-black">
+                            <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} className="rounded-full px-8">Cancelar</Button>
+                            <Button type="submit" disabled={processing} className="rounded-full px-12 bg-primary shadow-lg shadow-primary/20 hover:bg-primary/90">
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> {editando ? 'Actualizar Batch' : 'Registrar Ingreso'}
                             </Button>
-                            <Button type="submit">Guardar</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
-        </>
+        </AppLayout>
     );
 }

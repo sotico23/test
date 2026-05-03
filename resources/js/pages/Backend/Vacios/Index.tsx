@@ -8,9 +8,12 @@ import {
     X,
     RotateCcw,
     Package,
+    Download,
+    Upload,
+    FileSpreadsheet,
+    FileText,
 } from 'lucide-react';
-import { useState } from 'react';
-import { useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -90,16 +93,64 @@ const estadoConfig: Record<
 export default function Index({
     vacios,
     productos,
+    filters,
 }: {
     vacios: Vacio[];
     productos: Producto[];
+    filters: {
+        search?: string;
+        estado?: string;
+    };
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Vacio | null>(null);
-    const [filtros, setFiltros] = useState({
-        busqueda: '',
-        estado: '',
-    });
+    const importFileRef = useRef<HTMLInputElement>(null);
+    const importExcelRef = useRef<HTMLInputElement>(null);
+
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [estadoFilter, setEstadoFilter] = useState(filters.estado || '');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            router.get(
+                '/vacios',
+                {
+                    search: searchTerm,
+                    estado: estadoFilter,
+                },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                },
+            );
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm, estadoFilter]);
+
+    const handleExport = (type: 'csv' | 'excel') => {
+        const baseUrl = type === 'csv' ? '/vacios/export' : '/vacios/export-excel';
+        const params = new URLSearchParams({
+            search: searchTerm,
+            estado: estadoFilter,
+        });
+        window.location.href = `${baseUrl}?${params.toString()}`;
+    };
+
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>, isExcel = false) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('archivo', file);
+
+        router.post(isExcel ? '/vacios/import-excel' : '/vacios/import', formData, {
+            onSuccess: () => {
+                if (importFileRef.current) importFileRef.current.value = '';
+                if (importExcelRef.current) importExcelRef.current.value = '';
+            },
+        });
+    };
 
     const {
         data,
@@ -117,22 +168,10 @@ export default function Index({
         observaciones: '',
     });
 
-    const vaciosFiltrados = useMemo(() => {
-        return vacios.filter((v) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (
-                    !v.producto?.nombre.toLowerCase().includes(busca) &&
-                    !v.producto?.codigo.toLowerCase().includes(busca) &&
-                    !(v.ubicacion || '').toLowerCase().includes(busca)
-                ) {
-                    return false;
-                }
-            }
-            if (filtros.estado && v.estado !== filtros.estado) return false;
-            return true;
-        });
-    }, [vacios, filtros]);
+    const limpiarFiltros = () => {
+        setSearchTerm('');
+        setEstadoFilter('');
+    };
 
     const getTotalVacios = () => vacios.reduce((sum, v) => sum + v.cantidad, 0);
     const getVaciosDisponibles = () =>
@@ -150,10 +189,6 @@ export default function Index({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setData({
-            cantidad: Number(data.cantidad),
-            cantidad_minima: Number(data.cantidad_minima),
-        });
         if (editando) {
             put(`/vacios/${editando.id}`, {
                 onSuccess: () => {
@@ -210,16 +245,64 @@ export default function Index({
                             Control de envases retornables
                         </p>
                     </div>
-                    <Button
-                        onClick={() => {
-                            setEditando(null);
-                            reset();
-                            setIsOpen(true);
-                        }}
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nuevo Registro
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        <input
+                            type="file"
+                            ref={importFileRef}
+                            className="hidden"
+                            accept=".csv,.txt"
+                            onChange={(e) => handleImport(e)}
+                        />
+                        <input
+                            type="file"
+                            ref={importExcelRef}
+                            className="hidden"
+                            accept=".xlsx,.xls"
+                            onChange={(e) => handleImport(e, true)}
+                        />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => importFileRef.current?.click()}
+                        >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Importar CSV
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => importExcelRef.current?.click()}
+                        >
+                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                            Importar Excel
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleExport('csv')}
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            Exportar CSV
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleExport('excel')}
+                        >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Exportar Excel
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setEditando(null);
+                                reset();
+                                setIsOpen(true);
+                            }}
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nuevo Registro
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-4">
@@ -278,7 +361,7 @@ export default function Index({
                     <CardHeader>
                         <CardTitle>Control de Vacíos</CardTitle>
                         <CardDescription>
-                            {vaciosFiltrados.length} registros encontrados
+                            {vacios.length} registros encontrados
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -288,25 +371,15 @@ export default function Index({
                                     <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
                                     <Input
                                         placeholder="Buscar por producto o ubicación..."
-                                        value={filtros.busqueda}
-                                        onChange={(e) =>
-                                            setFiltros({
-                                                ...filtros,
-                                                busqueda: e.target.value,
-                                            })
-                                        }
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
                                         className="pl-8"
                                     />
                                 </div>
                             </div>
                             <select
-                                value={filtros.estado}
-                                onChange={(e) =>
-                                    setFiltros({
-                                        ...filtros,
-                                        estado: e.target.value,
-                                    })
-                                }
+                                value={estadoFilter}
+                                onChange={(e) => setEstadoFilter(e.target.value)}
                                 className="flex h-9 rounded-md border bg-background px-3 py-1 text-sm"
                             >
                                 <option value="">Todos los estados</option>
@@ -316,20 +389,17 @@ export default function Index({
                                     </option>
                                 ))}
                             </select>
-                            {filtros.busqueda || filtros.estado ? (
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() =>
-                                        setFiltros({ busqueda: '', estado: '' })
-                                    }
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            ) : null}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={limpiarFiltros}
+                            >
+                                <X className="mr-1 h-4 w-4" />
+                                Limpiar
+                            </Button>
                         </div>
 
-                        {vaciosFiltrados.length === 0 ? (
+                        {vacios.length === 0 ? (
                             <p className="py-8 text-center text-muted-foreground">
                                 No hay registros de vacíos
                             </p>
@@ -362,7 +432,7 @@ export default function Index({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {vaciosFiltrados.map((v) => (
+                                        {vacios.map((v) => (
                                             <tr key={v.id} className="border-b">
                                                 <td className="px-2 py-2 font-medium">
                                                     {v.producto?.nombre}

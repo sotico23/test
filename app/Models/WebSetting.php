@@ -36,12 +36,29 @@ class WebSetting extends Model
         'cta_titulo',
         'cta_descripcion',
         'cta_boton',
+        'nav_quienes_somos_visible',
+        'nav_quienes_somos_label',
+        'nav_quienes_somos_content',
+        'nav_quienes_somos_image',
+        'nav_quienes_somos_subtitle',
+        'nav_feedback_visible',
+        'nav_feedback_label',
+        'nav_feedback_content',
+        'nav_feedback_image',
+        'nav_feedback_subtitle',
+        'nav_fundacion_visible',
+        'nav_fundacion_label',
+        'nav_fundacion_content',
+        'nav_fundacion_image',
+        'nav_fundacion_subtitle',
+        'nav_extra',
     ];
 
     protected $casts = [
         'maintenance_mode' => 'boolean',
         'caracteristicas' => 'array',
         'planes' => 'array',
+        'nav_extra' => 'array',
     ];
 
     public static function getSettings(bool $forPublicPage = false): self

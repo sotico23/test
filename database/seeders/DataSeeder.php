@@ -59,6 +59,7 @@ class DataSeeder extends Seeder
         $this->command->info('Creating 5000+ records for the primary ERP dataset...');
 
         $this->createUsers();
+        $this->createPublicProfiles();
         $this->createCategorias();
         $this->createAlmacenes();
         $this->createProveedores();
@@ -87,7 +88,6 @@ class DataSeeder extends Seeder
         $this->createMonitoredSites();
         $this->createUptimeChecks();
         $this->createUptimeAlerts();
-        $this->createPublicProfiles();
         $this->createCobranzas();
         $this->createTickets();
         $this->createCampanas();
@@ -111,10 +111,10 @@ class DataSeeder extends Seeder
 
     private function createUsers(): void
     {
-        $this->command->info('Creating 5000 Users with LATAM locales...');
+        $this->command->info('Creating 100 Users with LATAM locales...');
 
         $locales = ['es_MX', 'es_CL', 'es_AR', 'es_CO', 'es_PE', 'es_VE'];
-        $countPerLocale = (int) ceil(5000 / count($locales));
+        $countPerLocale = (int) ceil(100 / count($locales));
 
         foreach ($locales as $locale) {
             $this->command->comment("Generating for locale: {$locale}");
@@ -124,7 +124,20 @@ class DataSeeder extends Seeder
 
     private function createCategorias(): void
     {
-        $this->command->info('Creating Categorias...');
+        $this->command->info('Creating Categorias linked to profiles...');
+
+        $profiles = PublicProfile::all();
+
+        foreach ($profiles as $profile) {
+            Categoria::factory()->count(3)->create([
+                'public_profile_id' => $profile->id,
+                'owner_id' => $profile->user_id,
+                'user_id' => $profile->user_id,
+                'mostrar_en_perfil' => true,
+                'tipo' => 'producto',
+            ]);
+        }
+
         Categoria::factory()->count(100)->create();
     }
 
@@ -148,8 +161,39 @@ class DataSeeder extends Seeder
 
     private function createProductos(): void
     {
-        $this->command->info('Creating 500 Productos...');
-        Producto::factory()->count(500)->create();
+        $this->command->info('Creating 500 Productos and 100 Services...');
+
+        $profiles = PublicProfile::all();
+        $categorias = Categoria::where('mostrar_en_perfil', true)->get();
+
+        foreach ($profiles as $profile) {
+            $profileCats = $categorias->where('public_profile_id', $profile->id);
+            if ($profileCats->isEmpty()) {
+                continue;
+            }
+
+            // Create some normal products for this profile
+            Producto::factory()->count(10)->create([
+                'public_profile_id' => $profile->id,
+                'owner_id' => $profile->user_id,
+                'user_id' => $profile->user_id,
+                'categoria_id' => fn () => $profileCats->random()->id,
+            ]);
+
+            // Create some services for this profile
+            Producto::factory()->service()->count(5)->create([
+                'public_profile_id' => $profile->id,
+                'owner_id' => $profile->user_id,
+                'user_id' => $profile->user_id,
+                'categoria_id' => fn () => $profileCats->random()->id,
+            ]);
+        }
+
+        // Fill remaining if needed
+        $remaining = 500 - (count($profiles) * 10);
+        if ($remaining > 0) {
+            Producto::factory()->count($remaining)->create();
+        }
     }
 
     private function createInventarios(): void
@@ -396,7 +440,13 @@ class DataSeeder extends Seeder
     private function createPublicProfiles(): void
     {
         $this->command->info('Creating PublicProfiles...');
-        PublicProfile::factory()->count(50)->create();
+        $users = User::limit(50)->get();
+        foreach ($users as $user) {
+            PublicProfile::factory()->create([
+                'user_id' => $user->id,
+                'owner_id' => $user->id,
+            ]);
+        }
     }
 
     private function createIncidents(): void

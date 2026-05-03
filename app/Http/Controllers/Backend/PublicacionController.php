@@ -76,7 +76,7 @@ class PublicacionController extends Controller
             'parent_id' => 'nullable|exists:comentario_publicacions,id',
         ]);
 
-        if (!$request->filled('content') && !$request->hasFile('image')) {
+        if (! $request->filled('content') && ! $request->hasFile('image')) {
             return back()->withErrors(['content' => 'Debes enviar un mensaje o una imagen.']);
         }
 
@@ -103,7 +103,7 @@ class PublicacionController extends Controller
                 $parent->user->notify(new NuevoComentario($user, $comentario, true));
             }
             // También notificar al dueño del post, si es diferente al que comenta y al padre
-            if ($publicacion->user_id !== $user->id && (!$parent || $publicacion->user_id !== $parent->user_id)) {
+            if ($publicacion->user_id !== $user->id && (! $parent || $publicacion->user_id !== $parent->user_id)) {
                 $publicacion->user->notify(new NuevoComentario($user, $comentario, false));
             }
         } elseif ($publicacion->user_id !== $user->id) {

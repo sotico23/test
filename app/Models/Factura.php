@@ -31,6 +31,7 @@ class Factura extends Model
         'descuento_tipo',
         'descuento_valor',
         'total_descuento',
+        'dte_documento_id',
     ];
 
     protected function casts(): array
@@ -46,6 +47,11 @@ class Factura extends Model
             'descuento_valor' => 'decimal:2',
             'total_descuento' => 'decimal:2',
         ];
+    }
+
+    public function dteDocumento(): BelongsTo
+    {
+        return $this->belongsTo(DteDocumento::class, 'dte_documento_id');
     }
 
     public function cliente(): BelongsTo

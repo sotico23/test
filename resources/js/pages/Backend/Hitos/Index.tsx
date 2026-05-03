@@ -1,7 +1,14 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
-import { useState } from 'react';
-import { useMemo } from 'react';
+import { Head, useForm, router } from '@inertiajs/react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    Download,
+    Upload,
+} from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +18,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { BulkActions } from '@/components/shared/BulkActions';
 import {
     Dialog,
     DialogContent,
@@ -20,8 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 interface Hito {
@@ -48,7 +56,18 @@ const estados = [
     'cancelado',
 ];
 
-export default function Index({ hitos }: { hitos: { data: Hito[]; links: any[]; from?: number; to?: number; total?: number; meta?: any } }) {
+export default function Index({
+    hitos,
+}: {
+    hitos: {
+        data: Hito[];
+        links: any[];
+        from?: number;
+        to?: number;
+        total?: number;
+        meta?: any;
+    };
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Hito | null>(null);
     const {
@@ -153,6 +172,37 @@ export default function Index({ hitos }: { hitos: { data: Hito[]; links: any[]; 
     const handleDelete = (id: number) => {
         if (confirm('¿Eliminar?')) destroy(`/hitos/${id}`);
     };
+
+    const handleExportCsv = () => {
+        window.location.href = '/hitos/export';
+    };
+
+    const handleExportExcel = () => {
+        window.location.href = '/hitos/export-excel';
+    };
+
+    const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('archivo', file);
+        router.post('/hitos/import', formData, {
+            onSuccess: () => alert('Importación completada'),
+            onError: (err) => alert('Error: ' + Object.values(err)[0]),
+        });
+    };
+
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('archivo', file);
+        router.post('/hitos/import-excel', formData, {
+            onSuccess: () => alert('Importación completada'),
+            onError: (err) => alert('Error: ' + Object.values(err)[0]),
+        });
+    };
+
     const getEstadoBadge = (estado: string) => {
         const colores: Record<string, string> = {
             pendiente: 'bg-yellow-500',
@@ -178,9 +228,16 @@ export default function Index({ hitos }: { hitos: { data: Hito[]; links: any[]; 
                                 Gestión de hitos
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo
+                            </Button>
+                            <BulkActions
+                                baseUrl="/hitos"
+                                filters={{}}
+                                modelName="Hitos"
+                            />
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -215,7 +272,7 @@ export default function Index({ hitos }: { hitos: { data: Hito[]; links: any[]; 
                                             estado: e.target.value,
                                         })
                                     }
-                                    className="flex h-9 rounded-md border bg-background px-3 py-1 min-w-[150px]"
+                                    className="flex h-9 min-w-[150px] rounded-md border bg-background px-3 py-1"
                                 >
                                     <option value="">Todos los estados</option>
                                     {estados.map((e) => (
@@ -262,9 +319,8 @@ export default function Index({ hitos }: { hitos: { data: Hito[]; links: any[]; 
                                                     <div className="font-medium">
                                                         {h.nombre}
                                                     </div>
-                                                    <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">
-                                                        {h.descripcion ||
-                                                            '-'}
+                                                    <div className="max-w-[200px] truncate text-[10px] text-muted-foreground">
+                                                        {h.descripcion || '-'}
                                                     </div>
                                                 </td>
                                                 <td className="py-2">
@@ -272,23 +328,21 @@ export default function Index({ hitos }: { hitos: { data: Hito[]; links: any[]; 
                                                         P:{' '}
                                                         {h.fecha_prevista
                                                             ? new Date(
-                                                                h.fecha_prevista,
-                                                            ).toLocaleDateString()
+                                                                  h.fecha_prevista,
+                                                              ).toLocaleDateString()
                                                             : '-'}
                                                     </div>
                                                     <div className="text-[10px] text-muted-foreground">
                                                         R:{' '}
                                                         {h.fecha_real
                                                             ? new Date(
-                                                                h.fecha_real,
-                                                            ).toLocaleDateString()
+                                                                  h.fecha_real,
+                                                              ).toLocaleDateString()
                                                             : '-'}
                                                     </div>
                                                 </td>
                                                 <td className="py-2 text-center">
-                                                    {getEstadoBadge(
-                                                        h.estado,
-                                                    )}
+                                                    {getEstadoBadge(h.estado)}
                                                 </td>
                                                 <td className="py-2 text-right">
                                                     <div className="flex justify-end gap-1">
@@ -324,15 +378,17 @@ export default function Index({ hitos }: { hitos: { data: Hito[]; links: any[]; 
                                                     colSpan={4}
                                                     className="py-8 text-center text-muted-foreground"
                                                 >
-                                                    No se encontraron hitos
-                                                    con los filtros
-                                                    aplicados
+                                                    No se encontraron hitos con
+                                                    los filtros aplicados
                                                 </td>
                                             </tr>
                                         )}
                                     </tbody>
                                 </table>
-                                <Pagination links={hitos.links} meta={hitos.meta || hitos} />
+                                <Pagination
+                                    links={hitos.links}
+                                    meta={hitos.meta || hitos}
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -366,7 +422,7 @@ export default function Index({ hitos }: { hitos: { data: Hito[]; links: any[]; 
                                     }
                                 />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Fecha Prevista</Label>
                                     <Input

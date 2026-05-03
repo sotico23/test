@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -11,7 +12,7 @@ Artisan::command('inspire', function () {
 Schedule::command('uptime:check')->everyMinute();
 
 Schedule::call(function () {
-    \Illuminate\Support\Facades\DB::table('notifications')
+    DB::table('notifications')
         ->where('created_at', '<', now()->subDays(7))
         ->delete();
 })->daily();

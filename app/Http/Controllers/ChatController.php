@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Pedido as PedidoModel;
 use App\Models\PublicProfile;
 use App\Scopes\OwnerScope;
 use Illuminate\Http\Request;
@@ -19,28 +20,59 @@ class ChatController extends Controller
     {
         $user = Auth::user();
 
-        // Conversations where the user is the buyer
-        $buyerConversations = Conversation::where('buyer_id', $user->id)
+        // Mis compras: soy el comprador en pedidos
+        $misPedidos = PedidoModel::query()
+            ->with([
+                'cliente:id,name',
+                'publicProfile' => function ($q) {
+                    $q->withoutGlobalScope(OwnerScope::class)->select('id', 'user_id', 'owner_id', 'title', 'slug');
+                },
+                'conversacion.mensajes' => function ($q) {
+                    $q->latest()->limit(1);
+                },
+            ])
+            ->where('cliente_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Mis ventas: soy el vendedor en pedidos
+        $misVentas = PedidoModel::query()
+            ->with([
+                'cliente:id,name',
+                'publicProfile' => function ($q) {
+                    $q->withoutGlobalScope(OwnerScope::class)->select('id', 'user_id', 'owner_id', 'title', 'slug');
+                },
+                'conversacion.mensajes' => function ($q) {
+                    $q->latest()->limit(1);
+                },
+            ])
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Consultas: conversaciones directas como comprador (sin pedido)
+        $misConsultas = Conversation::where('buyer_id', $user->id)
             ->with(['store' => function ($q) {
-                $q->withoutGlobalScope(OwnerScope::class);
+                $q->withoutGlobalScope(OwnerScope::class)->select('id', 'user_id', 'owner_id', 'title', 'slug');
             }, 'latestMessage'])
             ->latest()
             ->get();
 
-        // Conversations where the user is the store owner
-        // First get the user's public profiles (without scope to be safe, though they should own them)
+        // Ventas y consultas: conversaciones directas como tienda
         $profileIds = PublicProfile::withoutGlobalScope(OwnerScope::class)
             ->where('user_id', $user->id)
             ->pluck('id');
 
-        $storeConversations = Conversation::whereIn('store_profile_id', $profileIds)
-            ->with(['buyer', 'latestMessage'])
+        $ventasYConsultas = Conversation::whereIn('store_profile_id', $profileIds)
+            ->with(['buyer:id,name', 'latestMessage'])
             ->latest()
             ->get();
 
         return Inertia::render('marketplace/ChatInbox', [
-            'buyerConversations' => $buyerConversations,
-            'storeConversations' => $storeConversations,
+            'misPedidos' => $misPedidos,
+            'misVentas' => $misVentas,
+            'misConsultas' => $misConsultas,
+            'ventasYConsultas' => $ventasYConsultas,
         ]);
     }
 
@@ -107,7 +139,8 @@ class ChatController extends Controller
     public function sendMessage(Request $request, Conversation $conversation)
     {
         $request->validate([
-            'body' => 'required|string|max:1000',
+            'body' => 'nullable|string|max:1000',
+            'image' => 'nullable|image|mimes:jpeg,png,gif,webp|max:5120',
         ]);
 
         $user = Auth::user();
@@ -119,10 +152,16 @@ class ChatController extends Controller
             abort(403);
         }
 
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('chat-images', 'public');
+        }
+
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'sender_id' => $user->id,
-            'body' => $request->body,
+            'body' => $request->body ?? '',
+            'image_path' => $imagePath,
         ]);
 
         return back();

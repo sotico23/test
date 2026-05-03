@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\EvaluacionesExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\EvaluacionesImport;
 use App\Models\Evaluacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +14,18 @@ use Inertia\Response;
 
 class EvaluacionController extends Controller
 {
+    use HasBulkOperations;
+
+    protected function getExportClass(array $filters): object
+    {
+        return new EvaluacionesExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new EvaluacionesImport;
+    }
+
     public function index(): Response
     {
         $evaluaciones = Evaluacion::orderBy('created_at', 'desc')->get();

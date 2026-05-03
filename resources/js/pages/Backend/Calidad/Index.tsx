@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -410,7 +410,7 @@ export default function Index({
                                         onChange={(e) =>
                                             setData(
                                                 'cantidad_muestra',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />
@@ -424,7 +424,7 @@ export default function Index({
                                         onChange={(e) =>
                                             setData(
                                                 'cantidad_defectuosa',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />

@@ -1,5 +1,13 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    Download,
+    Upload,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +28,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
+import { BulkActions } from '@/components/shared/BulkActions';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
 import { formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -45,7 +54,18 @@ const breadcrumbs: BreadcrumbItem[] = [
 const estados = ['activo', 'inactivo', 'pendiente'];
 const tipos = ['fijo', 'porcentaje', 'variable'];
 
-export default function Index({ impuestos }: { impuestos: { data: Impuesto[]; links: any[]; from?: number; to?: number; total?: number; meta?: any } }) {
+export default function Index({
+    impuestos,
+}: {
+    impuestos: {
+        data: Impuesto[];
+        links: any[];
+        from?: number;
+        to?: number;
+        total?: number;
+        meta?: any;
+    };
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Impuesto | null>(null);
     const {
@@ -169,9 +189,16 @@ export default function Index({ impuestos }: { impuestos: { data: Impuesto[]; li
                                 Gestión de impuestos
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo
+                            </Button>
+                            <BulkActions
+                                baseUrl="/impuestos"
+                                filters={{}}
+                                modelName="Impuestos"
+                            />
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -207,7 +234,7 @@ export default function Index({ impuestos }: { impuestos: { data: Impuesto[]; li
                                             estado: e.target.value,
                                         })
                                     }
-                                    className="flex h-9 rounded-md border bg-background px-3 py-1 min-w-[150px]"
+                                    className="flex h-9 min-w-[150px] rounded-md border bg-background px-3 py-1"
                                 >
                                     <option value="">Todos los estados</option>
                                     {estados.map((e) => (
@@ -265,14 +292,12 @@ export default function Index({ impuestos }: { impuestos: { data: Impuesto[]; li
                                                     {i.tasa}%
                                                 </td>
                                                 <td className="py-3">
-                                                    <div className="text-[10px] uppercase font-medium">
+                                                    <div className="text-[10px] font-medium uppercase">
                                                         {i.tipo || '-'}
                                                     </div>
                                                 </td>
                                                 <td className="py-3 text-center">
-                                                    {getEstadoBadge(
-                                                        i.estado,
-                                                    )}
+                                                    {getEstadoBadge(i.estado)}
                                                 </td>
                                                 <td className="py-3 text-right">
                                                     <div className="flex justify-end gap-1">
@@ -302,29 +327,30 @@ export default function Index({ impuestos }: { impuestos: { data: Impuesto[]; li
                                                 </td>
                                             </tr>
                                         ))}
-                                        {impuestosFiltrados.length ===
-                                            0 && (
-                                                <tr>
-                                                    <td
-                                                        colSpan={5}
-                                                        className="py-8 text-center text-muted-foreground"
-                                                    >
-                                                        No se encontraron
-                                                        impuestos con los
-                                                        filtros aplicados
-                                                    </td>
-                                                </tr>
-                                            )}
+                                        {impuestosFiltrados.length === 0 && (
+                                            <tr>
+                                                <td
+                                                    colSpan={5}
+                                                    className="py-8 text-center text-muted-foreground"
+                                                >
+                                                    No se encontraron impuestos
+                                                    con los filtros aplicados
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
-                                <Pagination links={impuestos.links} meta={impuestos.meta || impuestos} />
+                                <Pagination
+                                    links={impuestos.links}
+                                    meta={impuestos.meta || impuestos}
+                                />
                             </div>
                         </CardContent>
                     </Card>
                 </div>
             </AppLayout>
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg md:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
                             {editando ? 'Editar' : 'Nuevo'} Impuesto
@@ -332,7 +358,7 @@ export default function Index({ impuestos }: { impuestos: { data: Impuesto[]; li
                     </DialogHeader>
                     <form onSubmit={handleSubmit}>
                         <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Nombre *</Label>
                                     <Input
@@ -353,17 +379,17 @@ export default function Index({ impuestos }: { impuestos: { data: Impuesto[]; li
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Tasa *</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.tasa}
                                         onChange={(e) =>
                                             setData(
                                                 'tasa',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                         required
@@ -386,7 +412,7 @@ export default function Index({ impuestos }: { impuestos: { data: Impuesto[]; li
                                     </select>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Fecha Inicio</Label>
                                     <Input

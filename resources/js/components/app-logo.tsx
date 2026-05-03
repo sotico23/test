@@ -10,12 +10,12 @@ export default function AppLogo() {
 
     return (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground overflow-hidden">
+            <div className={`flex items-center justify-center overflow-hidden ${!appLogo ? 'aspect-square size-8 rounded-md bg-sidebar-primary text-sidebar-primary-foreground' : 'h-8'}`}>
                 {appLogo ? (
                     <img
                         src={appLogo}
                         alt={appName}
-                        className="size-8 object-contain"
+                        className="h-full w-auto max-w-[120px] object-contain rounded-md"
                         onError={(e) => {
                             // Fallback to icon if image fails to load
                             (e.target as HTMLImageElement).style.display = 'none';

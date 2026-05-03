@@ -1,5 +1,13 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
+import { Head, useForm, router } from '@inertiajs/react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    Download,
+    Upload,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -20,10 +28,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BulkActions } from '@/components/shared/BulkActions';
+import Pagination from '@/components/ui/Pagination';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
-import Pagination from '@/components/ui/Pagination';
 
 interface Gasto {
     id: number;
@@ -44,12 +53,16 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const categorias = ['materiales', 'mano_obra', 'equipos', 'transporte', 'otro'];
 
-export default function Index({ gastos }: { gastos: {
-    data: Gasto[];
-    links: any[];
-    meta?: any;
-    total: number;
-} }) {
+export default function Index({
+    gastos,
+}: {
+    gastos: {
+        data: Gasto[];
+        links: any[];
+        meta?: any;
+        total: number;
+    };
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Gasto | null>(null);
     const {
@@ -89,7 +102,8 @@ export default function Index({ gastos }: { gastos: {
                     return false;
                 }
             }
-            if (filtros.categoria && g.categoria !== filtros.categoria) return false;
+            if (filtros.categoria && g.categoria !== filtros.categoria)
+                return false;
 
             if (filtros.aprobado !== '') {
                 const isAprobado = filtros.aprobado === '1';
@@ -186,9 +200,16 @@ export default function Index({ gastos }: { gastos: {
                                 Gestión de gastos
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo
+                            </Button>
+                            <BulkActions
+                                baseUrl="/gastos-proyecto"
+                                filters={{}}
+                                modelName="Gastos"
+                            />
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -223,12 +244,15 @@ export default function Index({ gastos }: { gastos: {
                                             categoria: e.target.value,
                                         })
                                     }
-                                    className="flex h-9 rounded-md border bg-background px-3 py-1 min-w-[150px]"
+                                    className="flex h-9 min-w-[150px] rounded-md border bg-background px-3 py-1"
                                 >
-                                    <option value="">Todas las categorías</option>
+                                    <option value="">
+                                        Todas las categorías
+                                    </option>
                                     {categorias.map((c) => (
                                         <option key={c} value={c}>
-                                            {c.charAt(0).toUpperCase() + c.slice(1).replace('_', ' ')}
+                                            {c.charAt(0).toUpperCase() +
+                                                c.slice(1).replace('_', ' ')}
                                         </option>
                                     ))}
                                 </select>
@@ -240,7 +264,7 @@ export default function Index({ gastos }: { gastos: {
                                             aprobado: e.target.value,
                                         })
                                     }
-                                    className="flex h-9 rounded-md border bg-background px-3 py-1 min-w-[150px]"
+                                    className="flex h-9 min-w-[150px] rounded-md border bg-background px-3 py-1"
                                 >
                                     <option value="">Aprobación (Todos)</option>
                                     <option value="1">Aprobados</option>
@@ -258,7 +282,9 @@ export default function Index({ gastos }: { gastos: {
                                         }
                                         className="h-9 w-[130px]"
                                     />
-                                    <span className="text-muted-foreground">-</span>
+                                    <span className="text-muted-foreground">
+                                        -
+                                    </span>
                                     <Input
                                         type="date"
                                         value={filtros.fechaHasta}
@@ -288,7 +314,7 @@ export default function Index({ gastos }: { gastos: {
                                             <th className="py-2 text-left font-medium">
                                                 Categoría / Ref.
                                             </th>
-                                            <th className="py-2 text-right font-medium px-4">
+                                            <th className="px-4 py-2 text-right font-medium">
                                                 Monto
                                             </th>
                                             <th className="py-2 text-left font-medium">
@@ -309,22 +335,29 @@ export default function Index({ gastos }: { gastos: {
                                                 className="border-b transition-colors hover:bg-muted/30"
                                             >
                                                 <td className="py-2">
-                                                    <div className="font-medium whitespace-nowrap uppercase text-[10px]">
-                                                        {g.categoria?.replace('_', ' ') || '-'}
+                                                    <div className="text-[10px] font-medium whitespace-nowrap uppercase">
+                                                        {g.categoria?.replace(
+                                                            '_',
+                                                            ' ',
+                                                        ) || '-'}
                                                     </div>
-                                                    <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                                                    <div className="max-w-[150px] truncate text-[10px] text-muted-foreground">
                                                         {g.referencia || ''}
                                                     </div>
                                                 </td>
-                                                <td className="py-2 text-right font-bold text-green-600 px-4">
+                                                <td className="px-4 py-2 text-right font-bold text-green-600">
                                                     {formatCurrencyCLP(g.monto)}
                                                 </td>
-                                                <td className="py-2 text-muted-foreground whitespace-nowrap">
+                                                <td className="py-2 whitespace-nowrap text-muted-foreground">
                                                     {formatDateCLP(g.fecha)}
                                                 </td>
                                                 <td className="py-2 text-center">
                                                     <Badge
-                                                        variant={g.aprobado ? 'default' : 'secondary'}
+                                                        variant={
+                                                            g.aprobado
+                                                                ? 'default'
+                                                                : 'secondary'
+                                                        }
                                                         className={
                                                             g.aprobado
                                                                 ? 'bg-green-500 hover:bg-green-600'
@@ -370,27 +403,30 @@ export default function Index({ gastos }: { gastos: {
                                                     colSpan={5}
                                                     className="py-8 text-center text-muted-foreground"
                                                 >
-                                                    No se encontraron gastos con los filtros aplicados
+                                                    No se encontraron gastos con
+                                                    los filtros aplicados
                                                 </td>
                                             </tr>
                                         )}
                                     </tbody>
                                 </table>
                             </div>
-                            <Pagination 
-                                links={gastos.links} 
-                                meta={gastos.meta || {
-                                    from: (gastos as any).from,
-                                    to: (gastos as any).to,
-                                    total: gastos.total
-                                }} 
+                            <Pagination
+                                links={gastos.links}
+                                meta={
+                                    gastos.meta || {
+                                        from: (gastos as any).from,
+                                        to: (gastos as any).to,
+                                        total: gastos.total,
+                                    }
+                                }
                             />
                         </CardContent>
                     </Card>
                 </div>
             </AppLayout>
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg md:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
                             {editando ? 'Editar' : 'Nuevo'} Gasto
@@ -398,17 +434,17 @@ export default function Index({ gastos }: { gastos: {
                     </DialogHeader>
                     <form onSubmit={handleSubmit}>
                         <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Monto *</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.monto}
                                         onChange={(e) =>
                                             setData(
                                                 'monto',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                         required
@@ -425,7 +461,7 @@ export default function Index({ gastos }: { gastos: {
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Categoría</Label>
                                     <select

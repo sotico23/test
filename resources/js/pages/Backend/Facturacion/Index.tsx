@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useMemo } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +33,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BulkActions } from '@/components/shared/BulkActions';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -40,8 +43,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import Pagination from '@/components/ui/Pagination';
-import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
+import {
+    formatCurrencyCLP,
+    formatDateCLP,
+    formatRut,
+    cleanRut,
+} from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
 interface Producto {
@@ -113,6 +120,34 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Facturación', href: '/facturacion' },
 ];
 
+const comunasChile = [
+    'Santiago',
+    'Las Condes',
+    'Providencia',
+    'Maipú',
+    'Puente Alto',
+    'La Florida',
+    'Viña del Mar',
+    'Valparaíso',
+    'Concepción',
+    'Antofagasta',
+    'Temuco',
+    'Rancagua',
+    'Iquique',
+    'Puerto Montt',
+    'La Serena',
+    'Coquimbo',
+    'Chillán',
+    'Arica',
+    'Talca',
+    'Copiapó',
+    'Quillota',
+    'San Antonio',
+    'Curicó',
+    'Punta Arenas',
+    'Osorno',
+].sort();
+
 export default function Index({
     facturas,
     clientes,
@@ -158,6 +193,15 @@ export default function Index({
         descuento_valor: 0,
         almacen_id: '' as string,
         detalles: [] as DetalleFactura[],
+
+        // Campos para Cliente Genérico / Manual
+        is_manual_cliente: false,
+        manual_rut: '',
+        manual_razon_social: '',
+        manual_giro: '',
+        manual_direccion: '',
+        manual_comuna: '',
+        manual_ciudad: '',
     });
 
     const [filtros, setFiltros] = useState({
@@ -205,6 +249,49 @@ export default function Index({
             fechaDesde: '',
             fechaHasta: '',
         });
+    };
+
+    const [validatingRut, setValidatingRut] = useState(false);
+    const [extraGiros, setExtraGiros] = useState<string[]>([]);
+
+    const handleValidarRut = async () => {
+        const rut = data.manual_rut;
+        if (!rut) return;
+
+        setValidatingRut(true);
+        try {
+            const response = await fetch(`/api/sii/consultar/${cleanRut(rut)}`);
+            const result = await response.json();
+
+            if (result.success) {
+                const info = result.data || result; // Handle both wrapped and flat responses
+                const girosList = (info.giros || [])
+                    .map((g: any) => g.name || g.glosa)
+                    .filter(Boolean);
+                setExtraGiros(girosList);
+
+                setData((prev) => ({
+                    ...prev,
+                    manual_razon_social:
+                        info.razon_social || prev.manual_razon_social,
+                    manual_giro: info.giro || prev.manual_giro,
+                    manual_direccion: info.direccion || prev.manual_direccion,
+                    manual_comuna: info.comuna || prev.manual_comuna,
+                    manual_ciudad: info.region || prev.manual_ciudad,
+                }));
+                toast.success('Información recuperada del SII');
+            } else {
+                toast.error(
+                    result.message ||
+                        'No se encontró información para este RUT',
+                );
+            }
+        } catch (error) {
+            console.error('Error validando RUT:', error);
+            toast.error('Error al conectar con el servicio de validación');
+        } finally {
+            setValidatingRut(false);
+        }
     };
 
     const handleAddDetalle = () => {
@@ -353,17 +440,15 @@ export default function Index({
                             </p>
                         </div>
                         <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => handleOpenDialog('cotizacion')}
-                            >
-                                <FileText className="mr-2 h-4 w-4" />
-                                Nueva Cotización
-                            </Button>
                             <Button onClick={() => handleOpenDialog('venta')}>
                                 <Plus className="mr-2 h-4 w-4" />
                                 Nueva Factura
                             </Button>
+                            <BulkActions
+                                baseUrl="/facturacion"
+                                filters={{}}
+                                modelName="Facturas"
+                            />
                         </div>
                     </div>
 
@@ -668,17 +753,25 @@ export default function Index({
                                         <select
                                             id="cliente"
                                             value={data.cliente_id}
-                                            onChange={(e) =>
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setData('cliente_id', val);
                                                 setData(
-                                                    'cliente_id',
-                                                    e.target.value,
-                                                )
-                                            }
+                                                    'is_manual_cliente',
+                                                    val === 'new',
+                                                );
+                                            }}
                                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                                             required
                                         >
                                             <option value="">
                                                 Seleccionar cliente
+                                            </option>
+                                            <option
+                                                value="new"
+                                                className="font-bold text-primary"
+                                            >
+                                                + NUEVO CLIENTE (INGRESO MANUAL)
                                             </option>
                                             {clientes.map((cliente) => (
                                                 <option
@@ -690,6 +783,155 @@ export default function Index({
                                             ))}
                                         </select>
                                     </div>
+
+                                    {/* Campos de Cliente Manual */}
+                                    {data.is_manual_cliente && (
+                                        <div className="col-span-full grid grid-cols-1 gap-4 rounded-lg bg-muted/50 p-4 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label>RUT Cliente *</Label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        value={data.manual_rut}
+                                                        onChange={(e) =>
+                                                            setData(
+                                                                'manual_rut',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        onBlur={(e) =>
+                                                            setData(
+                                                                'manual_rut',
+                                                                formatRut(
+                                                                    e.target
+                                                                        .value,
+                                                                ),
+                                                            )
+                                                        }
+                                                        placeholder="12345678-9"
+                                                        required
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        onClick={
+                                                            handleValidarRut
+                                                        }
+                                                        disabled={
+                                                            validatingRut ||
+                                                            !data.manual_rut
+                                                        }
+                                                    >
+                                                        {validatingRut
+                                                            ? '...'
+                                                            : 'Validar'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>
+                                                    Razón Social / Nombre *
+                                                </Label>
+                                                <Input
+                                                    value={
+                                                        data.manual_razon_social
+                                                    }
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'manual_razon_social',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="Ej: Empresa S.A."
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Giro Comercial *</Label>
+                                                <Input
+                                                    value={data.manual_giro}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'manual_giro',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="Ej: Venta de materiales"
+                                                    required
+                                                    list="giros-suggestions"
+                                                />
+                                                <datalist id="giros-suggestions">
+                                                    {extraGiros.map((g, i) => (
+                                                        <option
+                                                            key={i}
+                                                            value={g}
+                                                        />
+                                                    ))}
+                                                </datalist>
+                                                {extraGiros.length > 1 && (
+                                                    <p className="text-[10px] text-muted-foreground italic">
+                                                        Este RUT tiene{' '}
+                                                        {extraGiros.length}{' '}
+                                                        actividades sugeridas.
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Dirección *</Label>
+                                                <Input
+                                                    value={
+                                                        data.manual_direccion
+                                                    }
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'manual_direccion',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="Calle, Número, Depto"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Comuna *</Label>
+                                                <select
+                                                    value={data.manual_comuna}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'manual_comuna',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                                                    required
+                                                >
+                                                    <option value="">
+                                                        Seleccionar comuna
+                                                    </option>
+                                                    {comunasChile.map((c) => (
+                                                        <option
+                                                            key={c}
+                                                            value={c}
+                                                        >
+                                                            {c}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Ciudad / Región</Label>
+                                                <Input
+                                                    value={data.manual_ciudad}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'manual_ciudad',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="Ej: Santiago"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         <Label htmlFor="almacen">
                                             Almacén (Origen de Stock)
@@ -847,13 +1089,13 @@ export default function Index({
                                                         handleDetalleChange(
                                                             index,
                                                             'precio_unitario',
-                                                            parseFloat(
+                                                            parseInt(
                                                                 e.target.value,
                                                             ) || 0,
                                                         )
                                                     }
                                                     className="w-24"
-                                                    step="0.01"
+                                                    step="1"
                                                     readOnly
                                                 />
                                                 <div className="w-24 py-2 text-right">
@@ -914,7 +1156,7 @@ export default function Index({
                                                                 onChange={(e) =>
                                                                     setData(
                                                                         'iva_porcentaje',
-                                                                        parseFloat(
+                                                                        parseInt(
                                                                             e
                                                                                 .target
                                                                                 .value,
@@ -969,7 +1211,7 @@ export default function Index({
                                                             onChange={(e) =>
                                                                 setData(
                                                                     'descuento_valor',
-                                                                    parseFloat(
+                                                                    parseInt(
                                                                         e.target
                                                                             .value,
                                                                     ) || 0,
@@ -1098,14 +1340,18 @@ function VerFacturaDialog({
                                 {factura.emisor?.giro || 'GIRO COMERCIAL'}
                             </p>
                             <div className="mt-2 text-[10px] text-gray-500">
-                                <p>{factura.emisor?.direccion || 'DIRECCIÓN'}</p>
+                                <p>
+                                    {factura.emisor?.direccion || 'DIRECCIÓN'}
+                                </p>
                                 <p>
                                     {factura.emisor?.comuna || ''}
                                     {factura.emisor?.ciudad
                                         ? `, ${factura.emisor.ciudad}`
                                         : ''}
                                 </p>
-                                <p>Teléfono: {factura.emisor?.telefono || '-'}</p>
+                                <p>
+                                    Teléfono: {factura.emisor?.telefono || '-'}
+                                </p>
                                 <p>Email: {factura.emisor?.email}</p>
                             </div>
                         </div>
@@ -1132,14 +1378,16 @@ function VerFacturaDialog({
 
                     <div className="mb-4">
                         <p className="text-sm">
-                            <span className="font-bold uppercase">SANTIAGO, </span>
+                            <span className="font-bold uppercase">
+                                SANTIAGO,{' '}
+                            </span>
                             {formatDateCLP(factura.fecha)}
                         </p>
                     </div>
 
                     {/* Client Info Section */}
                     <div className="mb-6">
-                        <div className="mb-2 bg-gray-100 p-1 px-3 text-[10px] font-bold border border-gray-300 uppercase">
+                        <div className="mb-2 border border-gray-300 bg-gray-100 p-1 px-3 text-[10px] font-bold uppercase">
                             Información del Receptor
                         </div>
                         <table className="w-full border-collapse">
@@ -1162,7 +1410,10 @@ function VerFacturaDialog({
                                     <td className="border border-gray-300 bg-gray-50 p-2 font-bold">
                                         Giro
                                     </td>
-                                    <td colSpan={3} className="border border-gray-300 p-2 uppercase">
+                                    <td
+                                        colSpan={3}
+                                        className="border border-gray-300 p-2 uppercase"
+                                    >
                                         PARTICULAR / GIRO NO ESPECIFICADO
                                     </td>
                                 </tr>
@@ -1188,72 +1439,125 @@ function VerFacturaDialog({
                     <div className="mb-6">
                         <table className="w-full border-collapse">
                             <thead>
-                                <tr className="bg-blue-900 text-white font-bold uppercase text-[9px]">
-                                    <th className="border border-blue-900 p-2 text-center w-[8%]">Cant.</th>
-                                    <th className="border border-blue-900 p-2 text-left">Descripción</th>
-                                    <th className="border border-blue-900 p-2 text-right w-[15%]">P. Unitario</th>
-                                    <th className="border border-blue-900 p-2 text-right w-[15%]">Total</th>
+                                <tr className="bg-blue-900 text-[9px] font-bold text-white uppercase">
+                                    <th className="w-[8%] border border-blue-900 p-2 text-center">
+                                        Cant.
+                                    </th>
+                                    <th className="border border-blue-900 p-2 text-left">
+                                        Descripción
+                                    </th>
+                                    <th className="w-[15%] border border-blue-900 p-2 text-right">
+                                        P. Unitario
+                                    </th>
+                                    <th className="w-[15%] border border-blue-900 p-2 text-right">
+                                        Total
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {factura.detalles?.map((item, i) => (
-                                    <tr key={i} className="border border-gray-300">
+                                    <tr
+                                        key={i}
+                                        className="border border-gray-300"
+                                    >
                                         <td className="border border-gray-300 p-2 text-center">
                                             {item.cantidad}
                                         </td>
                                         <td className="border border-gray-300 p-2 uppercase">
-                                            {item.producto?.nombre || 'Producto'}
+                                            {item.producto?.nombre ||
+                                                'Producto'}
                                         </td>
                                         <td className="border border-gray-300 p-2 text-right">
-                                            {formatCurrencyCLP(item.precio_unitario)}
+                                            {formatCurrencyCLP(
+                                                item.precio_unitario,
+                                            )}
                                         </td>
                                         <td className="border border-gray-300 p-2 text-right font-bold">
                                             {formatCurrencyCLP(item.total)}
                                         </td>
                                     </tr>
                                 ))}
-                                {(!factura.detalles || factura.detalles.length === 0) && (
+                                {(!factura.detalles ||
+                                    factura.detalles.length === 0) && (
                                     <tr className="border border-gray-300">
-                                        <td colSpan={4} className="p-10 text-center text-gray-400 italic">
-                                            No se encontraron productos registrados en este documento.
+                                        <td
+                                            colSpan={4}
+                                            className="p-10 text-center text-gray-400 italic"
+                                        >
+                                            No se encontraron productos
+                                            registrados en este documento.
                                         </td>
                                     </tr>
                                 )}
                                 {/* Spacer rows like in PDF */}
-                                {factura.detalles && factura.detalles.length > 0 && Array.from({ length: Math.max(0, 5 - factura.detalles.length) }).map((_, i) => (
-                                    <tr key={`spacer-${i}`} className="border border-gray-300 h-8">
-                                        <td className="border border-gray-300 p-2"></td>
-                                        <td className="border border-gray-300 p-2"></td>
-                                        <td className="border border-gray-300 p-2"></td>
-                                        <td className="border border-gray-300 p-2"></td>
-                                    </tr>
-                                ))}
+                                {factura.detalles &&
+                                    factura.detalles.length > 0 &&
+                                    Array.from({
+                                        length: Math.max(
+                                            0,
+                                            5 - factura.detalles.length,
+                                        ),
+                                    }).map((_, i) => (
+                                        <tr
+                                            key={`spacer-${i}`}
+                                            className="h-8 border border-gray-300"
+                                        >
+                                            <td className="border border-gray-300 p-2"></td>
+                                            <td className="border border-gray-300 p-2"></td>
+                                            <td className="border border-gray-300 p-2"></td>
+                                            <td className="border border-gray-300 p-2"></td>
+                                        </tr>
+                                    ))}
                             </tbody>
                         </table>
                     </div>
 
                     {/* Totals Summary */}
-                    <div className="flex justify-end mb-8">
+                    <div className="mb-8 flex justify-end">
                         <div className="w-72">
                             <table className="w-full border-collapse">
                                 <tbody>
                                     <tr>
-                                        <td className="border border-gray-300 bg-gray-50 p-2 font-bold text-right w-1/2">Sub Total (Neto)</td>
-                                        <td className="border border-gray-300 p-2 text-right font-bold">{formatCurrencyCLP(factura.subtotal)}</td>
+                                        <td className="w-1/2 border border-gray-300 bg-gray-50 p-2 text-right font-bold">
+                                            Sub Total (Neto)
+                                        </td>
+                                        <td className="border border-gray-300 p-2 text-right font-bold">
+                                            {formatCurrencyCLP(
+                                                factura.subtotal,
+                                            )}
+                                        </td>
                                     </tr>
                                     {factura.total_descuento > 0 && (
                                         <tr>
-                                            <td className="border border-gray-300 bg-gray-50 p-2 font-bold text-right">Descuento</td>
-                                            <td className="border border-gray-300 p-2 text-right font-bold text-red-600">-{formatCurrencyCLP(factura.total_descuento)}</td>
+                                            <td className="border border-gray-300 bg-gray-50 p-2 text-right font-bold">
+                                                Descuento
+                                            </td>
+                                            <td className="border border-gray-300 p-2 text-right font-bold text-red-600">
+                                                -
+                                                {formatCurrencyCLP(
+                                                    factura.total_descuento,
+                                                )}
+                                            </td>
                                         </tr>
                                     )}
                                     <tr>
-                                        <td className="border border-gray-300 bg-gray-50 p-2 font-bold text-right">IVA ({factura.iva_porcentaje || 19}%)</td>
-                                        <td className="border border-gray-300 p-2 text-right font-bold">{formatCurrencyCLP(factura.impuesto)}</td>
+                                        <td className="border border-gray-300 bg-gray-50 p-2 text-right font-bold">
+                                            IVA ({factura.iva_porcentaje || 19}
+                                            %)
+                                        </td>
+                                        <td className="border border-gray-300 p-2 text-right font-bold">
+                                            {formatCurrencyCLP(
+                                                factura.impuesto,
+                                            )}
+                                        </td>
                                     </tr>
                                     <tr className="bg-gray-100 text-lg">
-                                        <td className="border border-gray-300 p-2 font-black text-right">TOTAL</td>
-                                        <td className="border border-gray-300 p-2 text-right font-black text-blue-900">{formatCurrencyCLP(factura.total)}</td>
+                                        <td className="border border-gray-300 p-2 text-right font-black">
+                                            TOTAL
+                                        </td>
+                                        <td className="border border-gray-300 p-2 text-right font-black text-blue-900">
+                                            {formatCurrencyCLP(factura.total)}
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1262,30 +1566,40 @@ function VerFacturaDialog({
 
                     {/* Notes and Footer */}
                     {factura.notas && (
-                        <div className="mb-4 border border-gray-300 p-3 bg-white">
-                            <p className="font-bold underline mb-1">Observaciones / Notas:</p>
-                            <p className="whitespace-pre-wrap">{factura.notas}</p>
+                        <div className="mb-4 border border-gray-300 bg-white p-3">
+                            <p className="mb-1 font-bold underline">
+                                Observaciones / Notas:
+                            </p>
+                            <p className="whitespace-pre-wrap">
+                                {factura.notas}
+                            </p>
                         </div>
                     )}
-                    
+
                     {factura.fecha_vencimiento && (
                         <p className="mb-4 text-[10px] font-bold">
-                            Fecha de Vencimiento: {formatDateCLP(factura.fecha_vencimiento)}
+                            Fecha de Vencimiento:{' '}
+                            {formatDateCLP(factura.fecha_vencimiento)}
                         </p>
                     )}
 
                     <div className="mt-10 border-t border-gray-200 pt-4 text-center text-[9px] text-gray-500">
                         <p>Gracias por su preferencia.</p>
-                        <p className="mt-1 font-bold text-gray-800">DOCUMENTO TRIBUTARIO ELECTRÓNICO SEGÚN ART. 1° D.L. 3505 Y RES. EX. SII N° 48/2016</p>
-                        <p className="mt-2 italic">Generado el {new Date().toLocaleString()}</p>
+                        <p className="mt-1 font-bold text-gray-800">
+                            DOCUMENTO TRIBUTARIO ELECTRÓNICO SEGÚN ART. 1° D.L.
+                            3505 Y RES. EX. SII N° 48/2016
+                        </p>
+                        <p className="mt-2 italic">
+                            Generado el {new Date().toLocaleString()}
+                        </p>
                     </div>
                 </div>
 
-                <DialogFooter className="bg-gray-50 p-4 border-t">
-                    <div className="flex justify-between w-full items-center">
+                <DialogFooter className="border-t bg-gray-50 p-4">
+                    <div className="flex w-full items-center justify-between">
                         <div>{caseEstado(factura.estado)}</div>
                         <div className="flex gap-2">
-                             <a
+                            <a
                                 href={`/facturacion/${factura.id}/pdf`}
                                 target="_blank"
                                 rel="noreferrer"
@@ -1294,7 +1608,13 @@ function VerFacturaDialog({
                                 <FileText className="mr-2 h-4 w-4" />
                                 Descargar PDF
                             </a>
-                            <Button onClick={() => setIsOpen(false)} variant="secondary" className="font-bold">Cerrar</Button>
+                            <Button
+                                onClick={() => setIsOpen(false)}
+                                variant="secondary"
+                                className="font-bold"
+                            >
+                                Cerrar
+                            </Button>
                         </div>
                     </div>
                 </DialogFooter>
@@ -1339,8 +1659,12 @@ function EditarFacturaDialog({
     }>({
         numero: factura.numero,
         cliente_id: factura.cliente_id.toString(),
-        fecha: factura.fecha ? new Date(factura.fecha).toISOString().split('T')[0] : '',
-        fecha_vencimiento: factura.fecha_vencimiento ? new Date(factura.fecha_vencimiento).toISOString().split('T')[0] : '',
+        fecha: factura.fecha
+            ? new Date(factura.fecha).toISOString().split('T')[0]
+            : '',
+        fecha_vencimiento: factura.fecha_vencimiento
+            ? new Date(factura.fecha_vencimiento).toISOString().split('T')[0]
+            : '',
         tipo: factura.tipo,
         notas: factura.notas || '',
         iva_porcentaje: factura.iva_porcentaje,
@@ -1349,7 +1673,7 @@ function EditarFacturaDialog({
         descuento_valor: factura.descuento_valor,
         almacen_id: (factura.almacen_id || '').toString(),
         estado: factura.estado,
-        detalles: factura.detalles || [] as DetalleFactura[],
+        detalles: factura.detalles || ([] as DetalleFactura[]),
     });
 
     // Sync form whenever the selected factura changes
@@ -1358,9 +1682,13 @@ function EditarFacturaDialog({
             setData({
                 numero: factura.numero,
                 cliente_id: factura.cliente_id.toString(),
-                fecha: factura.fecha ? new Date(factura.fecha).toISOString().split('T')[0] : '',
+                fecha: factura.fecha
+                    ? new Date(factura.fecha).toISOString().split('T')[0]
+                    : '',
                 fecha_vencimiento: factura.fecha_vencimiento
-                    ? new Date(factura.fecha_vencimiento).toISOString().split('T')[0]
+                    ? new Date(factura.fecha_vencimiento)
+                          .toISOString()
+                          .split('T')[0]
                     : '',
                 tipo: factura.tipo,
                 notas: factura.notas || '',
@@ -1373,7 +1701,7 @@ function EditarFacturaDialog({
                 detalles: factura.detalles || [],
             });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [factura]);
 
     const addDetalle = () => {
@@ -1396,7 +1724,11 @@ function EditarFacturaDialog({
         setData('detalles', newDetalles);
     };
 
-    const updateDetalle = (index: number, field: keyof DetalleFactura, value: any) => {
+    const updateDetalle = (
+        index: number,
+        field: keyof DetalleFactura,
+        value: any,
+    ) => {
         const newDetalles = [...data.detalles];
         newDetalles[index] = { ...newDetalles[index], [field]: value };
 
@@ -1443,87 +1775,120 @@ function EditarFacturaDialog({
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
         setProcessing(true);
-        router.put(`/facturacion/${factura.id}`, {
-            ...data,
-            cliente_id: Number(data.cliente_id),
-            almacen_id: data.almacen_id ? Number(data.almacen_id) : null,
-            detalles: data.detalles.map(({ producto: _p, ...d }) => ({
-                ...d,
-                producto_id: Number(d.producto_id),
-                cantidad: Number(d.cantidad),
-                precio_unitario: Number(d.precio_unitario),
-            })),
-        }, {
-            onSuccess: () => {
-                setIsOpen(false);
-                reset();
+        router.put(
+            `/facturacion/${factura.id}`,
+            {
+                ...data,
+                cliente_id: Number(data.cliente_id),
+                almacen_id: data.almacen_id ? Number(data.almacen_id) : null,
+                detalles: data.detalles.map(({ producto: _p, ...d }) => ({
+                    ...d,
+                    producto_id: Number(d.producto_id),
+                    cantidad: Number(d.cantidad),
+                    precio_unitario: Number(d.precio_unitario),
+                })),
             },
-            onFinish: () => setProcessing(false),
-        });
+            {
+                onSuccess: () => {
+                    setIsOpen(false);
+                    reset();
+                },
+                onFinish: () => setProcessing(false),
+            },
+        );
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-h-[90vh] sm:max-w-2xl md:max-w-4xl overflow-y-auto">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl md:max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl font-black uppercase">Editar Documento {factura.numero}</DialogTitle>
+                    <DialogTitle className="text-2xl font-black uppercase">
+                        Editar Documento {factura.numero}
+                    </DialogTitle>
                     <DialogDescription>
                         Modifica los datos del documento tributario.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={submit} className="space-y-6 py-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                         <div className="space-y-2">
                             <Label>Número de Documento</Label>
                             <Input
                                 value={data.numero}
-                                onChange={(e) => setData('numero', e.target.value)}
+                                onChange={(e) =>
+                                    setData('numero', e.target.value)
+                                }
                                 required
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Tipo de Documento</Label>
-                            <Select value={data.tipo} onValueChange={(val) => setData('tipo', val)}>
+                            <Select
+                                value={data.tipo}
+                                onValueChange={(val) => setData('tipo', val)}
+                            >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar tipo" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="venta">Factura</SelectItem>
-                                    <SelectItem value="compra">Factura Compra</SelectItem>
-                                    <SelectItem value="cotizacion">Cotización</SelectItem>
-                                    <SelectItem value="proforma">Proforma</SelectItem>
+                                    <SelectItem value="venta">
+                                        Factura
+                                    </SelectItem>
+                                    <SelectItem value="compra">
+                                        Factura Compra
+                                    </SelectItem>
+                                    <SelectItem value="cotizacion">
+                                        Cotización
+                                    </SelectItem>
+                                    <SelectItem value="proforma">
+                                        Proforma
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
                             <Label>Estado</Label>
-                            <Select value={data.estado} onValueChange={(val) => setData('estado', val)}>
+                            <Select
+                                value={data.estado}
+                                onValueChange={(val) => setData('estado', val)}
+                            >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar estado" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="pendiente">Pendiente</SelectItem>
-                                    <SelectItem value="pagada">Pagada</SelectItem>
-                                    <SelectItem value="anulada">Anulada</SelectItem>
+                                    <SelectItem value="pendiente">
+                                        Pendiente
+                                    </SelectItem>
+                                    <SelectItem value="pagada">
+                                        Pagada
+                                    </SelectItem>
+                                    <SelectItem value="anulada">
+                                        Anulada
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div className="space-y-2">
                             <Label>Cliente / Receptor</Label>
                             <Select
                                 value={data.cliente_id}
-                                onValueChange={(val) => setData('cliente_id', val)}
+                                onValueChange={(val) =>
+                                    setData('cliente_id', val)
+                                }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar cliente" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {clientes.map((c) => (
-                                        <SelectItem key={c.id} value={c.id.toString()}>
+                                        <SelectItem
+                                            key={c.id}
+                                            value={c.id.toString()}
+                                        >
                                             {c.nombre} (RUT: {c.nit})
                                         </SelectItem>
                                     ))}
@@ -1534,14 +1899,19 @@ function EditarFacturaDialog({
                             <Label>Almacén / Depósito</Label>
                             <Select
                                 value={data.almacen_id}
-                                onValueChange={(val) => setData('almacen_id', val)}
+                                onValueChange={(val) =>
+                                    setData('almacen_id', val)
+                                }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar almacén" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {almacenes.map((a) => (
-                                        <SelectItem key={a.id} value={a.id.toString()}>
+                                        <SelectItem
+                                            key={a.id}
+                                            value={a.id.toString()}
+                                        >
                                             {a.nombre}
                                         </SelectItem>
                                     ))}
@@ -1550,13 +1920,15 @@ function EditarFacturaDialog({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div className="space-y-2">
                             <Label>Fecha Emisión</Label>
                             <Input
                                 type="date"
                                 value={data.fecha}
-                                onChange={(e) => setData('fecha', e.target.value)}
+                                onChange={(e) =>
+                                    setData('fecha', e.target.value)
+                                }
                                 required
                             />
                         </div>
@@ -1565,77 +1937,124 @@ function EditarFacturaDialog({
                             <Input
                                 type="date"
                                 value={data.fecha_vencimiento}
-                                onChange={(e) => setData('fecha_vencimiento', e.target.value)}
+                                onChange={(e) =>
+                                    setData('fecha_vencimiento', e.target.value)
+                                }
                             />
                         </div>
                     </div>
 
                     <div className="space-y-4">
                         <div className="flex items-center justify-between border-b pb-2">
-                            <h3 className="font-bold uppercase flex items-center gap-2">
+                            <h3 className="flex items-center gap-2 font-bold uppercase">
                                 <CreditCard className="h-4 w-4" />
                                 Ítems / Productos
                             </h3>
-                            <Button type="button" size="sm" onClick={addDetalle} className="gap-1">
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={addDetalle}
+                                className="gap-1"
+                            >
                                 <Plus className="h-4 w-4" /> Añadir Ítem
                             </Button>
                         </div>
 
                         {data.detalles.length === 0 && (
-                            <div className="py-10 text-center border-2 border-dashed rounded-xl text-muted-foreground italic">
-                                No hay ítems en este documento. Haz clic en "Añadir Ítem".
+                            <div className="rounded-xl border-2 border-dashed py-10 text-center text-muted-foreground italic">
+                                No hay ítems en este documento. Haz clic en
+                                "Añadir Ítem".
                             </div>
                         )}
 
                         {data.detalles.map((detalle, index) => (
-                            <div key={index} className="flex gap-4 items-end animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div
+                                key={index}
+                                className="flex animate-in items-end gap-4 duration-300 fade-in slide-in-from-top-2"
+                            >
                                 <div className="flex-1 space-y-2">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Producto</Label>
+                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">
+                                        Producto
+                                    </Label>
                                     <Select
                                         value={detalle.producto_id.toString()}
-                                        onValueChange={(val) => updateDetalle(index, 'producto_id', val)}
+                                        onValueChange={(val) =>
+                                            updateDetalle(
+                                                index,
+                                                'producto_id',
+                                                val,
+                                            )
+                                        }
                                     >
                                         <SelectTrigger>
                                             <SelectValue placeholder="Producto" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {productos.map((p) => (
-                                                <SelectItem key={p.id} value={p.id.toString()}>
-                                                    {p.nombre} ({formatCurrencyCLP(p.precio_venta)})
+                                                <SelectItem
+                                                    key={p.id}
+                                                    value={p.id.toString()}
+                                                >
+                                                    {p.nombre} (
+                                                    {formatCurrencyCLP(
+                                                        p.precio_venta,
+                                                    )}
+                                                    )
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="w-24 space-y-2">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cant.</Label>
+                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">
+                                        Cant.
+                                    </Label>
                                     <Input
                                         type="number"
                                         value={detalle.cantidad}
-                                        onChange={(e) => updateDetalle(index, 'cantidad', Number(e.target.value))}
+                                        onChange={(e) =>
+                                            updateDetalle(
+                                                index,
+                                                'cantidad',
+                                                parseInt(e.target.value),
+                                            )
+                                        }
                                         min="0.01"
-                                        step="0.01"
+                                        step="1"
                                     />
                                 </div>
                                 <div className="w-32 space-y-2">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Precio Unit.</Label>
+                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">
+                                        Precio Unit.
+                                    </Label>
                                     <Input
                                         type="number"
                                         value={detalle.precio_unitario}
-                                        onChange={(e) => updateDetalle(index, 'precio_unitario', Number(e.target.value))}
+                                        onChange={(e) =>
+                                            updateDetalle(
+                                                index,
+                                                'precio_unitario',
+                                                parseInt(e.target.value),
+                                            )
+                                        }
                                     />
                                 </div>
                                 <div className="w-32 space-y-2">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Suma</Label>
-                                    <div className="h-10 flex items-center px-3 bg-muted rounded-md font-bold">
-                                        {formatCurrencyCLP(detalle.cantidad * detalle.precio_unitario)}
+                                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">
+                                        Suma
+                                    </Label>
+                                    <div className="flex h-10 items-center rounded-md bg-muted px-3 font-bold">
+                                        {formatCurrencyCLP(
+                                            detalle.cantidad *
+                                                detalle.precio_unitario,
+                                        )}
                                     </div>
                                 </div>
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    className="text-red-500 hover:bg-red-50 hover:text-red-700"
                                     onClick={() => removeDetalle(index)}
                                 >
                                     <Trash2 className="h-4 w-4" />
@@ -1644,19 +2063,30 @@ function EditarFacturaDialog({
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 border-t pt-6">
+                    <div className="grid grid-cols-1 gap-10 border-t pt-6 md:grid-cols-2">
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Tipo Descuento</Label>
-                                    <Select value={data.descuento_tipo} onValueChange={(val) => setData('descuento_tipo', val)}>
+                                    <Select
+                                        value={data.descuento_tipo}
+                                        onValueChange={(val) =>
+                                            setData('descuento_tipo', val)
+                                        }
+                                    >
                                         <SelectTrigger>
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="none">Sin Descuento</SelectItem>
-                                            <SelectItem value="porcentaje">Porcentaje (%)</SelectItem>
-                                            <SelectItem value="monto">Monto Fijo ($)</SelectItem>
+                                            <SelectItem value="none">
+                                                Sin Descuento
+                                            </SelectItem>
+                                            <SelectItem value="porcentaje">
+                                                Porcentaje (%)
+                                            </SelectItem>
+                                            <SelectItem value="monto">
+                                                Monto Fijo ($)
+                                            </SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -1665,32 +2095,60 @@ function EditarFacturaDialog({
                                     <Input
                                         type="number"
                                         value={data.descuento_valor}
-                                        onChange={(e) => setData('descuento_valor', Number(e.target.value))}
-                                        disabled={data.descuento_tipo === 'none'}
+                                        onChange={(e) =>
+                                            setData(
+                                                'descuento_valor',
+                                                parseInt(e.target.value),
+                                            )
+                                        }
+                                        disabled={
+                                            data.descuento_tipo === 'none'
+                                        }
                                     />
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4 p-4 bg-muted/20 rounded-xl border border-dashed">
-                                <div className="space-y-1 flex-1">
-                                    <Label className="text-xs font-bold uppercase">Configuración de Impuestos</Label>
-                                    <div className="flex items-center gap-4 mt-2">
+                            <div className="flex items-center gap-4 rounded-xl border border-dashed bg-muted/20 p-4">
+                                <div className="flex-1 space-y-1">
+                                    <Label className="text-xs font-bold uppercase">
+                                        Configuración de Impuestos
+                                    </Label>
+                                    <div className="mt-2 flex items-center gap-4">
                                         <div className="flex items-center space-x-2">
                                             <Input
                                                 type="checkbox"
                                                 id="edit-iva-incluido"
                                                 className="h-4 w-4"
                                                 checked={data.iva_incluido}
-                                                onChange={(e) => setData('iva_incluido', e.target.checked)}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'iva_incluido',
+                                                        e.target.checked,
+                                                    )
+                                                }
                                             />
-                                            <Label htmlFor="edit-iva-incluido" className="text-xs cursor-pointer">Precios con IVA incluido</Label>
+                                            <Label
+                                                htmlFor="edit-iva-incluido"
+                                                className="cursor-pointer text-xs"
+                                            >
+                                                Precios con IVA incluido
+                                            </Label>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <Label className="text-xs">Tasa IVA:</Label>
+                                            <Label className="text-xs">
+                                                Tasa IVA:
+                                            </Label>
                                             <Input
                                                 type="number"
-                                                className="w-16 h-8 text-xs"
+                                                className="h-8 w-16 text-xs"
                                                 value={data.iva_porcentaje}
-                                                onChange={(e) => setData('iva_porcentaje', Number(e.target.value))}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'iva_porcentaje',
+                                                        parseInt(
+                                                            e.target.value,
+                                                        ),
+                                                    )
+                                                }
                                             />
                                             <span className="text-xs">%</span>
                                         </div>
@@ -1700,35 +2158,57 @@ function EditarFacturaDialog({
                             <div className="space-y-2">
                                 <Label>Observaciones / Notas Públicas</Label>
                                 <textarea
-                                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                                     value={data.notas}
-                                    onChange={(e) => setData('notas', e.target.value)}
+                                    onChange={(e) =>
+                                        setData('notas', e.target.value)
+                                    }
                                     placeholder="Estas notas aparecerán en el PDF..."
                                 />
                             </div>
                         </div>
 
-                        <div className="bg-gray-50 p-6 rounded-2xl space-y-3">
-                            <h4 className="font-bold text-sm uppercase text-gray-400 border-b pb-2 mb-4">Resumen Cálculos</h4>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Subtotal Bruto:</span>
+                        <div className="space-y-3 rounded-2xl bg-gray-50 p-6">
+                            <h4 className="mb-4 border-b pb-2 text-sm font-bold text-gray-400 uppercase">
+                                Resumen Cálculos
+                            </h4>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                    Subtotal Bruto:
+                                </span>
                                 <span>{formatCurrencyCLP(subtotal)}</span>
                             </div>
-                            <div className="flex justify-between items-center text-sm text-red-600">
-                                <span className="text-muted-foreground">Descuento Global ({data.descuento_tipo}):</span>
-                                <span>-{formatCurrencyCLP(totalDescuento)}</span>
+                            <div className="flex items-center justify-between text-sm text-red-600">
+                                <span className="text-muted-foreground">
+                                    Descuento Global ({data.descuento_tipo}):
+                                </span>
+                                <span>
+                                    -{formatCurrencyCLP(totalDescuento)}
+                                </span>
                             </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">Total Neto:</span>
-                                <span className="font-bold">{formatCurrencyCLP(montoFinal)}</span>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                    Total Neto:
+                                </span>
+                                <span className="font-bold">
+                                    {formatCurrencyCLP(montoFinal)}
+                                </span>
                             </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-muted-foreground">IVA ({data.iva_porcentaje}%):</span>
-                                <span className="font-bold">{formatCurrencyCLP(impuesto)}</span>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                    IVA ({data.iva_porcentaje}%):
+                                </span>
+                                <span className="font-bold">
+                                    {formatCurrencyCLP(impuesto)}
+                                </span>
                             </div>
-                            <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-200">
-                                <span className="text-lg font-black uppercase">Total a Pagar:</span>
-                                <span className="text-3xl font-black text-blue-800">{formatCurrencyCLP(total)}</span>
+                            <div className="mt-2 flex items-center justify-between border-t border-gray-200 pt-4">
+                                <span className="text-lg font-black uppercase">
+                                    Total a Pagar:
+                                </span>
+                                <span className="text-3xl font-black text-blue-800">
+                                    {formatCurrencyCLP(total)}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -1745,7 +2225,7 @@ function EditarFacturaDialog({
                         <Button
                             type="submit"
                             disabled={processing || data.detalles.length === 0}
-                            className="bg-blue-600 hover:bg-blue-700 font-bold uppercase min-w-[150px]"
+                            className="min-w-[150px] bg-blue-600 font-bold uppercase hover:bg-blue-700"
                         >
                             {processing ? 'Guardando...' : 'Guardar Cambios'}
                         </Button>

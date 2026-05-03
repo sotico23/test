@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOwner;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CambioProducto extends Model
 {
+    use BelongsToOwner;
+
     protected $table = 'cambios_productos';
 
     protected $fillable = [
+        'owner_id',
         'venta_id',
         'producto_entregado_id',
         'producto_recibido_id',

@@ -38,6 +38,9 @@ class Producto extends Model
         'imagen5',
         'video',
         'mostrar_en_perfil',
+        'is_service',
+        'duracion',
+        'course_id',
     ];
 
     protected function casts(): array
@@ -50,6 +53,7 @@ class Producto extends Model
             'medida_pesable' => 'boolean',
             'cantidad_medida' => 'decimal:2',
             'mostrar_en_perfil' => 'boolean',
+            'is_service' => 'boolean',
         ];
     }
 
@@ -73,9 +77,11 @@ class Producto extends Model
      */
     public function stockEnAlmacen(int $almacenId): float
     {
-        return $this->inventarios()->where(function ($query) use ($almacenId) {
-            $query->where('almacen_id', $almacenId);
-        })->first()?->cantidad ?? 0;
+        $inventario = $this->inventarios()
+            ->where(fn ($q) => $q->where('almacen_id', $almacenId))
+            ->first();
+
+        return $inventario ? (float) ($inventario->cantidad ?? 0.0) : 0.0;
     }
 
     public function detalleCompras(): HasMany
@@ -147,5 +153,10 @@ class Producto extends Model
         $precioMin = $this->skus()->min('precio_venta');
 
         return $precioMin ?? $this->precio_venta;
+    }
+
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
     }
 }

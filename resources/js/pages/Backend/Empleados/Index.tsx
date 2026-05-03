@@ -9,9 +9,9 @@ import {
     KeyRound,
     Eye,
 } from 'lucide-react';
-import { ModalShow } from '@/components/ui/ModalShow';
 import { useState } from 'react';
 import { useMemo } from 'react';
+import { FormInput } from '@/components/form-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,11 +30,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ModalShow } from '@/components/ui/ModalShow';
+import Pagination from '@/components/ui/Pagination';
 import { WhatsAppButton } from '@/components/whatsapp-button';
 import AppLayout from '@/layouts/app-layout';
-import Pagination from '@/components/ui/Pagination';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
+import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Almacen {
     id: number;
@@ -99,6 +101,7 @@ export default function Index({
         put,
         delete: destroy,
         reset,
+        errors,
     } = useForm({
         nombre: '',
         apellido: '',
@@ -256,9 +259,15 @@ export default function Index({
                                 Directorio de empleados
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo Empleado
-                        </Button>
+                        <div className="flex gap-2 items-center">
+                            <BulkActions
+                                baseUrl="/empleados"
+                                modelName="Empleados"
+                            />
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo Empleado
+                            </Button>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -439,38 +448,38 @@ export default function Index({
                     <form onSubmit={handleSubmit}>
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Nombre *</Label>
-                                    <Input
-                                        value={data.nombre}
-                                        onChange={(e) =>
-                                            setData('nombre', e.target.value)
-                                        }
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Apellido *</Label>
-                                    <Input
-                                        value={data.apellido}
-                                        onChange={(e) =>
-                                            setData('apellido', e.target.value)
-                                        }
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Email *</Label>
-                                <Input
-                                    type="email"
-                                    value={data.email}
+                                <FormInput
+                                    label="Nombre *"
+                                    id="nombre"
+                                    value={data.nombre}
                                     onChange={(e) =>
-                                        setData('email', e.target.value)
+                                        setData('nombre', e.target.value)
                                     }
+                                    error={errors.nombre}
+                                    required
+                                />
+                                <FormInput
+                                    label="Apellido *"
+                                    id="apellido"
+                                    value={data.apellido}
+                                    onChange={(e) =>
+                                        setData('apellido', e.target.value)
+                                    }
+                                    error={errors.apellido}
                                     required
                                 />
                             </div>
+                            <FormInput
+                                label="Email *"
+                                id="email"
+                                type="email"
+                                value={data.email}
+                                onChange={(e) =>
+                                    setData('email', e.target.value)
+                                }
+                                error={errors.email}
+                                required
+                            />
                             <div className="flex items-center space-x-2 rounded-md border bg-blue-50/50 p-3">
                                 <input
                                     type="checkbox"
@@ -494,12 +503,10 @@ export default function Index({
                             {data.crear_usuario && (
                                 <div className="grid grid-cols-1 gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2">
                                     <div className="space-y-2">
-                                        <Label className="flex items-center gap-1 text-xs font-medium">
-                                            <KeyRound className="h-3 w-3" />{' '}
-                                            Contraseña
-                                        </Label>
-                                        <Input
-                                            type="text"
+                                        <FormInput
+                                            label="Contraseña"
+                                            id="password"
+                                            type="password"
                                             value={data.password}
                                             onChange={(e) =>
                                                 setData(
@@ -507,11 +514,14 @@ export default function Index({
                                                     e.target.value,
                                                 )
                                             }
+                                            error={errors.password}
                                             placeholder="Manual (mín 6 caracteres)"
                                             className="font-mono"
                                         />
                                         <p className="text-[10px] text-muted-foreground">
-                                            Dejar vacío para usar: empleadonuevo
+                                            {editando && editando?.user_id 
+                                                ? 'Dejar vacío para mantener la contraseña actual' 
+                                                : 'Dejar vacío para usar: empleadonuevo'}
                                         </p>
                                     </div>
                                     <div className="space-y-2">
@@ -543,45 +553,25 @@ export default function Index({
                                     </div>
                                 </div>
                             )}
-                            <div className="flex items-center space-x-2 rounded-md border bg-blue-50/50 p-3">
-                                <input
-                                    type="checkbox"
-                                    id="crear_usuario"
-                                    checked={data.crear_usuario}
-                                    onChange={(e) =>
-                                        setData(
-                                            'crear_usuario',
-                                            e.target.checked,
-                                        )
-                                    }
-                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                />
-                                <Label
-                                    htmlFor="crear_usuario"
-                                    className="cursor-pointer text-sm font-medium text-blue-900"
-                                >
-                                    Dar acceso a la plataforma (crear usuario)
-                                </Label>
-                            </div>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Teléfono</Label>
-                                    <Input
-                                        value={data.telefono}
-                                        onChange={(e) =>
-                                            setData('telefono', e.target.value)
-                                        }
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Cargo</Label>
-                                    <Input
-                                        value={data.cargo}
-                                        onChange={(e) =>
-                                            setData('cargo', e.target.value)
-                                        }
-                                    />
-                                </div>
+                                <FormInput
+                                    label="Teléfono"
+                                    id="telefono"
+                                    value={data.telefono}
+                                    onChange={(e) =>
+                                        setData('telefono', e.target.value)
+                                    }
+                                    error={errors.telefono}
+                                />
+                                <FormInput
+                                    label="Cargo"
+                                    id="cargo"
+                                    value={data.cargo}
+                                    onChange={(e) =>
+                                        setData('cargo', e.target.value)
+                                    }
+                                    error={errors.cargo}
+                                />
                             </div>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
@@ -606,35 +596,35 @@ export default function Index({
                                         ))}
                                     </select>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Salario</Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={data.salario}
-                                        onChange={(e) =>
-                                            setData(
-                                                'salario',
-                                                Number(e.target.value),
-                                            )
-                                        }
-                                    />
-                                </div>
+                                <FormInput
+                                    label="Salario"
+                                    id="salario"
+                                    type="number"
+                                    step="1"
+                                    value={data.salario}
+                                    onChange={(e) =>
+                                        setData(
+                                            'salario',
+                                            parseInt(e.target.value),
+                                        )
+                                    }
+                                    error={errors.salario}
+                                />
                             </div>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Fecha Contratación</Label>
-                                    <Input
-                                        type="date"
-                                        value={data.fecha_contratacion}
-                                        onChange={(e) =>
-                                            setData(
-                                                'fecha_contratacion',
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                </div>
+                                <FormInput
+                                    label="Fecha Contratación"
+                                    id="fecha_contratacion"
+                                    type="date"
+                                    value={data.fecha_contratacion}
+                                    onChange={(e) =>
+                                        setData(
+                                            'fecha_contratacion',
+                                            e.target.value,
+                                        )
+                                    }
+                                    error={errors.fecha_contratacion}
+                                />
                                 <div className="space-y-2">
                                     <Label>Estado</Label>
                                     <select
@@ -676,8 +666,8 @@ export default function Index({
                 colorScheme="teal"
                 quickStats={[
                     {
-                        label: 'Run',
-                        val: viewing?.run || '---',
+                        label: 'Email',
+                        val: viewing?.email || '---',
                         colorScheme: 'blue',
                     },
                     {

@@ -1,4 +1,4 @@
-import { Head, useForm, router, usePage } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import {
     Pencil,
     Plus,
@@ -8,10 +8,23 @@ import {
     GripVertical,
     Kanban,
     List,
-    ChevronLeft,
-    ChevronRight,
+    Download,
+    Upload,
+    Phone,
+    Mail,
+    User,
+    Check,
+    AlertCircle,
+    TrendingUp,
+    Building2,
+    LayoutGrid,
+    UserPlus,
+    Briefcase,
+    DollarSign,
+    FileSpreadsheet,
 } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,222 +40,126 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Toaster } from '@/components/ui/sonner';
 import { WhatsAppButton } from '@/components/whatsapp-button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
+import Pagination from '@/components/ui/Pagination';
 import type { BreadcrumbItem } from '@/types';
 
 interface Prospecto {
     id: number;
     nombre: string;
+    rut: string | null;
     email: string | null;
     telefono: string | null;
     empresa: string | null;
+    giro: string | null;
+    cargo: string | null;
+    direccion: string | null;
+    comuna: string | null;
+    region: string | null;
     descripcion: string | null;
     fuente: string | null;
     estado: string;
+    prioridad: string;
     valor_estimado: number;
     fecha_seguimiento: string | null;
     notas: string | null;
 }
 
-interface PaginatedData<T> {
-    data: T[];
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    from: number | null;
-    to: number | null;
-    next_page_url: string | null;
-    prev_page_url: string | null;
-    links: { url: string | null; label: string; active: boolean }[];
-}
-
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Prospectos', href: '/prospectos' },
+    { title: 'Prospectos y Clientes', href: '/prospectos' },
+    { title: 'Pipeline de Ventas', href: '/prospectos' },
 ];
 
-const estados = ['nuevo', 'contactado', 'calificado', 'perdido', 'convertido'];
-
-const estadoConfig: Record<
-    string,
-    { label: string; color: string; bgColor: string; borderColor: string }
-> = {
-    nuevo: {
+const ESTADOS = [
+    {
+        value: 'nuevo',
         label: 'Nuevo',
-        color: 'text-blue-700',
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-200',
+        color: 'bg-blue-500/10 text-blue-600 border-blue-200',
+        icon: Plus,
     },
-    contactado: {
+    {
+        value: 'contactado',
         label: 'Contactado',
-        color: 'text-yellow-700',
-        bgColor: 'bg-yellow-50',
-        borderColor: 'border-yellow-200',
+        color: 'bg-yellow-500/10 text-yellow-600 border-yellow-200',
+        icon: Phone,
     },
-    calificado: {
+    {
+        value: 'calificado',
         label: 'Calificado',
-        color: 'text-purple-700',
-        bgColor: 'bg-purple-50',
-        borderColor: 'border-purple-200',
+        color: 'bg-purple-500/10 text-purple-600 border-purple-200',
+        icon: TrendingUp,
     },
-    perdido: {
+    {
+        value: 'perdido',
         label: 'Perdido',
-        color: 'text-red-700',
-        bgColor: 'bg-red-50',
-        borderColor: 'border-red-200',
+        color: 'bg-red-500/10 text-red-600 border-red-200',
+        icon: X,
     },
-    convertido: {
+    {
+        value: 'convertido',
         label: 'Convertido',
-        color: 'text-green-700',
-        bgColor: 'bg-green-50',
-        borderColor: 'border-green-200',
+        color: 'bg-green-500/10 text-green-600 border-green-200',
+        icon: Check,
     },
-};
+];
 
-const fuentes = ['web', 'referido', 'telefono', 'feria', 'otro'];
+const FUENTES = [
+    'web',
+    'referido',
+    'telefono',
+    'feria',
+    'Instagram',
+    'Facebook',
+    'LinkedIn',
+    'otro',
+];
+const PRIORIDADES = [
+    { value: 'baja', label: 'Baja', color: 'bg-slate-100 text-slate-600' },
+    { value: 'media', label: 'Media', color: 'bg-orange-100 text-orange-600' },
+    {
+        value: 'alta',
+        label: 'Alta',
+        color: 'bg-red-100 text-red-600 font-black',
+    },
+];
+
+import { BulkActions } from '@/components/shared/BulkActions';
 
 export default function Index({
     prospectos,
+    filters,
 }: {
-    prospectos: PaginatedData<Prospecto>;
+    prospectos: { data: Prospecto[]; links: any[]; meta: any };
+    filters: {
+        search?: string;
+        estado?: string;
+        fuente?: string;
+    };
 }) {
     const [vistaKanban, setVistaKanban] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Prospecto | null>(null);
+    const [validatingRut, setValidatingRut] = useState(false);
+
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [estadoFilter, setEstadoFilter] = useState(filters.estado || 'all');
+    const [fuenteFilter, setFuenteFilter] = useState(filters.fuente || 'all');
     const [draggingId, setDraggingId] = useState<number | null>(null);
-    const [localProspectos, setLocalProspectos] = useState(prospectos.data);
-
-    useEffect(() => {
-        setLocalProspectos(prospectos.data);
-    }, [prospectos.data]);
-
-    const goToPage = (url: string | null) => {
-        if (url) router.get(url);
-    };
-
-    const changePerPage = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('per_page', e.target.value);
-        router.get(url.toString());
-    };
-    const [filtros, setFiltros] = useState({
-        busqueda: '',
-        estado: '',
-        fuente: '',
-        valorMin: '',
-        valorMax: '',
-        fechaDesde: '',
-        fechaHasta: '',
-    });
-
-    const prospectosPorEstado = useMemo(() => {
-        const filtrados = localProspectos.filter((p) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (
-                    !p.nombre?.toLowerCase().includes(busca) &&
-                    !p.email?.toLowerCase().includes(busca) &&
-                    !p.empresa?.toLowerCase().includes(busca)
-                ) {
-                    return false;
-                }
-            }
-            if (filtros.estado && p.estado !== filtros.estado) return false;
-            if (filtros.fuente && p.fuente !== filtros.fuente) return false;
-            if (
-                filtros.valorMin &&
-                Number(p.valor_estimado) < Number(filtros.valorMin)
-            )
-                return false;
-            if (
-                filtros.valorMax &&
-                Number(p.valor_estimado) > Number(filtros.valorMax)
-            )
-                return false;
-            if (
-                filtros.fechaDesde &&
-                p.fecha_seguimiento &&
-                p.fecha_seguimiento < filtros.fechaDesde
-            )
-                return false;
-            if (
-                filtros.fechaHasta &&
-                p.fecha_seguimiento &&
-                p.fecha_seguimiento > filtros.fechaHasta
-            )
-                return false;
-            return true;
-        });
-
-        const grouped: Record<string, Prospecto[]> = {};
-        estados.forEach((e) => (grouped[e] = []));
-        filtrados.forEach((p) => {
-            if (grouped[p.estado]) {
-                grouped[p.estado].push(p);
-            } else {
-                grouped['nuevo'].push(p);
-            }
-        });
-        return grouped;
-    }, [localProspectos, filtros]);
-
-    const prospectosFiltrados = useMemo(() => {
-        return localProspectos.filter((p) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (
-                    !p.nombre?.toLowerCase().includes(busca) &&
-                    !p.email?.toLowerCase().includes(busca) &&
-                    !p.empresa?.toLowerCase().includes(busca)
-                ) {
-                    return false;
-                }
-            }
-            if (filtros.estado && p.estado !== filtros.estado) return false;
-            if (filtros.fuente && p.fuente !== filtros.fuente) return false;
-            if (
-                filtros.valorMin &&
-                Number(p.valor_estimado) < Number(filtros.valorMin)
-            )
-                return false;
-            if (
-                filtros.valorMax &&
-                Number(p.valor_estimado) > Number(filtros.valorMax)
-            )
-                return false;
-            if (
-                filtros.fechaDesde &&
-                p.fecha_seguimiento &&
-                p.fecha_seguimiento < filtros.fechaDesde
-            )
-                return false;
-            if (
-                filtros.fechaHasta &&
-                p.fecha_seguimiento &&
-                p.fecha_seguimiento > filtros.fechaHasta
-            )
-                return false;
-            return true;
-        });
-    }, [localProspectos, filtros]);
-
-    const limpiarFiltros = () => {
-        setFiltros({
-            busqueda: '',
-            estado: '',
-            fuente: '',
-            valorMin: '',
-            valorMax: '',
-            fechaDesde: '',
-            fechaHasta: '',
-        });
-    };
 
     const {
         data,
@@ -251,19 +168,85 @@ export default function Index({
         put,
         delete: destroy,
         reset,
+        processing,
         errors,
     } = useForm({
         nombre: '',
+        rut: '',
         email: '',
         telefono: '',
         empresa: '',
+        giro: '',
+        cargo: '',
+        direccion: '',
+        comuna: '',
+        region: 'Región Metropolitana',
         descripcion: '',
         fuente: '',
         estado: 'nuevo',
+        prioridad: 'media',
         valor_estimado: 0,
         fecha_seguimiento: '',
         notas: '',
     });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const query: any = {};
+            if (searchTerm) query.search = searchTerm;
+            if (estadoFilter !== 'all') query.estado = estadoFilter;
+            if (fuenteFilter !== 'all') query.fuente = fuenteFilter;
+
+            router.get('/prospectos', query, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            });
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm, estadoFilter, fuenteFilter]);
+
+    const handleValidarRut = async () => {
+        if (!data.rut) {
+            toast.error('Ingrese un RUT para validar');
+            return;
+        }
+        setValidatingRut(true);
+        try {
+            const response = await fetch('/api/sii/validar-rut', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN':
+                        (
+                            document.querySelector(
+                                'meta[name="csrf-token"]',
+                            ) as HTMLMetaElement
+                        )?.content || '',
+                },
+                body: JSON.stringify({ rut: data.rut }),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                setData((prev: any) => ({
+                    ...prev,
+                    rut: result.rut,
+                    empresa: result.razon_social || prev.empresa,
+                    giro: result.giro || prev.giro,
+                    comuna: result.comuna || prev.comuna,
+                    direccion: result.direccion || prev.direccion,
+                }));
+                toast.success('Datos recuperados correctamente');
+            } else {
+                toast.error(result.message || 'RUT no encontrado');
+            }
+        } catch (e) {
+            toast.error('Error al conectar con el servicio');
+        } finally {
+            setValidatingRut(false);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -271,6 +254,7 @@ export default function Index({
             put(`/prospectos/${editando.id}`, {
                 onSuccess: () => {
                     setIsOpen(false);
+                    setEditando(null);
                     reset();
                 },
             });
@@ -284,25 +268,72 @@ export default function Index({
         }
     };
 
-    const handleEdit = (prospecto: Prospecto) => {
-        setEditando(prospecto);
+    const handleEdit = (prosp: Prospecto) => {
+        setEditando(prosp);
         setData({
-            nombre: prospecto.nombre,
-            email: prospecto.email || '',
-            telefono: prospecto.telefono || '',
-            empresa: prospecto.empresa || '',
-            descripcion: prospecto.descripcion || '',
-            fuente: prospecto.fuente || '',
-            estado: prospecto.estado,
-            valor_estimado: prospecto.valor_estimado,
-            fecha_seguimiento: prospecto.fecha_seguimiento || '',
-            notas: prospecto.notas || '',
+            nombre: prosp.nombre,
+            rut: prosp.rut || '',
+            email: prosp.email || '',
+            telefono: prosp.telefono || '',
+            empresa: prosp.empresa || '',
+            giro: prosp.giro || '',
+            cargo: prosp.cargo || '',
+            direccion: prosp.direccion || '',
+            comuna: prosp.comuna || '',
+            region: prosp.region || 'Región Metropolitana',
+            descripcion: prosp.descripcion || '',
+            fuente: prosp.fuente || '',
+            estado: prosp.estado,
+            prioridad: prosp.prioridad || 'media',
+            valor_estimado: prosp.valor_estimado || 0,
+            fecha_seguimiento: prosp.fecha_seguimiento
+                ? prosp.fecha_seguimiento.substring(0, 10)
+                : '',
+            notas: prosp.notas || '',
         });
         setIsOpen(true);
     };
 
     const handleDelete = (id: number) => {
-        if (confirm('¿Eliminar?')) destroy(`/prospectos/${id}`);
+        if (confirm('¿Desea eliminar este prospecto?')) {
+            destroy(`/prospectos/${id}`);
+        }
+    };
+
+    const handleExportCsv = () => {
+        window.location.href = '/prospectos/export';
+    };
+
+    const handleExportExcel = () => {
+        window.location.href = '/prospectos/export-excel';
+    };
+
+    const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('archivo', file);
+        router.post('/prospectos/import', formData, {
+            onSuccess: () => alert('Importación completada'),
+            onError: (err) => alert('Error: ' + Object.values(err)[0]),
+        });
+    };
+
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('archivo', file);
+        router.post('/prospectos/import-excel', formData, {
+            onSuccess: () => alert('Importación completada'),
+            onError: (err) => alert('Error: ' + Object.values(err)[0]),
+        });
+    };
+
+    const handleConvertir = (id: number) => {
+        if (confirm('¿Convertir este prospecto en cliente real?')) {
+            router.post(`/prospectos/${id}/convertir`);
+        }
     };
 
     const handleDragStart = (e: React.DragEvent, id: number) => {
@@ -319,806 +350,811 @@ export default function Index({
         e.preventDefault();
         if (draggingId === null) return;
 
-        const prospecto = localProspectos.find((p) => p.id === draggingId);
-        if (!prospecto || prospecto.estado === nuevoEstado) {
-            setDraggingId(null);
-            return;
-        }
-
         router.patch(
             `/prospectos/${draggingId}/estado`,
             { estado: nuevoEstado },
             {
-                onSuccess: () => {
-                    setLocalProspectos((prev) =>
-                        prev.map((p) =>
-                            p.id === draggingId
-                                ? { ...p, estado: nuevoEstado }
-                                : p,
-                        ),
-                    );
-                    setDraggingId(null);
-                },
+                onSuccess: () => setDraggingId(null),
             },
         );
     };
 
-    const getTotalValor = (estado: string) => {
-        return (
-            prospectosPorEstado[estado]?.reduce(
-                (sum, p) => sum + Number(p.valor_estimado),
-                0,
-            ) || 0
-        );
-    };
+    const groupedProspectos = useMemo(() => {
+        const groups: Record<string, Prospecto[]> = {};
+        ESTADOS.forEach((e) => (groups[e.value] = []));
+        prospectos.data.forEach((p) => {
+            if (groups[p.estado]) groups[p.estado].push(p);
+            else groups['nuevo'].push(p);
+        });
+        return groups;
+    }, [prospectos.data]);
 
-    const getTotalProspectos = (estado: string) => {
-        return prospectosPorEstado[estado]?.length || 0;
-    };
-
-    const getEstadoBadge = (estado: string) => {
-        const colores: Record<string, string> = {
-            nuevo: 'bg-blue-500',
-            contactado: 'bg-yellow-500',
-            calificado: 'bg-purple-500',
-            perdido: 'bg-red-500',
-            convertido: 'bg-green-500',
-        };
+    const getEstadoConfig = (val: string) => {
         return (
-            <Badge
-                className={`${colores[estado] || 'bg-gray-500'} h-5 px-1.5 text-[10px] uppercase`}
-            >
-                {estado}
-            </Badge>
+            ESTADOS.find((e) => e.value === val) || {
+                label: val,
+                color: 'bg-gray-500/10 text-gray-600 border-gray-200',
+                icon: AlertCircle,
+            }
         );
     };
 
     return (
-        <>
-            <Head title="Prospectos" />
-            <AppLayout breadcrumbs={breadcrumbs}>
-                <div className="flex flex-col gap-4 p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold">Prospectos</h1>
-                            <p className="text-muted-foreground">
-                                Pipeline de ventas
-                            </p>
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Pipeline de Prospectos" />
+
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div className="mb-1 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            <span className="text-[10px] font-black tracking-widest text-primary/70 uppercase">
+                                CRM & Sales Pipeline
+                            </span>
+                        </div>
+                        <h1 className="text-3xl font-black tracking-tight text-foreground">
+                            Prospectos
+                        </h1>
+                        <p className="text-sm font-medium text-muted-foreground">
+                            Gestione sus oportunidades de venta y conviértalas
+                            en clientes
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="mr-2 flex gap-1 rounded-xl bg-muted/30 p-1">
+                            <Button
+                                variant={vistaKanban ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => setVistaKanban(true)}
+                                className="h-8 rounded-lg font-bold"
+                            >
+                                <Kanban className="h-4 w-4 md:mr-2" />
+                                <span className="hidden md:inline">Kanban</span>
+                            </Button>
+                            <Button
+                                variant={!vistaKanban ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => setVistaKanban(false)}
+                                className="h-8 rounded-lg font-bold"
+                            >
+                                <List className="h-4 w-4 md:mr-2" />
+                                <span className="hidden md:inline">Lista</span>
+                            </Button>
+                        </div>
+
+                        <BulkActions
+                            baseUrl="/prospectos"
+                            filters={{
+                                search: searchTerm,
+                                estado: estadoFilter,
+                                fuente: fuenteFilter,
+                            }}
+                            modelName="Prospectos"
+                        />
+
+                        <Button
+                            onClick={() => {
+                                setEditando(null);
+                                reset();
+                                setIsOpen(true);
+                            }}
+                            className="h-9 rounded-full bg-primary px-5 font-bold shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+                        >
+                            <Plus className="mr-2 h-4 w-4" /> Nuevo Prospecto
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="grid gap-6">
+                    {/* Filters Bar */}
+                    <div className="flex flex-col gap-4 rounded-3xl border border-muted/50 bg-muted/40 p-4 md:flex-row md:items-center">
+                        <div className="relative flex-1">
+                            <Search className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar por nombre, empresa, rut o email..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="h-11 rounded-2xl border-none bg-background pl-12 shadow-sm focus-visible:ring-primary/20"
+                            />
                         </div>
                         <div className="flex gap-2">
-                            <Button
-                                variant={vistaKanban ? 'default' : 'outline'}
-                                size="icon"
-                                onClick={() => setVistaKanban(true)}
-                                title="Vista Kanban"
+                            <Select
+                                value={estadoFilter}
+                                onValueChange={setEstadoFilter}
                             >
-                                <Kanban className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant={!vistaKanban ? 'default' : 'outline'}
-                                size="icon"
-                                onClick={() => setVistaKanban(false)}
-                                title="Vista Lista"
+                                <SelectTrigger className="h-11 min-w-[140px] rounded-2xl border-none bg-background font-bold shadow-sm md:w-[160px]">
+                                    <SelectValue placeholder="Estado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        Todos los estados
+                                    </SelectItem>
+                                    {ESTADOS.map((e) => (
+                                        <SelectItem
+                                            key={e.value}
+                                            value={e.value}
+                                        >
+                                            {e.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Select
+                                value={fuenteFilter}
+                                onValueChange={setFuenteFilter}
                             >
-                                <List className="h-4 w-4" />
-                            </Button>
+                                <SelectTrigger className="h-11 min-w-[140px] rounded-2xl border-none bg-background font-bold shadow-sm md:w-[160px]">
+                                    <SelectValue placeholder="Fuente" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        Todas las fuentes
+                                    </SelectItem>
+                                    {FUENTES.map((f) => (
+                                        <SelectItem key={f} value={f}>
+                                            {f}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-11 w-11 rounded-2xl border-none bg-background text-muted-foreground shadow-sm"
                                 onClick={() => {
-                                    setEditando(null);
-                                    reset();
-                                    setIsOpen(true);
+                                    setSearchTerm('');
+                                    setEstadoFilter('all');
+                                    setFuenteFilter('all');
                                 }}
                             >
-                                <Plus className="mr-2 h-4 w-4" /> Nuevo
-                                Prospecto
+                                <X className="h-5 w-5" />
                             </Button>
                         </div>
                     </div>
 
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                                <CardTitle>
-                                    {vistaKanban
-                                        ? 'Pipeline de Ventas'
-                                        : 'Lista de Prospectos'}
-                                </CardTitle>
-                                <CardDescription>
-                                    {vistaKanban
-                                        ? `${localProspectos.length} prospectos en pipeline • ${formatCurrencyCLP(localProspectos.reduce((sum, p) => sum + Number(p.valor_estimado), 0))} valor total`
-                                        : `${prospectosFiltrados.length} prospectos ${prospectosFiltrados.length !== localProspectos.length ? `de ${localProspectos.length} registrados` : 'registrados'}`}
-                                </CardDescription>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="mb-4 flex flex-wrap gap-2 rounded-lg bg-muted/30 p-2">
-                                <div className="min-w-[200px] flex-1">
-                                    <div className="relative">
-                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            placeholder="Buscar por nombre, email o empresa..."
-                                            value={filtros.busqueda}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    busqueda: e.target.value,
-                                                })
-                                            }
-                                            className="h-8 pl-8 text-xs"
-                                        />
-                                    </div>
-                                </div>
-                                {!vistaKanban && (
-                                    <>
-                                        <select
-                                            value={filtros.estado}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    estado: e.target.value,
-                                                })
-                                            }
-                                            className="flex h-8 rounded-md border bg-background px-2 py-1 text-xs"
-                                        >
-                                            <option value="">
-                                                Todos los estados
-                                            </option>
-                                            {estados.map((e) => (
-                                                <option key={e} value={e}>
-                                                    {e.charAt(0).toUpperCase() +
-                                                        e.slice(1)}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <select
-                                            value={filtros.fuente}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    fuente: e.target.value,
-                                                })
-                                            }
-                                            className="flex h-8 rounded-md border bg-background px-2 py-1 text-xs"
-                                        >
-                                            <option value="">
-                                                Todas las fuentes
-                                            </option>
-                                            {fuentes.map((f) => (
-                                                <option key={f} value={f}>
-                                                    {f.charAt(0).toUpperCase() +
-                                                        f.slice(1)}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <Input
-                                            type="number"
-                                            placeholder="Valor mín"
-                                            value={filtros.valorMin}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    valorMin: e.target.value,
-                                                })
-                                            }
-                                            className="h-8 w-[90px] text-xs"
-                                        />
-                                        <Input
-                                            type="number"
-                                            placeholder="Valor máx"
-                                            value={filtros.valorMax}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    valorMax: e.target.value,
-                                                })
-                                            }
-                                            className="h-8 w-[90px] text-xs"
-                                        />
-                                        <Input
-                                            type="date"
-                                            placeholder="Desde"
-                                            value={filtros.fechaDesde}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    fechaDesde: e.target.value,
-                                                })
-                                            }
-                                            className="h-8 w-[120px] text-xs"
-                                        />
-                                        <Input
-                                            type="date"
-                                            placeholder="Hasta"
-                                            value={filtros.fechaHasta}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    fechaHasta: e.target.value,
-                                                })
-                                            }
-                                            className="h-8 w-[120px] text-xs"
-                                        />
-                                    </>
-                                )}
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={limpiarFiltros}
-                                    title="Limpiar filtros"
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
+                    {vistaKanban ? (
+                        <div className="grid grid-cols-1 gap-4 overflow-x-auto pb-4 md:grid-cols-5">
+                            {ESTADOS.map((est) => {
+                                const prospEnEst =
+                                    (groupedProspectos as any)[est.value] || [];
+                                const totalValor = prospEnEst.reduce(
+                                    (sum: number, p: any) =>
+                                        sum + Number(p.valor_estimado),
+                                    0,
+                                );
 
-                            {vistaKanban ? (
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                                    {estados.map((estado) => {
-                                        const config = estadoConfig[estado];
-                                        const prospectosEnEstado =
-                                            prospectosPorEstado[estado] || [];
-                                        const isDraggingOver =
-                                            draggingId !== null;
+                                return (
+                                    <div
+                                        key={est.value}
+                                        className="flex min-w-[280px] flex-col gap-4"
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) => handleDrop(e, est.value)}
+                                    >
+                                        <div
+                                            className={`rounded-3xl p-4 ${est.color} flex flex-col gap-1 border-2 border-transparent`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <est.icon className="h-4 w-4" />
+                                                    <span className="text-[11px] font-black tracking-widest uppercase">
+                                                        {est.label}
+                                                    </span>
+                                                </div>
+                                                <Badge className="border-none bg-background/50 text-[10px] font-black text-inherit hover:bg-background/60">
+                                                    {prospEnEst.length}
+                                                </Badge>
+                                            </div>
+                                            <div className="mt-1 text-[10px] font-bold opacity-70">
+                                                {formatCurrencyCLP(totalValor)}{' '}
+                                                Estimados
+                                            </div>
+                                        </div>
 
-                                        return (
-                                            <div
-                                                key={estado}
-                                                className={`relative overflow-hidden rounded-2xl border-0 shadow-sm ${isDraggingOver ? 'ring-2 ring-primary/30' : ''} ${
-                                                    estado === 'nuevo'
-                                                        ? 'bg-gradient-to-b from-blue-50/80 to-blue-100/30'
-                                                        : estado ===
-                                                            'contactado'
-                                                          ? 'bg-gradient-to-b from-amber-50/80 to-amber-100/30'
-                                                          : estado ===
-                                                              'calificado'
-                                                            ? 'bg-gradient-to-b from-violet-50/80 to-violet-100/30'
-                                                            : estado ===
-                                                                'perdido'
-                                                              ? 'bg-gradient-to-b from-rose-50/80 to-rose-100/30'
-                                                              : 'bg-gradient-to-b from-emerald-50/80 to-emerald-100/30'
-                                                }`}
-                                                onDragOver={handleDragOver}
-                                                onDrop={(e) =>
-                                                    handleDrop(e, estado)
-                                                }
-                                            >
-                                                <div className="px-4 py-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className={`flex h-8 w-8 items-center justify-center rounded-xl ${
-                                                                    estado ===
-                                                                    'nuevo'
-                                                                        ? 'bg-blue-100'
-                                                                        : estado ===
-                                                                            'contactado'
-                                                                          ? 'bg-amber-100'
-                                                                          : estado ===
-                                                                              'calificado'
-                                                                            ? 'bg-violet-100'
-                                                                            : estado ===
-                                                                                'perdido'
-                                                                              ? 'bg-rose-100'
-                                                                              : 'bg-emerald-100'
-                                                                }`}
-                                                            >
-                                                                <span
-                                                                    className={`text-sm font-bold ${
-                                                                        estado ===
-                                                                        'nuevo'
-                                                                            ? 'text-blue-600'
-                                                                            : estado ===
-                                                                                'contactado'
-                                                                              ? 'text-amber-600'
-                                                                              : estado ===
-                                                                                  'calificado'
-                                                                                ? 'text-violet-600'
-                                                                                : estado ===
-                                                                                    'perdido'
-                                                                                  ? 'text-rose-600'
-                                                                                  : 'text-emerald-600'
-                                                                    }`}
-                                                                >
-                                                                    {getTotalProspectos(
-                                                                        estado,
-                                                                    )}
+                                        <div className="flex flex-col gap-3">
+                                            {prospEnEst.map((p: any) => (
+                                                <div
+                                                    key={p.id}
+                                                    draggable
+                                                    onDragStart={(e) =>
+                                                        handleDragStart(e, p.id)
+                                                    }
+                                                    className="group cursor-grab rounded-3xl border border-muted bg-background p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-xl active:cursor-grabbing"
+                                                >
+                                                    <div className="mb-3 flex items-start justify-between">
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="truncate text-sm font-bold tracking-tight transition-colors group-hover:text-primary">
+                                                                {p.nombre}
+                                                            </div>
+                                                            <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                                <Building2 className="h-2.5 w-2.5" />
+                                                                <span className="truncate">
+                                                                    {p.empresa ||
+                                                                        'Empresa no reg.'}
                                                                 </span>
                                                             </div>
-                                                            <div>
-                                                                <h3 className="text-sm font-bold text-gray-800">
-                                                                    {
-                                                                        config.label
+                                                        </div>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`rounded-md px-1 py-0 text-[8px] font-black uppercase ${PRIORIDADES.find((pr) => pr.value === p.prioridad)?.color || ''}`}
+                                                        >
+                                                            {p.prioridad}
+                                                        </Badge>
+                                                    </div>
+
+                                                    <div className="mt-4 flex items-center justify-between">
+                                                        <div className="flex -space-x-2">
+                                                            {p.telefono && (
+                                                                <WhatsAppButton
+                                                                    phone={
+                                                                        p.telefono
                                                                     }
-                                                                </h3>
-                                                                <p className="text-xs font-medium text-gray-500">
-                                                                    {formatCurrencyCLP(
-                                                                        getTotalValor(
-                                                                            estado,
-                                                                        ),
-                                                                    )}
-                                                                </p>
+                                                                    nombre={
+                                                                        p.nombre
+                                                                    }
+                                                                    className="h-8 w-8 transition-transform hover:scale-110"
+                                                                />
+                                                            )}
+                                                            {p.email && (
+                                                                <a
+                                                                    href={`mailto:${p.email}`}
+                                                                    className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-blue-50 text-blue-500 transition-colors hover:bg-blue-100"
+                                                                >
+                                                                    <Mail className="h-3 w-3" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-[11px] font-black text-primary">
+                                                                {formatCurrencyCLP(
+                                                                    p.valor_estimado,
+                                                                )}
+                                                            </div>
+                                                            <div className="text-[8px] font-bold text-muted-foreground uppercase">
+                                                                {p.fuente ||
+                                                                    'web'}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div className="space-y-2 px-2 pb-3">
-                                                    {prospectosEnEstado.length ===
-                                                    0 ? (
-                                                        <div className="py-8 text-center text-xs text-gray-400">
-                                                            Sin prospectos
-                                                        </div>
-                                                    ) : (
-                                                        prospectosEnEstado.map(
-                                                            (prospecto) => (
-                                                                <Card
-                                                                    key={
-                                                                        prospecto.id
-                                                                    }
-                                                                    draggable
-                                                                    onDragStart={(
-                                                                        e,
-                                                                    ) =>
-                                                                        handleDragStart(
-                                                                            e,
-                                                                            prospecto.id,
-                                                                        )
-                                                                    }
-                                                                    className="mx-1 cursor-grab rounded-xl border-0 bg-white/80 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md"
-                                                                >
-                                                                    <CardContent className="p-3">
-                                                                        <div className="flex items-start justify-between gap-2">
-                                                                            <div className="min-w-0 flex-1">
-                                                                                <p className="truncate text-sm font-semibold text-gray-800">
-                                                                                    {
-                                                                                        prospecto.nombre
-                                                                                    }
-                                                                                </p>
-                                                                                {prospecto.empresa && (
-                                                                                    <p className="truncate text-xs text-gray-500">
-                                                                                        {
-                                                                                            prospecto.empresa
-                                                                                        }
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="mt-2 flex items-center justify-between">
-                                                                            {prospecto.telefono && (
-                                                                                <WhatsAppButton
-                                                                                    phone={
-                                                                                        prospecto.telefono
-                                                                                    }
-                                                                                    nombre={
-                                                                                        prospecto.nombre
-                                                                                    }
-                                                                                    className="h-6 w-6"
-                                                                                />
-                                                                            )}
-                                                                            <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-600">
-                                                                                {formatCurrencyCLP(
-                                                                                    prospecto.valor_estimado,
-                                                                                )}
-                                                                            </span>
-                                                                        </div>
-                                                                        {prospecto.fecha_seguimiento && (
-                                                                            <p className="mt-2 flex items-center gap-1 text-[10px] text-gray-400">
-                                                                                <svg
-                                                                                    className="h-3 w-3"
-                                                                                    fill="none"
-                                                                                    stroke="currentColor"
-                                                                                    viewBox="0 0 24 24"
-                                                                                >
-                                                                                    <path
-                                                                                        strokeLinecap="round"
-                                                                                        strokeLinejoin="round"
-                                                                                        strokeWidth={
-                                                                                            2
-                                                                                        }
-                                                                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                                                                    />
-                                                                                </svg>
-                                                                                {formatDateCLP(
-                                                                                    prospecto.fecha_seguimiento,
-                                                                                )}
-                                                                            </p>
-                                                                        )}
-                                                                        <div className="mt-2 flex gap-1 border-t border-gray-100 pt-2">
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="h-7 w-7 hover:bg-gray-100"
-                                                                                onClick={() =>
-                                                                                    handleEdit(
-                                                                                        prospecto,
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                <Pencil className="h-3 w-3 text-gray-500" />
-                                                                            </Button>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="h-7 w-7 hover:bg-red-50"
-                                                                                onClick={() =>
-                                                                                    handleDelete(
-                                                                                        prospecto.id,
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                <Trash2 className="h-3 w-3 text-red-400" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </CardContent>
-                                                                </Card>
-                                                            ),
-                                                        )
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : prospectosFiltrados.length === 0 ? (
-                                <p className="py-8 text-center text-muted-foreground">
-                                    No hay prospectos
-                                </p>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b text-sm">
-                                                <th className="px-2 py-2 text-left font-medium">
-                                                    Nombre
-                                                </th>
-                                                <th className="px-2 py-2 text-left font-medium">
-                                                    Teléfono
-                                                </th>
-                                                <th className="hidden px-2 py-2 text-left font-medium md:table-cell">
-                                                    Empresa
-                                                </th>
-                                                <th className="hidden px-2 py-2 text-left font-medium sm:table-cell">
-                                                    Email
-                                                </th>
-                                                <th className="hidden px-2 py-2 text-left font-medium lg:table-cell">
-                                                    Fuente
-                                                </th>
-                                                <th className="hidden px-2 py-2 text-right font-medium lg:table-cell">
-                                                    Valor
-                                                </th>
-                                                <th className="px-2 py-2 text-center font-medium">
-                                                    Estado
-                                                </th>
-                                                <th className="px-2 py-2 text-right font-medium">
-                                                    Acciones
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {prospectosFiltrados.map((p) => (
-                                                <tr
-                                                    key={p.id}
-                                                    className="border-b"
-                                                >
-                                                    <td className="px-2 py-2 font-medium">
-                                                        {p.nombre}
-                                                    </td>
-                                                    <td className="px-2 py-2">
-                                                        <div className="flex items-center gap-1">
-                                                            {p.telefono || (
-                                                                <span className="text-muted-foreground">
-                                                                    -
-                                                                </span>
-                                                            )}
-                                                            <WhatsAppButton
-                                                                phone={
-                                                                    p.telefono
+
+                                                    <div className="mt-4 flex justify-end gap-1 border-t border-muted/50 pt-3 opacity-0 transition-opacity group-hover:opacity-100">
+                                                        {p.estado !==
+                                                            'convertido' && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-green-600 hover:bg-green-50"
+                                                                onClick={() =>
+                                                                    handleConvertir(
+                                                                        p.id,
+                                                                    )
                                                                 }
-                                                                nombre={
-                                                                    p.nombre
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                    <td className="hidden max-w-[200px] truncate px-2 py-2 md:table-cell">
-                                                        {p.empresa || (
-                                                            <span className="text-muted-foreground">
-                                                                -
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                    <td className="hidden max-w-[200px] truncate px-2 py-2 sm:table-cell">
-                                                        {p.email || (
-                                                            <span className="text-muted-foreground">
-                                                                -
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                    <td className="hidden px-2 py-2 lg:table-cell">
-                                                        {p.fuente ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="capitalize"
                                                             >
-                                                                {p.fuente}
-                                                            </Badge>
-                                                        ) : (
-                                                            '-'
+                                                                <UserPlus className="h-4 w-4" />
+                                                            </Button>
                                                         )}
-                                                    </td>
-                                                    <td className="hidden px-2 py-2 text-right font-bold whitespace-nowrap text-green-600 lg:table-cell">
-                                                        {formatCurrencyCLP(
-                                                            p.valor_estimado,
-                                                        )}
-                                                    </td>
-                                                    <td className="px-2 py-2 text-center whitespace-nowrap">
-                                                        {getEstadoBadge(
-                                                            p.estado,
-                                                        )}
-                                                    </td>
-                                                    <td className="px-2 py-2 text-right whitespace-nowrap">
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
+                                                            className="h-7 w-7 text-primary hover:bg-primary/10"
                                                             onClick={() =>
                                                                 handleEdit(p)
                                                             }
                                                         >
-                                                            <Pencil className="h-3.5 w-3.5" />
+                                                            <Pencil className="h-4 w-4" />
                                                         </Button>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
+                                                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
                                                             onClick={() =>
                                                                 handleDelete(
                                                                     p.id,
                                                                 )
                                                             }
                                                         >
-                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                            <Trash2 className="h-4 w-4" />
                                                         </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {prospEnEst.length === 0 && (
+                                                <div className="rounded-3xl border-2 border-dashed border-muted p-10 text-center">
+                                                    <p className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                                                        Sin Prospectos
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <Card className="overflow-hidden border-none shadow-xl shadow-foreground/5">
+                            <CardContent className="p-0">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b bg-muted/5 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                                                <th className="px-6 py-4 text-left">
+                                                    Prospecto / Empresa
+                                                </th>
+                                                <th className="px-6 py-4 text-left">
+                                                    Contacto
+                                                </th>
+                                                <th className="px-6 py-4 text-right">
+                                                    Valor Estimado
+                                                </th>
+                                                <th className="px-6 py-4 text-center">
+                                                    Estado / Prioridad
+                                                </th>
+                                                <th className="px-6 py-4 text-right">
+                                                    Acciones
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-muted/50">
+                                            {prospectos.data.map((p) => (
+                                                <tr
+                                                    key={p.id}
+                                                    className="group transition-colors hover:bg-muted/30"
+                                                >
+                                                    <td className="px-6 py-4">
+                                                        <div>
+                                                            <div className="text-sm font-bold tracking-tight text-foreground">
+                                                                {p.nombre}
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                                <Building2 className="h-2.5 w-2.5" />
+                                                                {p.empresa ||
+                                                                    'Particular'}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            {p.telefono && (
+                                                                <WhatsAppButton
+                                                                    phone={
+                                                                        p.telefono
+                                                                    }
+                                                                    nombre={
+                                                                        p.nombre
+                                                                    }
+                                                                    className="h-7 w-7"
+                                                                />
+                                                            )}
+                                                            <div className="text-xs">
+                                                                <div className="font-bold text-primary">
+                                                                    {p.email ||
+                                                                        'Sin email'}
+                                                                </div>
+                                                                <div className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                                    {p.fuente ||
+                                                                        'web'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="text-sm font-black text-primary">
+                                                            {formatCurrencyCLP(
+                                                                p.valor_estimado,
+                                                            )}
+                                                        </div>
+                                                        {p.fecha_seguimiento && (
+                                                            <div className="text-[9px] font-bold text-orange-500 uppercase">
+                                                                Seguimiento:{' '}
+                                                                {formatDateCLP(
+                                                                    p.fecha_seguimiento,
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={`${getEstadoConfig(p.estado).color} rounded-full border px-2 py-0.5 text-[8px] font-black uppercase`}
+                                                            >
+                                                                {
+                                                                    getEstadoConfig(
+                                                                        p.estado,
+                                                                    ).label
+                                                                }
+                                                            </Badge>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={`rounded-full px-2 py-0 text-[8px] font-bold ${PRIORIDADES.find((pr) => pr.value === p.prioridad)?.color || ''}`}
+                                                            >
+                                                                {p.prioridad}
+                                                            </Badge>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                                            {p.estado !==
+                                                                'convertido' && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-green-600 hover:bg-green-50"
+                                                                    onClick={() =>
+                                                                        handleConvertir(
+                                                                            p.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <UserPlus className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-primary hover:bg-primary/10"
+                                                                onClick={() =>
+                                                                    handleEdit(
+                                                                        p,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                                onClick={() =>
+                                                                    handleDelete(
+                                                                        p.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {prospectos.last_page > 1 && (
-                        <div className="flex flex-col items-center justify-between gap-4 border-t px-4 py-3 sm:flex-row">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>Mostrando</span>
-                                <span className="font-medium">
-                                    {prospectos.from}
-                                </span>
-                                <span>a</span>
-                                <span className="font-medium">
-                                    {prospectos.to}
-                                </span>
-                                <span>de</span>
-                                <span className="font-medium">
-                                    {prospectos.total}
-                                </span>
-                                <span>resultados</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">
-                                    Por página:
-                                </span>
-                                <select
-                                    value={prospectos.per_page}
-                                    onChange={changePerPage}
-                                    className="rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                >
-                                    <option value="10">10</option>
-                                    <option value="15">15</option>
-                                    <option value="25">25</option>
-                                    <option value="50">50</option>
-                                </select>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() =>
-                                        goToPage(prospectos.prev_page_url)
-                                    }
-                                    disabled={!prospectos.prev_page_url}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                {prospectos.links
-                                    .slice(1, -1)
-                                    .map((link, i) => (
-                                        <Button
-                                            key={i}
-                                            variant={
-                                                link.active
-                                                    ? 'default'
-                                                    : 'outline'
-                                            }
-                                            size="icon"
-                                            onClick={() => goToPage(link.url)}
-                                            disabled={!link.url}
-                                            className="h-8 w-8"
-                                        >
-                                            {link.label}
-                                        </Button>
-                                    ))}
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() =>
-                                        goToPage(prospectos.next_page_url)
-                                    }
-                                    disabled={!prospectos.next_page_url}
-                                    className="h-8 w-8"
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
+                                <div className="border-t border-muted/50 p-4">
+                                    <Pagination
+                                        links={prospectos.links}
+                                        meta={prospectos.meta}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
                     )}
                 </div>
-            </AppLayout>
+            </div>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-2xl md:max-w-4xl">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editando ? 'Editar' : 'Nuevo'} Prospecto
+                <DialogContent className="max-h-[95vh] max-w-[95vw] overflow-y-auto border-none p-0 shadow-2xl md:max-w-4xl">
+                    <DialogHeader className="sticky top-0 z-10 bg-gradient-to-r from-primary/10 to-transparent p-4 pb-4 text-left backdrop-blur-sm md:p-6">
+                        <div className="mb-1 flex items-center gap-2">
+                            <Briefcase className="h-5 w-5 text-primary" />
+                            <span className="text-[10px] font-black tracking-widest text-primary/70 uppercase">
+                                Sales Opportunity Profile
+                            </span>
+                        </div>
+                        <DialogTitle className="text-xl font-black tracking-tight text-primary md:text-2xl">
+                            {editando
+                                ? 'Editar Prospecto de Venta'
+                                : 'Registrar Nuevo Prospecto'}
                         </DialogTitle>
+                        <DialogDescription className="text-sm font-medium text-muted-foreground">
+                            Complete la información para hacer seguimiento a la
+                            oportunidad de negocio.
+                        </DialogDescription>
                     </DialogHeader>
-                    {Object.keys(errors).length > 0 && (
-                        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
-                            <div className="text-sm text-red-700">
-                                <strong>Corrija los siguientes errores:</strong>
-                                <ul className="mt-1 list-disc pl-5">
-                                    {Object.entries(errors).map(
-                                        ([key, error]) => (
-                                            <li key={key}>
-                                                {key}: {error as string}
-                                            </li>
-                                        ),
-                                    )}
-                                </ul>
+
+                    <div className="max-h-[calc(95vh-180px)] overflow-y-auto p-4 md:p-6">
+                        <form onSubmit={handleSubmit}>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+                                {/* Columna Izquierda: Datos Principales */}
+                                <div className="space-y-5">
+                                    <h3 className="flex items-center gap-2 text-[11px] font-black tracking-widest text-primary uppercase">
+                                        <LayoutGrid className="h-4 w-4" />{' '}
+                                        Información de Contacto
+                                    </h3>
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                Nombre Completo *
+                                            </Label>
+                                            <Input
+                                                value={data.nombre}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'nombre',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                required
+                                                className="h-11 rounded-xl border-none bg-muted/30 font-bold"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                    RUT Empresa/Persona
+                                                </Label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        value={data.rut}
+                                                        onChange={(e) =>
+                                                            setData(
+                                                                'rut',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        className="h-11 rounded-xl border-none bg-muted/30 font-bold"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        size="icon"
+                                                        onClick={
+                                                            handleValidarRut
+                                                        }
+                                                        disabled={validatingRut}
+                                                        className="h-11 w-11 rounded-xl"
+                                                    >
+                                                        <Search
+                                                            className={`h-4 w-4 ${validatingRut ? 'animate-spin' : ''}`}
+                                                        />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                    Prioridad
+                                                </Label>
+                                                <Select
+                                                    value={data.prioridad}
+                                                    onValueChange={(v) =>
+                                                        setData('prioridad', v)
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-11 rounded-xl border-none bg-muted/30 font-bold">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {PRIORIDADES.map(
+                                                            (p) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        p.value
+                                                                    }
+                                                                    value={
+                                                                        p.value
+                                                                    }
+                                                                >
+                                                                    {p.label}
+                                                                </SelectItem>
+                                                            ),
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                    Email
+                                                </Label>
+                                                <Input
+                                                    type="email"
+                                                    value={data.email}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'email',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="h-11 rounded-xl border-none bg-muted/30 font-bold"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                    Teléfono / WhatsApp
+                                                </Label>
+                                                <Input
+                                                    value={data.telefono}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'telefono',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="h-11 rounded-xl border-none bg-muted/30 font-bold"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                Empresa
+                                            </Label>
+                                            <Input
+                                                value={data.empresa}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'empresa',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="h-11 rounded-xl border-none bg-muted/30 font-bold"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Columna Derecha: Oportunidad Neogcio */}
+                                <div className="space-y-6">
+                                    <h3 className="flex items-center gap-2 text-[11px] font-black tracking-widest text-primary uppercase">
+                                        <TrendingUp className="h-4 w-4" />{' '}
+                                        Detalles de Negocio
+                                    </h3>
+                                    <div className="space-y-4 rounded-3xl border border-muted/50 bg-muted/10 p-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                    Estado Pipeline
+                                                </Label>
+                                                <Select
+                                                    value={data.estado}
+                                                    onValueChange={(v) =>
+                                                        setData('estado', v)
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-11 rounded-xl border-none bg-background font-bold shadow-sm">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {ESTADOS.map((e) => (
+                                                            <SelectItem
+                                                                key={e.value}
+                                                                value={e.value}
+                                                            >
+                                                                {e.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                    Valor Estimado (CLP)
+                                                </Label>
+                                                <div className="relative">
+                                                    <DollarSign className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
+                                                    <Input
+                                                        type="number"
+                                                        value={
+                                                            data.valor_estimado
+                                                        }
+                                                        onChange={(e) =>
+                                                            setData(
+                                                                'valor_estimado',
+                                                                parseFloat(
+                                                                    e.target
+                                                                        .value,
+                                                                ),
+                                                            )
+                                                        }
+                                                        className="h-11 rounded-xl border-none bg-background pl-10 font-black text-primary shadow-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                    Fuente Origen
+                                                </Label>
+                                                <Select
+                                                    value={data.fuente}
+                                                    onValueChange={(v) =>
+                                                        setData('fuente', v)
+                                                    }
+                                                >
+                                                    <SelectTrigger className="h-11 rounded-xl border-none bg-background font-bold shadow-sm">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {FUENTES.map((f) => (
+                                                            <SelectItem
+                                                                key={f}
+                                                                value={f}
+                                                            >
+                                                                {f}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                    Próx. Seguimiento
+                                                </Label>
+                                                <Input
+                                                    type="date"
+                                                    value={
+                                                        data.fecha_seguimiento
+                                                    }
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'fecha_seguimiento',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    className="h-11 rounded-xl border-none bg-background font-bold shadow-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                            Descripción / Requerimiento
+                                        </Label>
+                                        <textarea
+                                            value={data.descripcion}
+                                            onChange={(e) =>
+                                                setData(
+                                                    'descripcion',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            className="flex min-h-[100px] w-full rounded-2xl border-none bg-muted/30 px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                                            placeholder="¿Qué necesita el cliente?..."
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    <form onSubmit={handleSubmit}>
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Nombre *</Label>
-                                <Input
-                                    value={data.nombre}
+
+                            <div className="mt-6 space-y-2 border-t pt-6">
+                                <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                    Notas Adicionales / Historial de
+                                    Conversación
+                                </Label>
+                                <textarea
+                                    value={data.notas}
                                     onChange={(e) =>
-                                        setData('nombre', e.target.value)
+                                        setData('notas', e.target.value)
                                     }
-                                    required
+                                    className="flex min-h-[80px] w-full rounded-2xl border-none bg-muted/30 px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                                    placeholder="Bitácora de interacciones..."
                                 />
                             </div>
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Teléfono *</Label>
-                                    <Input
-                                        value={data.telefono}
-                                        onChange={(e) =>
-                                            setData('telefono', e.target.value)
-                                        }
-                                        placeholder="+52 123 456 7890"
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Email</Label>
-                                    <Input
-                                        type="email"
-                                        value={data.email}
-                                        onChange={(e) =>
-                                            setData('email', e.target.value)
-                                        }
-                                        placeholder="correo@ejemplo.com"
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Empresa</Label>
-                                    <Input
-                                        value={data.empresa}
-                                        onChange={(e) =>
-                                            setData('empresa', e.target.value)
-                                        }
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Fuente</Label>
-                                    <select
-                                        value={data.fuente}
-                                        onChange={(e) =>
-                                            setData('fuente', e.target.value)
-                                        }
-                                        className="flex h-9 w-full rounded-md border bg-background px-2 py-1 text-sm capitalize"
-                                    >
-                                        <option value="">Seleccionar</option>
-                                        {fuentes.map((f) => (
-                                            <option key={f} value={f}>
-                                                {f}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Estado</Label>
-                                    <select
-                                        value={data.estado}
-                                        onChange={(e) =>
-                                            setData('estado', e.target.value)
-                                        }
-                                        className="flex h-9 w-full rounded-md border bg-background px-2 py-1 text-sm capitalize"
-                                    >
-                                        {estados.map((e) => (
-                                            <option key={e} value={e}>
-                                                {e}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Valor Estimado</Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={data.valor_estimado}
-                                        onChange={(e) =>
-                                            setData(
-                                                'valor_estimado',
-                                                Number(e.target.value),
-                                            )
-                                        }
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Fecha Seguimiento</Label>
-                                <Input
-                                    type="date"
-                                    value={data.fecha_seguimiento}
-                                    onChange={(e) =>
-                                        setData(
-                                            'fecha_seguimiento',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Descripción</Label>
-                                <Input
-                                    value={data.descripcion}
-                                    onChange={(e) =>
-                                        setData('descripcion', e.target.value)
-                                    }
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsOpen(false)}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button type="submit">Guardar</Button>
-                        </DialogFooter>
-                    </form>
+
+                            <DialogFooter className="sticky bottom-0 mt-6 gap-2 border-t bg-background pt-4">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setIsOpen(false)}
+                                    className="rounded-full px-8 font-bold"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={processing}
+                                    className="rounded-full bg-primary px-12 font-bold shadow-lg shadow-primary/20 hover:bg-primary/90"
+                                >
+                                    <Check className="mr-2 h-4 w-4" />{' '}
+                                    {editando
+                                        ? 'Guardar Cambios'
+                                        : 'Registrar Oportunidad'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </div>
                 </DialogContent>
             </Dialog>
-        </>
+            <Toaster position="bottom-right" />
+        </AppLayout>
     );
 }

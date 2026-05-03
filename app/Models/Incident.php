@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOwner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Incident extends Model
 {
-    use HasFactory;
+    use BelongsToOwner, HasFactory;
 
     protected $fillable = [
+        'owner_id',
         'monitored_site_id',
         'started_at',
         'resolved_at',

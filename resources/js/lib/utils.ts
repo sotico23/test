@@ -34,3 +34,24 @@ export function formatDateCLP(dateString: string | null | undefined): string {
         year: 'numeric',
     }).format(date);
 }
+
+export function cleanRut(rut: string): string {
+    return rut.replace(/[^0-9kK]/g, '');
+}
+
+export function formatRut(rut: string): string {
+    const clean = cleanRut(rut);
+    if (clean.length < 2) return clean;
+
+    let body = clean.slice(0, -1);
+    const dv = clean.slice(-1).toUpperCase();
+
+    let result = '';
+    while (body.length > 3) {
+        result = '.' + body.slice(-3) + result;
+        body = body.slice(0, -3);
+    }
+    result = body + result;
+
+    return result + '-' + dv;
+}

@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\EmpleadosExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\EmpleadosImport;
 use App\Models\Almacen;
 use App\Models\Empleado;
 use App\Models\User;
@@ -17,6 +20,18 @@ use Spatie\Permission\Models\Role;
 
 class EmpleadoController extends Controller
 {
+    use HasBulkOperations;
+
+    protected function getExportClass(array $filters): object
+    {
+        return new EmpleadosExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new EmpleadosImport;
+    }
+
     public function index(): Response
     {
         $userId = Auth::user()->getOwnerId();
@@ -123,6 +138,7 @@ class EmpleadoController extends Controller
             'direccion' => 'nullable|string',
             'notas' => 'nullable|string',
             'crear_usuario' => 'nullable|boolean',
+            'password' => 'nullable|string|min:6',
         ]);
 
         $crearUsuario = $request->filled('crear_usuario') ? ($validated['crear_usuario'] ?? false) : false;
@@ -148,18 +164,24 @@ class EmpleadoController extends Controller
                 if ($crearUsuario && ! $usuarioExistente && $request->filled('email') && $request->filled('nombre') && $request->filled('apellido')) {
                     $user = User::create([
                         'creator_id' => Auth::id(),
-                        'name' => $updateData['nombre'].' '.$updateData['apellido'],
-                        'email' => $updateData['email'],
-                        'password' => Hash::make('empleadonuevo'),
-                        'job' => $updateData['cargo'] ?? null,
-                        'telefono' => $updateData['telefono'] ?? null,
-                        'direccion' => $updateData['direccion'] ?? null,
+                        'name' => ($updateData['nombre'] ?? $empleado->nombre).' '.($updateData['apellido'] ?? $empleado->apellido),
+                        'email' => $updateData['email'] ?? $empleado->email,
+                        'password' => Hash::make($request->input('password') ?? 'empleadonuevo'),
+                        'job' => $updateData['cargo'] ?? $empleado->cargo,
+                        'telefono' => $updateData['telefono'] ?? $empleado->telefono,
+                        'direccion' => $updateData['direccion'] ?? $empleado->direccion,
                     ]);
 
                     $role = Role::firstOrCreate(['name' => 'Empleado']);
                     $user->assignRole($role);
 
                     $updateData['user_id'] = $user->id;
+                } elseif ($crearUsuario && $usuarioExistente) {
+                    if ($request->filled('password')) {
+                        $usuarioExistente->update([
+                            'password' => Hash::make($request->input('password')),
+                        ]);
+                    }
                 } elseif (! $crearUsuario && $usuarioExistente) {
                     $usuarioExistente->delete();
                     $updateData['user_id'] = null;

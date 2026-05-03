@@ -20,6 +20,8 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -465,7 +467,7 @@ export default function Index({ settings }: { settings: WebSetting }) {
     };
 
     const sections = [
-        { id: 'general', label: 'General', icon: '⚙️' },
+        { id: 'general', label: 'Configuración', icon: '⚙️' },
         { id: 'hero', label: 'Hero', icon: '🎯' },
         { id: 'caracteristicas', label: 'Características', icon: '✨' },
         { id: 'planes', label: 'Planes', icon: '💰' },
@@ -518,9 +520,10 @@ export default function Index({ settings }: { settings: WebSetting }) {
                             <div className="grid gap-6 md:grid-cols-2">
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle>
-                                            Información General
-                                        </CardTitle>
+                                        <CardTitle>Configuración SEO</CardTitle>
+                                        <CardDescription>
+                                            Datos para SEO y基本信息
+                                        </CardDescription>
                                         <CardDescription>
                                             Nombre y descripción
                                         </CardDescription>
@@ -820,8 +823,8 @@ export default function Index({ settings }: { settings: WebSetting }) {
                                         size="sm"
                                         onClick={addPlan}
                                     >
-                                        <Plus className="mr-1 h-4 w-4" /> Agregar
-                                        Plan
+                                        <Plus className="mr-1 h-4 w-4" />{' '}
+                                        Agregar Plan
                                     </Button>
                                 </div>
                                 {data.planes?.map((plan, planIndex) => (
@@ -943,9 +946,10 @@ export default function Index({ settings }: { settings: WebSetting }) {
                                                                         planIndex
                                                                             ? {
                                                                                   ...p,
-                                                                                  periodo: e
-                                                                                      .target
-                                                                                      .value,
+                                                                                  periodo:
+                                                                                      e
+                                                                                          .target
+                                                                                          .value,
                                                                               }
                                                                             : p,
                                                                 );
@@ -972,7 +976,8 @@ export default function Index({ settings }: { settings: WebSetting }) {
                                                                             ? {
                                                                                   ...p,
                                                                                   descripcion:
-                                                                                      e.target
+                                                                                      e
+                                                                                          .target
                                                                                           .value,
                                                                               }
                                                                             : p,

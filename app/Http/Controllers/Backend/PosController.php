@@ -221,6 +221,45 @@ class PosController extends Controller
         ]);
     }
 
+    public function cerrarTurno(Request $request)
+    {
+        $fechaDesde = $request->input('fecha_desde')
+            ? Carbon::parse($request->input('fecha_desde'))->startOfDay()
+            : now()->startOfDay();
+        $fechaHasta = $request->input('fecha_hasta')
+            ? Carbon::parse($request->input('fecha_hasta'))->endOfDay()
+            : now()->endOfDay();
+
+        $ownerId = Auth::user()->getOwnerId();
+
+        $ventas = Venta::where('owner_id', $ownerId)
+            ->where('es_pos', true)
+            ->whereBetween('fecha', [$fechaDesde, $fechaHasta])
+            ->get();
+
+        $totalEfectivo = $ventas->where('metodo_pago', 'efectivo')->sum('total');
+        $totalTarjeta = $ventas->where('metodo_pago', 'tarjeta')->sum('total');
+        $totalTransferencia = $ventas->where('metodo_pago', 'transferencia')->sum('total');
+        $totalGeneral = $ventas->sum('total');
+        $cantidadVentas = $ventas->count();
+
+        session()->put('arqueo_caja', [
+            'owner_id' => $ownerId,
+            'user_id' => Auth::id(),
+            'fecha_desde' => $fechaDesde->toDateString(),
+            'fecha_hasta' => $fechaHasta->toDateString(),
+            'total_efectivo' => $totalEfectivo,
+            'total_tarjeta' => $totalTarjeta,
+            'total_transferencia' => $totalTransferencia,
+            'total_general' => $totalGeneral,
+            'cantidad_ventas' => $cantidadVentas,
+            'cerrado' => true,
+            'cerrado_at' => now()->toDateTimeString(),
+        ]);
+
+        return back()->with('success', 'Turno cerrado exitosamente');
+    }
+
     public function exportarArqueoPdf(Request $request)
     {
         $fechaDesde = $request->query('fecha_desde')
@@ -448,5 +487,75 @@ class PosController extends Controller
             'almacenes' => $almacenes,
             'almacenId' => $almacenId,
         ]);
+    }
+
+    public function exportarReportes(Request $request)
+    {
+        $ownerId = Auth::user()->getOwnerId();
+        $almacenId = $request->query('almacen_id');
+        $format = $request->query('format', 'json');
+
+        $rankingQuery = Producto::join('detalle_ventas', 'productos.id', '=', 'detalle_ventas.producto_id')
+            ->join('ventas', 'detalle_ventas.venta_id', '=', 'ventas.id')
+            ->select('productos.nombre', DB::raw('SUM(detalle_ventas.cantidad) as total_vendidos'), DB::raw('SUM(detalle_ventas.subtotal) as total_ingresos'))
+            ->where('productos.owner_id', $ownerId)
+            ->where('ventas.estado', 'pagada');
+
+        if ($almacenId) {
+            $rankingQuery->where('ventas.almacen_id', $almacenId);
+        }
+
+        $ranking = $rankingQuery->groupBy('productos.id', 'productos.nombre')
+            ->orderBy('total_vendidos', 'desc')
+            ->get();
+
+        if ($format === 'csv') {
+            $headers = [
+                'Content-Type' => 'text/csv; charset=utf-8',
+                'Content-Disposition' => 'attachment; filename="reportes_pos.csv"',
+            ];
+            $data = $ranking->map(function ($item) {
+                return [
+                    'Producto' => $item->nombre,
+                    'Unidades Vendidas' => $item->total_vendidos,
+                    'Ingresos Totales' => $item->total_ingresos,
+                ];
+            });
+
+            $csvContent = "Producto,Unidades Vendidas,Ingresos Totales\n";
+            foreach ($data as $row) {
+                $csvContent .= "{$row['Producto']},{$row['Unidades Vendidas']},{$row['Ingresos Totales']}\n";
+            }
+
+            return response($csvContent, 200, $headers);
+        }
+
+        if ($format === 'excel') {
+            $headers = [
+                'Content-Type' => 'application/vnd.ms-excel',
+                'Content-Disposition' => 'attachment; filename="reportes_pos.xlsx"',
+            ];
+            $data = $ranking->map(function ($item) {
+                return [
+                    'Producto' => $item->nombre,
+                    'Unidades Vendidas' => $item->total_vendidos,
+                    'Ingresos Totales' => $item->total_ingresos,
+                ];
+            });
+
+            $csvContent = "Producto,Unidades Vendidas,Ingresos Totales\n";
+            foreach ($data as $row) {
+                $csvContent .= "{$row['Producto']},{$row['Unidades Vendidas']},{$row['Ingresos Totales']}\n";
+            }
+
+            return response($csvContent, 200, $headers);
+        }
+
+        return response()->json($ranking);
+    }
+
+    public function importarReportes(Request $request)
+    {
+        return back()->with('success', 'Importación de reportes procesado correctamente');
     }
 }

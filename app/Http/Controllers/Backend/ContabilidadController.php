@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\ContabilidadExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\ContabilidadImport;
 use App\Models\Asiento;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +14,8 @@ use Inertia\Response;
 
 class ContabilidadController extends Controller
 {
+    use HasBulkOperations;
+
     public function index(): Response
     {
         $asientos = Asiento::with('detalles')->orderBy('fecha', 'desc')->orderBy('numero', 'desc')->paginate(15);
@@ -88,5 +93,15 @@ class ContabilidadController extends Controller
         $asiento->delete();
 
         return redirect()->route('contabilidad.index');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new ContabilidadExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new ContabilidadImport;
     }
 }

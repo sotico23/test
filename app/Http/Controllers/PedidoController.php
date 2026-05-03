@@ -220,15 +220,41 @@ class PedidoController extends Controller
 
     public function misPedidos(): Response
     {
-        $pedidos = Pedido::with(['publicProfile' => function ($query) {
-            $query->withoutGlobalScope(OwnerScope::class);
-        }, 'items'])
-            ->where('cliente_id', Auth::id())
+        $userId = Auth::id();
+
+        $compras = Pedido::with([
+            'publicProfile' => function ($query) {
+                $query->withoutGlobalScope(OwnerScope::class)->select('id', 'user_id', 'owner_id', 'title', 'slug');
+            },
+            'items',
+            'conversacion',
+        ])
+            ->where('cliente_id', $userId)
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $ventas = Pedido::with([
+            'publicProfile' => function ($query) {
+                $query->withoutGlobalScope(OwnerScope::class)->select('id', 'user_id', 'owner_id', 'title', 'slug');
+            },
+            'items',
+            'conversacion',
+            'cliente:id,name',
+        ])
+            ->where('user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Debug: ensure relations are loaded
+        foreach ($ventas as $pedido) {
+            if (! $pedido->relationLoaded('publicProfile')) {
+                $pedido->load('publicProfile');
+            }
+        }
+
         return Inertia::render('marketplace/MisPedidos', [
-            'pedidos' => $pedidos,
+            'compras' => $compras,
+            'ventas' => $ventas,
         ]);
     }
 
@@ -243,7 +269,12 @@ class PedidoController extends Controller
             'publicProfile' => function ($query) {
                 $query->withoutGlobalScope(OwnerScope::class);
             },
-            'conversacion.mensajes',
+            'conversacion' => function ($query) {
+                $query->with(['mensajes' => function ($q) {
+                    $q->with('sender:id,name,profile_photo_path')->orderBy('created_at', 'asc');
+                }]);
+            },
+            'cliente:id,name',
         ]);
 
         return Inertia::render('marketplace/PedidoDetalle', [

@@ -20,10 +20,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
+import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Nomina {
     id: number;
@@ -167,9 +168,15 @@ export default function Index({ nominas }: { nominas: { data: Nomina[]; links: a
                                 Gestión de nóminas
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nueva Nómina
-                        </Button>
+                        <div className="flex gap-2 items-center">
+                            <BulkActions
+                                baseUrl="/nominas"
+                                modelName="Nóminas"
+                            />
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nueva Nómina
+                            </Button>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -371,12 +378,12 @@ export default function Index({ nominas }: { nominas: { data: Nomina[]; links: a
                                     <Label>Bruto</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.total_bruto}
                                         onChange={(e) =>
                                             setData(
                                                 'total_bruto',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />
@@ -385,12 +392,12 @@ export default function Index({ nominas }: { nominas: { data: Nomina[]; links: a
                                     <Label>Deducciones</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.total_deducciones}
                                         onChange={(e) =>
                                             setData(
                                                 'total_deducciones',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />
@@ -399,12 +406,12 @@ export default function Index({ nominas }: { nominas: { data: Nomina[]; links: a
                                     <Label>Neto</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.total_neto}
                                         onChange={(e) =>
                                             setData(
                                                 'total_neto',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />

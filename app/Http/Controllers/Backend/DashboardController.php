@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\CafFolio;
+use App\Models\ConfiguracionSii;
 use App\Models\DashboardConfig;
 use App\Models\Mensaje;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -194,6 +197,26 @@ class DashboardController extends Controller
             }
         }
 
+        $siiStats = null;
+        if ($esSuperAdmin || $esAdmin) {
+            $siiConfig = ConfiguracionSii::where('owner_id', $ownerId)->first();
+            $cafs = CafFolio::where('owner_id', $ownerId)->where('agotado', false)->get();
+            $hasSiiToken = Cache::has('sii_token');
+
+            $siiStats = [
+                'ambiente' => $siiConfig->ambiente ?? config('sii.ambiente', 'certificacion'),
+                'emisor' => $siiConfig ? [
+                    'rut' => $siiConfig->rut,
+                    'razon_social' => $siiConfig->razon_social,
+                ] : null,
+                'token_activo' => $hasSiiToken,
+                'folios_disponibles' => $cafs->map(fn ($c) => [
+                    'tipo' => $c->tipo_documento,
+                    'restantes' => ($c->folio_hasta - $c->folio_siguiente) + 1,
+                ]),
+            ];
+        }
+
         $stats = (object) $stats;
 
         return Inertia::render('dashboard', [
@@ -208,6 +231,7 @@ class DashboardController extends Controller
             'mensajesSinLeer' => $mensajesSinLeer,
             'userName' => $user->name,
             'dashboardConfig' => $dashboardConfig,
+            'siiStats' => $siiStats,
         ]);
     }
 

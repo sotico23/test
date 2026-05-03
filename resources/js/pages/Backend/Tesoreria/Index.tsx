@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -399,12 +399,12 @@ export default function Index({ tesorerias }: { tesorerias: { data: Tesoreria[];
                                     <Label>Monto *</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.monto}
                                         onChange={(e) =>
                                             setData(
                                                 'monto',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                         required

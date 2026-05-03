@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\ClientesExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Http\Requests\Backend\StoreClienteRequest;
+use App\Http\Requests\Backend\UpdateClienteRequest;
+use App\Imports\ClientesImport;
 use App\Models\Categoria;
 use App\Models\Cliente;
 use App\Models\User;
@@ -17,49 +22,65 @@ use Spatie\Permission\Models\Role;
 
 class ClienteController extends Controller
 {
-    public function index(): Response
+    use HasBulkOperations;
+
+    public function getExportClass(array $filters): object
+    {
+        return new ClientesExport($filters);
+    }
+
+    public function getImportClass(): object
+    {
+        return new ClientesImport;
+    }
+
+    public function index(Request $request): Response
     {
         $userId = Auth::user()->getOwnerId();
 
-        $clientes = Cliente::with('categoria')
-            ->where('owner_id', $userId)
-            ->orderBy('created_at', 'desc')
+        $query = Cliente::with('categoria')
+            ->where('owner_id', '=', $userId);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                    ->orWhere('rut', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('telefono', 'like', "%{$search}%")
+                    ->orWhere('ciudad', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('categoria_id')) {
+            $query->where('categoria_id', $request->input('categoria_id'));
+        }
+
+        $clientes = $query->orderBy('created_at', 'desc')
             ->paginate(15)
+            ->withQueryString()
             ->through(function ($cliente) {
                 $cliente->tiene_acceso = $cliente->user_id !== null;
 
                 return $cliente;
             });
-        $categorias = Categoria::where('tipo', 'cliente')->where('activo', true)->where('owner_id', $userId)->get();
+
+        $categorias = Categoria::where('tipo', 'cliente')
+            ->where('activo', true)
+            ->where('owner_id', $userId)
+            ->get();
 
         return Inertia::render('Backend/Clientes/Index', [
             'clientes' => $clientes,
             'categorias' => $categorias,
+            'filters' => $request->only(['search', 'categoria_id']),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreClienteRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'nombre' => 'required|string|max:255',
-            'nit' => 'nullable|string|max:50',
-            'rut' => 'nullable|string|max:20|unique:clientes,rut',
-            'telefono' => 'nullable|string|max:20',
-            'email' => 'required|email|max:255|unique:clientes,email',
-            'direccion' => 'nullable|string|max:500',
-            'ciudad' => 'nullable|string|max:100',
-            'region' => 'nullable|string|max:100',
-            'comuna' => 'nullable|string|max:100',
-            'giro' => 'nullable|string|max:255',
-            'contacto' => 'nullable|string|max:255',
-            'telefono_contacto' => 'nullable|string|max:20',
-            'categoria_id' => 'nullable|exists:categorias,id',
-            'activo' => 'boolean',
-            'notas' => 'nullable|string',
-            'crear_usuario' => 'boolean',
-        ]);
-
-        $crearUsuario = $validated['crear_usuario'] ?? false;
+        $validated = $request->validated();
+        $crearUsuario = $request->boolean('crear_usuario');
 
         if ($crearUsuario) {
             $request->validate([
@@ -67,7 +88,7 @@ class ClienteController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($validated, $crearUsuario) {
+        DB::transaction(function () use (&$validated, $crearUsuario, $request) {
             $validated['owner_id'] = Auth::user()->getOwnerId();
             $validated['user_id'] = null;
 
@@ -76,7 +97,7 @@ class ClienteController extends Controller
                     'creator_id' => Auth::id(),
                     'name' => $validated['nombre'],
                     'email' => $validated['email'],
-                    'password' => Hash::make('clientenuevo'),
+                    'password' => Hash::make($request->input('password') ?: 'clientenuevo'),
                     'rut' => $validated['rut'] ?? null,
                     'telefono' => $validated['telefono'] ?? null,
                     'direccion' => $validated['direccion'] ?? null,
@@ -101,28 +122,10 @@ class ClienteController extends Controller
         return redirect()->route('clientes.index')->with('success', $mensaje);
     }
 
-    public function update(Request $request, Cliente $cliente): RedirectResponse
+    public function update(UpdateClienteRequest $request, Cliente $cliente): RedirectResponse
     {
-        $validated = $request->validate([
-            'nombre' => 'nullable|string|max:255',
-            'nit' => 'nullable|string|max:50',
-            'rut' => 'nullable|string|max:20|unique:clientes,rut,'.$cliente->id,
-            'telefono' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255|unique:clientes,email,'.$cliente->id,
-            'direccion' => 'nullable|string|max:500',
-            'ciudad' => 'nullable|string|max:100',
-            'region' => 'nullable|string|max:100',
-            'comuna' => 'nullable|string|max:100',
-            'giro' => 'nullable|string|max:255',
-            'contacto' => 'nullable|string|max:255',
-            'telefono_contacto' => 'nullable|string|max:20',
-            'categoria_id' => 'nullable|exists:categorias,id',
-            'activo' => 'nullable|boolean',
-            'notas' => 'nullable|string',
-            'crear_usuario' => 'nullable|boolean',
-        ]);
-
-        $crearUsuario = $validated['crear_usuario'] ?? false;
+        $validated = $request->validated();
+        $crearUsuario = $request->boolean('crear_usuario');
         unset($validated['crear_usuario']);
 
         $usuarioExistente = $cliente->user;
@@ -136,7 +139,7 @@ class ClienteController extends Controller
                 'creator_id' => Auth::id(),
                 'name' => $validated['nombre'],
                 'email' => $validated['email'],
-                'password' => Hash::make('clientenuevo'),
+                'password' => Hash::make($request->input('password') ?: 'clientenuevo'),
                 'rut' => $validated['rut'] ?? null,
                 'telefono' => $validated['telefono'] ?? null,
                 'direccion' => $validated['direccion'] ?? null,
@@ -149,6 +152,12 @@ class ClienteController extends Controller
             $user->assignRole($role);
 
             $validated['user_id'] = $user->id;
+        } elseif ($crearUsuario && $usuarioExistente) {
+            if ($request->filled('password')) {
+                $usuarioExistente->update([
+                    'password' => Hash::make($request->input('password')),
+                ]);
+            }
         } elseif (! $crearUsuario && $usuarioExistente) {
             $usuarioExistente->delete();
             $validated['user_id'] = null;
@@ -164,5 +173,14 @@ class ClienteController extends Controller
         $cliente->delete();
 
         return redirect()->route('clientes.index');
+    }
+
+    public function show(Cliente $cliente): Response
+    {
+        $cliente->load('categoria');
+
+        return Inertia::render('Backend/Clientes/Show', [
+            'cliente' => $cliente,
+        ]);
     }
 }

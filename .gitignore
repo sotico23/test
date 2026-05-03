@@ -27,3 +27,7 @@ yarn-error.log
 /.vscode
 /.zed
 .aider*
+
+# SII – Certificados digitales (nunca subir al repositorio)
+/storage/app/sii/
+

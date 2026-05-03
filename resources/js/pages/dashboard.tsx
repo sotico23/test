@@ -1,4 +1,5 @@
 import { Head, usePage, Link } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import {
     Activity,
     ArrowUpRight,
@@ -15,7 +16,13 @@ import {
     PieChart,
     BarChart3,
     Users,
+    Shield,
+    RefreshCw,
+    CheckCircle2,
+    XCircle,
 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
@@ -58,6 +65,18 @@ interface DashboardProps {
     cashFlowData: MesData[];
     proyecciones: Proyeccion[];
     topProductos: TopProducto[];
+    siiStats: {
+        ambiente: string;
+        emisor: {
+            rut: string;
+            razon_social: string;
+        } | null;
+        token_activo: boolean;
+        folios_disponibles: Array<{
+            tipo: number;
+            restantes: number;
+        }>;
+    } | null;
     esSuperAdmin: boolean;
     esAdmin: boolean;
     esEmpleado: boolean;
@@ -308,7 +327,41 @@ export default function Dashboard({
     topProductos,
     userName,
     mensajesSinLeer,
+    siiStats,
+    esAdmin,
+    esSuperAdmin,
 }: DashboardProps) {
+    const [refreshing, setRefreshing] = useState(false);
+
+    const handleRefreshToken = () => {
+        setRefreshing(true);
+        router.post(
+            '/sii/token/refrescar',
+            {},
+            {
+                onSuccess: () => {
+                    toast.success('Token del SII actualizado');
+                    setRefreshing(false);
+                },
+                onError: () => {
+                    toast.error('Error al actualizar token');
+                    setRefreshing(false);
+                },
+                onFinish: () => setRefreshing(false),
+            },
+        );
+    };
+
+    const getTipoDteLabel = (tipo: number) => {
+        const labels: Record<number, string> = {
+            33: 'Factura Electrónica',
+            34: 'Factura Exenta',
+            61: 'Nota de Crédito',
+            56: 'Nota de Débito',
+            52: 'Guía de Despacho',
+        };
+        return labels[tipo] || `DTE ${tipo}`;
+    };
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
@@ -505,6 +558,131 @@ export default function Dashboard({
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* SII Operational Status */}
+                {(esAdmin || esSuperAdmin) && siiStats && (
+                    <div className="mt-8">
+                        <Card className="border-none bg-zinc-900/10 shadow-2xl backdrop-blur-2xl transition-all hover:ring-2 hover:ring-primary/10 dark:bg-zinc-900/60">
+                            <CardHeader className="flex flex-row items-center justify-between pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-2xl bg-primary/20 p-3">
+                                        <Shield className="h-6 w-6 text-primary" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-xl font-black">
+                                            Estado Operacional SII
+                                        </CardTitle>
+                                        <div className="mt-1 flex items-center gap-2">
+                                            <Badge
+                                                variant={
+                                                    siiStats.ambiente ===
+                                                    'produccion'
+                                                        ? 'destructive'
+                                                        : 'secondary'
+                                                }
+                                                className="text-[10px] font-bold tracking-tighter uppercase"
+                                            >
+                                                {siiStats.ambiente}
+                                            </Badge>
+                                            <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase">
+                                                {siiStats.token_activo ? (
+                                                    <span className="flex items-center gap-1 text-emerald-500">
+                                                        <CheckCircle2 className="h-3 w-3" />{' '}
+                                                        Token Activo
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1 text-rose-500">
+                                                        <XCircle className="h-3 w-3" />{' '}
+                                                        Sin Token
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {siiStats?.emisor && (
+                                    <button
+                                        onClick={handleRefreshToken}
+                                        disabled={refreshing}
+                                        className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                                    >
+                                        <RefreshCw
+                                            className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
+                                        />
+                                        {refreshing
+                                            ? 'Solicitando...'
+                                            : 'Renovar Token'}
+                                    </button>
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                                    <div className="space-y-4">
+                                        <h4 className="text-xs font-black tracking-widest text-muted-foreground uppercase">
+                                            Información Emisor
+                                        </h4>
+                                        {siiStats.emisor ? (
+                                            <div className="rounded-2xl border border-white/5 bg-white/5 p-4">
+                                                <p className="truncate text-lg font-bold">
+                                                    {
+                                                        siiStats.emisor
+                                                            .razon_social
+                                                    }
+                                                </p>
+                                                <p className="mt-1 text-sm font-medium text-primary">
+                                                    {siiStats.emisor.rut}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground italic">
+                                                Emisor no configurado
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-4 md:col-span-2">
+                                        <h4 className="text-xs font-black tracking-widest text-muted-foreground uppercase">
+                                            Folios Disponibles (CAF)
+                                        </h4>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            {siiStats.folios_disponibles
+                                                .length > 0 ? (
+                                                siiStats.folios_disponibles.map(
+                                                    (caf, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 p-4"
+                                                        >
+                                                            <div>
+                                                                <p className="text-[10px] font-black text-muted-foreground uppercase">
+                                                                    {getTipoDteLabel(
+                                                                        caf.tipo,
+                                                                    )}
+                                                                </p>
+                                                                <p className="text-lg font-black">
+                                                                    {
+                                                                        caf.restantes
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                            <div
+                                                                className={`h-2 w-2 rounded-full ${caf.restantes > 50 ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                                                            />
+                                                        </div>
+                                                    ),
+                                                )
+                                            ) : (
+                                                <p className="text-sm text-muted-foreground italic">
+                                                    No hay folios autorizados
+                                                    cargados
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </div>
         </AppLayout>
     );

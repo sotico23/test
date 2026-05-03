@@ -41,6 +41,25 @@ class ProductoFactory extends Factory
             'tipo_envase' => fake()->randomElement(['caja', 'bolsa', 'bidón', 'envase']),
             'activo' => true,
             'mostrar_en_perfil' => fake()->boolean(70),
+            'is_service' => false,
+            'duracion' => 0,
         ];
+    }
+
+    public function service(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_service' => true,
+            'duracion' => fake()->randomElement([30, 45, 60, 90, 120]),
+            'mostrar_en_perfil' => true,
+            'precio_compra' => 0,
+            'stock_minimo' => 0,
+            'codigo' => fake()->unique()->bothify('SRV-####-???'),
+            'nombre' => fake()->randomElement([
+                'Corte de Cabello', 'Manicura Completa', 'Masaje Descontracturante',
+                'Limpieza Facial', 'Consulta Médica', 'Clase de Yoga Particular',
+                'Asesoría Legal', 'Reparación de PC', 'Instalación de Software',
+            ]),
+        ]);
     }
 }

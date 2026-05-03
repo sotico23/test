@@ -1,8 +1,29 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Eye, Search, X } from 'lucide-react';
-import { useState } from 'react';
-import { useMemo } from 'react';
-import InputError from '@/components/input-error';
+import { Head, useForm, router } from '@inertiajs/react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    GripVertical,
+    Kanban,
+    List,
+    Download,
+    Upload,
+    FileSpreadsheet,
+    FileText,
+    Eye,
+    Building2,
+    DollarSign,
+    TrendingUp,
+    Briefcase,
+    ArrowRight,
+    Check,
+    AlertCircle,
+    Target,
+    Clock,
+} from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,75 +36,122 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { WhatsAppButton } from '@/components/whatsapp-button';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
+import Pagination from '@/components/ui/Pagination';
 import type { BreadcrumbItem } from '@/types';
 
 interface Cliente {
     id: number;
     nombre: string;
-    telefono: string | null;
 }
+
 interface Oportunidad {
     id: number;
     nombre: string;
     cliente_id: number;
+    cliente?: Cliente;
     valor: number;
     etapa: string;
     probabilidad: number;
     fecha_cierre_estimada: string | null;
     descripcion: string | null;
-    cliente?: Cliente;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Oportunidades', href: '/oportunidades' },
+    { title: 'Ventas', href: '/oportunidades' },
+    { title: 'Oportunidades de Negocio', href: '/oportunidades' },
 ];
 
-const etapas = [
-    { value: 'prospecting', label: 'Prospección' },
-    { value: 'qualification', label: 'Calificación' },
-    { value: 'proposal', label: 'Propuesta' },
-    { value: 'negotiation', label: 'Negociación' },
-    { value: 'closed_won', label: 'Cerrada Ganada' },
-    { value: 'closed_lost', label: 'Cerrada Perdida' },
+const ETAPAS = [
+    {
+        value: 'prospeccion',
+        label: 'Prospección',
+        color: 'bg-slate-500/10 text-slate-600',
+        icon: Search,
+    },
+    {
+        value: 'analisis',
+        label: 'Análisis',
+        color: 'bg-blue-500/10 text-blue-600',
+        icon: List,
+    },
+    {
+        value: 'propuesta',
+        label: 'Propuesta',
+        color: 'bg-purple-500/10 text-purple-600',
+        icon: Briefcase,
+    },
+    {
+        value: 'negociacion',
+        label: 'Negociación',
+        color: 'bg-orange-500/10 text-orange-600',
+        icon: ArrowRight,
+    },
+    {
+        value: 'ganada',
+        label: 'Ganada',
+        color: 'bg-green-500/10 text-green-600',
+        icon: Check,
+    },
+    {
+        value: 'perdida',
+        label: 'Perdida',
+        color: 'bg-red-500/10 text-red-600',
+        icon: X,
+    },
 ];
 
-const etapasMap: Record<string, string> = {
-    prospecting: 'Prospección',
-    qualification: 'Calificación',
-    proposal: 'Propuesta',
-    negotiation: 'Negociación',
-    closed_won: 'Cerrada Ganada',
-    closed_lost: 'Cerrada Perdida',
-};
-
-import Pagination from '@/components/ui/Pagination';
+import { BulkActions } from '@/components/shared/BulkActions';
 
 export default function Index({
     oportunidades,
     clientes,
+    filters,
 }: {
-    oportunidades: {
-        data: Oportunidad[];
-        links: { url: string | null; label: string; active: boolean }[];
-        meta: { from: number; to: number; total: number };
-    };
+    oportunidades: { data: Oportunidad[]; links: any[]; meta: any };
     clientes: Cliente[];
+    filters: {
+        search?: string;
+        cliente_id?: string;
+        etapa?: string;
+        fechaDesde?: string;
+        fechaHasta?: string;
+        view?: string;
+    };
 }) {
+    const [vistaKanban, setVistaKanban] = useState(filters.view !== 'lista');
     const [isOpen, setIsOpen] = useState(false);
-    const [isViewOpen, setIsViewOpen] = useState(false);
-    const [viendo, setViendo] = useState<Oportunidad | null>(null);
     const [editando, setEditando] = useState<Oportunidad | null>(null);
+    const [draggingId, setDraggingId] = useState<number | null>(null);
+
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [clienteFilter, setClienteFilter] = useState(
+        filters.cliente_id || 'all',
+    );
+    const [etapaFilter, setEtapaFilter] = useState(filters.etapa || 'all');
+
     const {
         data,
         setData,
@@ -91,105 +159,64 @@ export default function Index({
         put,
         delete: destroy,
         reset,
-        clearErrors,
+        processing,
         errors,
-        transform,
     } = useForm({
         nombre: '',
-        cliente_id: '' as string,
+        cliente_id: '' as string | number,
         valor: 0,
-        etapa: 'prospecting',
+        etapa: 'prospeccion',
         probabilidad: 10,
         fecha_cierre_estimada: '',
         descripcion: '',
     });
 
-    const [filtros, setFiltros] = useState({
-        busqueda: '',
-        cliente_id: '',
-        etapa: '',
-        fechaDesde: '',
-        fechaHasta: '',
-    });
-
-    const oportunidadesFiltradas = useMemo(() => {
-        return oportunidades.data.filter((op: Oportunidad) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (
-                    !op.nombre.toLowerCase().includes(busca) &&
-                    !op.cliente?.nombre.toLowerCase().includes(busca) &&
-                    !op.descripcion?.toLowerCase().includes(busca)
-                ) {
-                    return false;
-                }
-            }
-            if (
-                filtros.cliente_id &&
-                op.cliente_id.toString() !== filtros.cliente_id
-            )
-                return false;
-            if (filtros.etapa && op.etapa !== filtros.etapa) return false;
-            if (
-                filtros.fechaDesde &&
-                op.fecha_cierre_estimada &&
-                op.fecha_cierre_estimada < filtros.fechaDesde
-            )
-                return false;
-            if (
-                filtros.fechaHasta &&
-                op.fecha_cierre_estimada &&
-                op.fecha_cierre_estimada > filtros.fechaHasta
-            )
-                return false;
-            return true;
-        });
-    }, [oportunidades.data, filtros]);
-
-    const limpiarFiltros = () => {
-        setFiltros({
-            busqueda: '',
-            cliente_id: '',
-            etapa: '',
-            fechaDesde: '',
-            fechaHasta: '',
-        });
+    const buildQuery = (kanban: boolean) => {
+        const query: any = { view: kanban ? 'kanban' : 'lista' };
+        if (searchTerm) query.search = searchTerm;
+        if (clienteFilter !== 'all') query.cliente_id = clienteFilter;
+        // In kanban mode we don't filter by etapa so all columns stay visible
+        if (!kanban && etapaFilter !== 'all') query.etapa = etapaFilter;
+        return query;
     };
 
-    const handleFormSubmit = (e: React.FormEvent) => {
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            router.get('/oportunidades', buildQuery(vistaKanban), {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            });
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm, clienteFilter, etapaFilter, vistaKanban]);
+
+    const switchView = (kanban: boolean) => {
+        setVistaKanban(kanban);
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-
-        transform((data: any) => ({
-            ...data,
-            cliente_id: Number(data.cliente_id),
-            valor: Math.round(Number(data.valor) || 0),
-            probabilidad: Math.round(Number(data.probabilidad) || 0),
-        }));
-
+        const payload = { ...data, cliente_id: Number(data.cliente_id) };
         if (editando) {
             put(`/oportunidades/${editando.id}`, {
-                preserveScroll: true,
                 onSuccess: () => {
                     setIsOpen(false);
-                    reset();
-                    clearErrors();
                     setEditando(null);
+                    reset();
                 },
             });
         } else {
             post('/oportunidades', {
-                preserveScroll: true,
                 onSuccess: () => {
                     setIsOpen(false);
                     reset();
-                    clearErrors();
                 },
             });
         }
     };
 
     const handleEdit = (op: Oportunidad) => {
-        clearErrors();
         setEditando(op);
         setData({
             nombre: op.nombre,
@@ -205,579 +232,682 @@ export default function Index({
         setIsOpen(true);
     };
 
-    const handleView = (op: Oportunidad) => {
-        setViendo(op);
-        setIsViewOpen(true);
+    const handleDragStart = (e: React.DragEvent, id: number) => {
+        setDraggingId(id);
+        e.dataTransfer.effectAllowed = 'move';
     };
 
-    const handleDelete = (id: number) => {
-        if (confirm('¿Eliminar?')) destroy(`/oportunidades/${id}`);
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
     };
 
-    const getEtapaBadge = (etapa: string) => {
-        const colores: Record<string, string> = {
-            prospecting: 'bg-blue-500',
-            qualification: 'bg-yellow-500',
-            proposal: 'bg-purple-500',
-            negotiation: 'bg-orange-500',
-            closed_won: 'bg-green-500',
-            closed_lost: 'bg-red-500',
-        };
-        return (
-            <Badge className={colores[etapa] || 'bg-gray-500'}>
-                {etapasMap[etapa] || etapa}
-            </Badge>
+    const handleDrop = (e: React.DragEvent, nuevaEtapa: string) => {
+        e.preventDefault();
+        if (draggingId === null) return;
+
+        router.patch(
+            `/oportunidades/${draggingId}/etapa`,
+            { etapa: nuevaEtapa },
+            {
+                onSuccess: () => setDraggingId(null),
+            },
         );
     };
 
+    const handleDelete = (id: number) => {
+        if (confirm('¿Desea eliminar esta oportunidad?')) {
+            destroy(`/oportunidades/${id}`);
+        }
+    };
+
+    const getEtapaConfig = (val: string) => {
+        return (
+            ETAPAS.find((e) => e.value === val) || {
+                label: val,
+                color: 'bg-gray-500/10 text-gray-600',
+                icon: AlertCircle,
+            }
+        );
+    };
+
+    const groupedOportunidades = useMemo(() => {
+        const groups: Record<string, Oportunidad[]> = {};
+        ETAPAS.forEach((e) => (groups[e.value] = []));
+        oportunidades.data.forEach((o) => {
+            if (groups[o.etapa]) groups[o.etapa].push(o);
+            else groups['prospeccion'].push(o);
+        });
+        return groups;
+    }, [oportunidades.data]);
+
     return (
-        <>
-            <Head title="Oportunidades" />
-            <AppLayout breadcrumbs={breadcrumbs}>
-                <div className="flex flex-col gap-4 p-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold">
-                                Oportunidades
-                            </h1>
-                            <p className="text-muted-foreground">
-                                Pipeline de ventas
-                            </p>
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Pipeline de Oportunidades" />
+
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div className="mb-1 flex items-center gap-2">
+                            <Target className="h-5 w-5 text-primary" />
+                            <span className="text-[10px] font-black tracking-widest text-primary/70 uppercase">
+                                Sales Management System
+                            </span>
                         </div>
+                        <h1 className="text-3xl font-black tracking-tight text-foreground">
+                            Oportunidades
+                        </h1>
+                        <p className="text-sm font-medium text-muted-foreground">
+                            Gestione su embudo de ventas y visualice sus
+                            ingresos proyectados
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="mr-2 flex gap-1 rounded-xl bg-muted/30 p-1">
+                            <Button
+                                variant={vistaKanban ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => switchView(true)}
+                                className="h-8 rounded-lg font-bold"
+                            >
+                                <Kanban className="h-4 w-4 md:mr-2" />
+                                <span className="hidden md:inline">Kanban</span>
+                            </Button>
+                            <Button
+                                variant={!vistaKanban ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => switchView(false)}
+                                className="h-8 rounded-lg font-bold"
+                            >
+                                <List className="h-4 w-4 md:mr-2" />
+                                <span className="hidden md:inline">Lista</span>
+                            </Button>
+                        </div>
+
+                        <BulkActions
+                            baseUrl="/oportunidades"
+                            filters={{
+                                search: searchTerm,
+                                cliente_id: clienteFilter,
+                                etapa: etapaFilter,
+                            }}
+                            modelName="Oportunidades"
+                        />
+
                         <Button
                             onClick={() => {
-                                clearErrors();
                                 setEditando(null);
                                 reset();
                                 setIsOpen(true);
                             }}
+                            className="h-9 rounded-full bg-primary px-5 font-bold shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
                         >
                             <Plus className="mr-2 h-4 w-4" /> Nueva Oportunidad
                         </Button>
                     </div>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Oportunidades</CardTitle>
-                            <CardDescription>
-                                {oportunidadesFiltradas.length} oportunidades
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="mb-4 flex flex-wrap gap-2 rounded-lg bg-muted/30 p-3 text-xs sm:text-sm">
-                                <div className="min-w-[200px] flex-1">
-                                    <div className="relative">
-                                        <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            placeholder="Buscar..."
-                                            value={filtros.busqueda}
-                                            onChange={(e) =>
-                                                setFiltros({
-                                                    ...filtros,
-                                                    busqueda: e.target.value,
-                                                })
-                                            }
-                                            className="h-9 pl-8"
-                                        />
-                                    </div>
-                                </div>
-                                <select
-                                    value={filtros.cliente_id}
-                                    onChange={(e) =>
-                                        setFiltros({
-                                            ...filtros,
-                                            cliente_id: e.target.value,
-                                        })
-                                    }
-                                    className="flex h-9 min-w-[150px] rounded-md border bg-background px-3 py-1"
-                                >
-                                    <option value="">Todos los clientes</option>
+                </div>
+
+                <div className="grid gap-6">
+                    {/* Filters Bar */}
+                    <div className="flex flex-col gap-4 rounded-3xl border border-muted/50 bg-muted/40 p-4 md:flex-row md:items-center">
+                        <div className="relative flex-1">
+                            <Search className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar por nombre o descripción..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="h-11 rounded-2xl border-none bg-background pl-12 shadow-sm focus-visible:ring-primary/20"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <Select
+                                value={clienteFilter}
+                                onValueChange={setClienteFilter}
+                            >
+                                <SelectTrigger className="h-11 min-w-[140px] rounded-2xl border-none bg-background font-bold shadow-sm md:w-[200px]">
+                                    <SelectValue placeholder="Cliente" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        Todos los clientes
+                                    </SelectItem>
                                     {clientes.map((c) => (
-                                        <option key={c.id} value={c.id}>
+                                        <SelectItem
+                                            key={c.id}
+                                            value={c.id.toString()}
+                                        >
                                             {c.nombre}
-                                        </option>
+                                        </SelectItem>
                                     ))}
-                                </select>
-                                <select
-                                    value={filtros.etapa}
-                                    onChange={(e) =>
-                                        setFiltros({
-                                            ...filtros,
-                                            etapa: e.target.value,
-                                        })
-                                    }
-                                    className="flex h-9 rounded-md border bg-background px-3 py-1"
-                                >
-                                    <option value="">Todas las etapas</option>
-                                    {etapas.map((e) => (
-                                        <option key={e.value} value={e.value}>
+                                </SelectContent>
+                            </Select>
+                            <Select
+                                value={etapaFilter}
+                                onValueChange={setEtapaFilter}
+                            >
+                                <SelectTrigger className="h-11 min-w-[140px] rounded-2xl border-none bg-background font-bold shadow-sm md:w-[160px]">
+                                    <SelectValue placeholder="Etapa" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        Todas las etapas
+                                    </SelectItem>
+                                    {ETAPAS.map((e) => (
+                                        <SelectItem
+                                            key={e.value}
+                                            value={e.value}
+                                        >
                                             {e.label}
-                                        </option>
+                                        </SelectItem>
                                     ))}
-                                </select>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-9"
-                                    onClick={limpiarFiltros}
-                                >
-                                    <X className="mr-1 h-4 w-4" />
-                                    Limpiar
-                                </Button>
-                            </div>
-                            {oportunidadesFiltradas.length === 0 ? (
-                                <p className="py-8 text-center text-muted-foreground">
-                                    No hay oportunidades
-                                </p>
-                            ) : (
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-11 w-11 rounded-2xl border-none bg-background text-muted-foreground shadow-sm"
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setClienteFilter('all');
+                                    setEtapaFilter('all');
+                                }}
+                            >
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {vistaKanban ? (
+                        <div className="grid grid-cols-1 gap-4 overflow-x-auto pb-4 md:grid-cols-3 lg:grid-cols-6">
+                            {ETAPAS.map((etapa) => {
+                                const opsEnEtapa =
+                                    groupedOportunidades[etapa.value] || [];
+                                const totalValor = opsEnEtapa.reduce(
+                                    (sum, o) => sum + Number(o.valor),
+                                    0,
+                                );
+                                const totalPonderado = opsEnEtapa.reduce(
+                                    (sum, o) =>
+                                        sum +
+                                        Number(o.valor) *
+                                            (o.probabilidad / 100),
+                                    0,
+                                );
+
+                                return (
+                                    <div
+                                        key={etapa.value}
+                                        className="flex min-w-[280px] flex-col gap-4"
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) =>
+                                            handleDrop(e, etapa.value)
+                                        }
+                                    >
+                                        <div
+                                            className={`rounded-3xl p-4 ${etapa.color} flex flex-col gap-1 border-2 border-transparent`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <etapa.icon className="h-4 w-4" />
+                                                    <span className="text-[11px] font-black tracking-widest uppercase">
+                                                        {etapa.label}
+                                                    </span>
+                                                </div>
+                                                <Badge className="border-none bg-background/50 text-[10px] font-black text-inherit hover:bg-background/60">
+                                                    {opsEnEtapa.length}
+                                                </Badge>
+                                            </div>
+                                            <div className="mt-1 text-[10px] font-bold opacity-70">
+                                                {formatCurrencyCLP(totalValor)}{' '}
+                                                Proyectados
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-3">
+                                            {opsEnEtapa.map((op) => (
+                                                <div
+                                                    key={op.id}
+                                                    draggable
+                                                    onDragStart={(e) =>
+                                                        handleDragStart(
+                                                            e,
+                                                            op.id,
+                                                        )
+                                                    }
+                                                    className="group cursor-grab rounded-3xl border border-muted bg-background p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-xl active:cursor-grabbing"
+                                                >
+                                                    <div className="mb-3 flex items-start justify-between">
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="truncate text-sm font-bold tracking-tight transition-colors group-hover:text-primary">
+                                                                {op.nombre}
+                                                            </div>
+                                                            <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                                <Building2 className="h-2.5 w-2.5" />
+                                                                <span className="truncate">
+                                                                    {op.cliente
+                                                                        ?.nombre ||
+                                                                        'General'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-muted bg-muted/50 text-[10px] font-black text-primary">
+                                                            {op.probabilidad}%
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-4 flex items-center justify-between">
+                                                        <div className="flex items-center gap-1 text-[10px] font-black text-primary">
+                                                            <DollarSign className="h-3 w-3" />
+                                                            {formatCurrencyCLP(
+                                                                op.valor,
+                                                            )}
+                                                        </div>
+                                                        {op.fecha_cierre_estimada && (
+                                                            <div className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground">
+                                                                <Clock className="h-2.5 w-2.5" />
+                                                                {formatDateCLP(
+                                                                    op.fecha_cierre_estimada,
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted/30">
+                                                        <div
+                                                            className="h-full bg-primary transition-all duration-500"
+                                                            style={{
+                                                                width: `${op.probabilidad}%`,
+                                                            }}
+                                                        />
+                                                    </div>
+
+                                                    <div className="mt-4 flex justify-end gap-1 border-t border-muted/50 pt-4 opacity-0 transition-opacity group-hover:opacity-100">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 rounded-xl text-primary hover:bg-primary/10"
+                                                            onClick={() =>
+                                                                handleEdit(op)
+                                                            }
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
+                                                            onClick={() =>
+                                                                handleDelete(
+                                                                    op.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {opsEnEtapa.length === 0 && (
+                                                <div className="rounded-3xl border-2 border-dashed border-muted p-10 text-center">
+                                                    <p className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                                                        Sin Oportunidades
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <Card className="overflow-hidden border-none shadow-xl shadow-foreground/5">
+                            <CardContent className="p-0">
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
-                                        <thead className="text-sm">
-                                            <tr className="border-b">
-                                                <th className="px-4 py-3 text-left font-medium whitespace-nowrap">
-                                                    Oportunidad
+                                        <thead>
+                                            <tr className="border-b bg-muted/5 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                                                <th className="px-6 py-4 text-left">
+                                                    Oportunidad / Cliente
                                                 </th>
-                                                <th className="px-4 py-3 text-left font-medium whitespace-nowrap">
-                                                    Cliente
+                                                <th className="px-6 py-4 text-right">
+                                                    Valor Estimado
                                                 </th>
-                                                <th className="hidden px-4 py-3 text-left font-medium whitespace-nowrap sm:table-cell">
-                                                    Teléfono
+                                                <th className="px-6 py-4 text-center">
+                                                    Etapa / Prob.
                                                 </th>
-                                                <th className="hidden px-4 py-3 text-right font-medium whitespace-nowrap md:table-cell">
-                                                    Valor
+                                                <th className="px-6 py-4 text-center">
+                                                    Cierre Estimado
                                                 </th>
-                                                <th className="hidden px-4 py-3 text-center font-medium whitespace-nowrap lg:table-cell">
-                                                    Progreso
-                                                </th>
-                                                <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
+                                                <th className="px-6 py-4 text-right">
                                                     Acciones
                                                 </th>
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                            {oportunidadesFiltradas.map(
-                                                (op) => (
-                                                    <tr
-                                                        key={op.id}
-                                                        className="border-b transition-colors hover:bg-muted/30"
-                                                    >
-                                                        <td className="px-4 py-2 font-medium">
-                                                            <span
-                                                                className="block max-w-[150px] truncate"
-                                                                title={
-                                                                    op.nombre
-                                                                }
-                                                            >
+                                        <tbody className="divide-y divide-muted/50">
+                                            {oportunidades.data.map((op) => (
+                                                <tr
+                                                    key={op.id}
+                                                    className="group transition-colors hover:bg-muted/30"
+                                                >
+                                                    <td className="px-6 py-4">
+                                                        <div>
+                                                            <div className="text-sm font-bold tracking-tight text-foreground">
                                                                 {op.nombre}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-2 text-sm">
-                                                            <span
-                                                                className="block max-w-[150px] truncate"
-                                                                title={
-                                                                    op.cliente
-                                                                        ?.nombre
-                                                                }
-                                                            >
-                                                                {op.cliente
-                                                                    ?.nombre || (
-                                                                    <span className="text-muted-foreground">
-                                                                        -
-                                                                    </span>
-                                                                )}
-                                                            </span>
-                                                        </td>
-                                                        <td className="hidden px-4 py-2 sm:table-cell">
-                                                            <div className="flex items-center gap-1 text-sm">
-                                                                {op.cliente
-                                                                    ?.telefono || (
-                                                                    <span className="text-muted-foreground">
-                                                                        -
-                                                                    </span>
-                                                                )}
-                                                                <WhatsAppButton
-                                                                    phone={
-                                                                        op
-                                                                            .cliente
-                                                                            ?.telefono
-                                                                    }
-                                                                    nombre={
-                                                                        op
-                                                                            .cliente
-                                                                            ?.nombre
-                                                                    }
-                                                                />
                                                             </div>
-                                                        </td>
-                                                        <td className="hidden px-4 py-2 text-right text-sm font-bold text-green-700 md:table-cell">
+                                                            <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                                <Building2 className="h-2.5 w-2.5" />
+                                                                {op.cliente
+                                                                    ?.nombre ||
+                                                                    'General'}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="text-sm font-black text-primary">
                                                             {formatCurrencyCLP(
                                                                 op.valor,
                                                             )}
-                                                        </td>
-                                                        <td className="hidden px-4 py-2 lg:table-cell">
-                                                            <div className="flex flex-col items-center justify-center gap-0.5">
-                                                                {getEtapaBadge(
-                                                                    op.etapa,
-                                                                )}
-                                                                <span className="text-[10px] text-muted-foreground">
-                                                                    {
-                                                                        op.probabilidad
-                                                                    }
-                                                                    %
+                                                        </div>
+                                                        <div className="text-[10px] text-muted-foreground">
+                                                            Ponderado:{' '}
+                                                            {formatCurrencyCLP(
+                                                                op.valor *
+                                                                    (op.probabilidad /
+                                                                        100),
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={`${getEtapaConfig(op.etapa).color} rounded-full border px-2 py-0.5 text-[8px] font-black uppercase`}
+                                                            >
+                                                                {
+                                                                    getEtapaConfig(
+                                                                        op.etapa,
+                                                                    ).label
+                                                                }
+                                                            </Badge>
+                                                            <div className="text-[10px] font-black text-primary">
+                                                                {
+                                                                    op.probabilidad
+                                                                }
+                                                                % Confianza
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        {op.fecha_cierre_estimada ? (
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-xs font-bold text-foreground">
+                                                                    {formatDateCLP(
+                                                                        op.fecha_cierre_estimada,
+                                                                    )}
+                                                                </span>
+                                                                <span className="text-[9px] font-bold text-muted-foreground uppercase">
+                                                                    Proyectado
                                                                 </span>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-4 py-2 text-right">
-                                                            <div className="flex items-center justify-end gap-1">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-8 w-8 p-0"
-                                                                    onClick={() =>
-                                                                        handleView(
-                                                                            op,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Eye className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-8 w-8 p-0"
-                                                                    onClick={() =>
-                                                                        handleEdit(
-                                                                            op,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Pencil className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                                    onClick={() =>
-                                                                        handleDelete(
-                                                                            op.id,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ),
-                                            )}
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground italic">
+                                                                No definida
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 rounded-xl text-primary hover:bg-primary/10"
+                                                                onClick={() =>
+                                                                    handleEdit(
+                                                                        op,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
+                                                                onClick={() =>
+                                                                    handleDelete(
+                                                                        op.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
                                         </tbody>
                                     </table>
                                 </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                    <Pagination
-                        links={oportunidades.links}
-                        meta={oportunidades.meta}
-                    />
+                                <div className="border-t border-muted/50 p-4">
+                                    <Pagination
+                                        links={oportunidades.links}
+                                        meta={oportunidades.meta}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
-            </AppLayout>
+            </div>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-h-[90vh] max-w-2xl overflow-x-hidden overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editando ? 'Editar' : 'Nueva'} Oportunidad
-                        </DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="max-h-[95vh] max-w-[95vw] overflow-y-auto border-none p-0 shadow-2xl md:max-w-3xl">
+                    <DialogHeader className="sticky top-0 z-10 bg-gradient-to-r from-primary/10 to-transparent p-4 pb-4 text-left backdrop-blur-sm md:p-6">
+                        <div className="mb-1 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            <span className="text-[10px] font-black tracking-widest text-primary/70 uppercase">
+                                Sales Opportunity Profile
+                            </span>
+                        </div>
+                        <DialogTitle className="text-xl font-black tracking-tight text-primary md:text-2xl">
                             {editando
-                                ? 'Modifique los datos de la oportunidad'
-                                : 'Ingrese los datos de la nueva oportunidad'}
+                                ? 'Editar Oportunidad de Negocio'
+                                : 'Registrar Nueva Oportunidad'}
+                        </DialogTitle>
+                        <DialogDescription className="text-sm font-medium text-muted-foreground">
+                            Complete los detalles para proyectar el cierre del
+                            negocio.
                         </DialogDescription>
                     </DialogHeader>
-                    {Object.keys(errors).length > 0 && (
-                        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4">
-                            <div className="text-sm text-red-700">
-                                <strong>Corrija los siguientes errores:</strong>
-                                <ul className="mt-1 list-disc pl-5">
-                                    {Object.entries(errors).map(
-                                        ([key, error]) => (
-                                            <li key={key}>
-                                                {key}: {error as string}
-                                            </li>
-                                        ),
-                                    )}
-                                </ul>
-                            </div>
-                        </div>
-                    )}
-                    <form onSubmit={handleFormSubmit}>
-                        <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Nombre de la Oportunidad *</Label>
-                                    <Input
-                                        value={data.nombre}
-                                        onChange={(e) =>
-                                            setData('nombre', e.target.value)
-                                        }
-                                        required
-                                    />
-                                    {errors.nombre && (
-                                        <p className="text-xs text-destructive">
-                                            {errors.nombre}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Cliente *</Label>
-                                    <select
-                                        value={data.cliente_id}
-                                        onChange={(e) =>
-                                            setData(
-                                                'cliente_id',
-                                                e.target.value,
-                                            )
-                                        }
-                                        className="flex h-10 w-full rounded-md border bg-background px-3 py-2"
-                                        required
-                                    >
-                                        <option value="">Seleccionar</option>
-                                        {clientes.map((c) => (
-                                            <option key={c.id} value={c.id}>
-                                                {c.nombre}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.cliente_id && (
-                                        <p className="text-xs text-destructive">
-                                            {errors.cliente_id}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Valor estimado</Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={data.valor}
-                                        onChange={(e) =>
-                                            setData(
-                                                'valor',
-                                                Number(e.target.value),
-                                            )
-                                        }
-                                    />
-                                    {errors.valor && (
-                                        <p className="text-xs text-destructive">
-                                            {errors.valor}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Probabilidad %</Label>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        value={data.probabilidad}
-                                        onChange={(e) =>
-                                            setData(
-                                                'probabilidad',
-                                                Number(e.target.value),
-                                            )
-                                        }
-                                    />
-                                    {errors.probabilidad && (
-                                        <p className="text-xs text-destructive">
-                                            {errors.probabilidad}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label>Etapa</Label>
-                                    <select
-                                        value={data.etapa}
-                                        onChange={(e) =>
-                                            setData('etapa', e.target.value)
-                                        }
-                                        className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                                    >
-                                        {etapas.map((e) => (
-                                            <option
-                                                key={e.value}
-                                                value={e.value}
-                                            >
-                                                {e.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {errors.etapa && (
-                                        <p className="text-xs text-destructive">
-                                            {errors.etapa}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Fecha de Cierre Estimada</Label>
-                                    <Input
-                                        type="date"
-                                        value={data.fecha_cierre_estimada}
-                                        onChange={(e) =>
-                                            setData(
-                                                'fecha_cierre_estimada',
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                    {errors.fecha_cierre_estimada && (
-                                        <p className="text-xs text-destructive">
-                                            {errors.fecha_cierre_estimada}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Notas y Descripción</Label>
-                                    <Input
-                                        value={data.descripcion}
-                                        onChange={(e) =>
-                                            setData(
-                                                'descripcion',
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                    {errors.descripcion && (
-                                        <p className="text-xs text-destructive">
-                                            {errors.descripcion}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsOpen(false)}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button type="submit">Guardar Oportunidad</Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
 
-            {viendo && (
-                <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-                    <DialogContent className="max-h-[85vh] max-w-2xl overflow-hidden border-none bg-white p-0 shadow-xl">
-                        <DialogHeader className="relative overflow-hidden px-8 pt-10 pb-20">
-                            <div className="absolute inset-0 bg-gradient-to-br from-green-700 via-emerald-800 to-teal-950 opacity-100" />
-                            <div className="absolute top-0 right-0 p-8 text-white opacity-20">
-                                <Eye className="h-24 w-24 rotate-12" />
-                            </div>
-                            <div className="relative z-10 flex flex-col gap-1 text-white">
-                                <Badge className="w-fit border-none bg-white/20 px-3 py-1 text-[10px] font-bold tracking-widest text-white uppercase hover:bg-white/30">
-                                    Detalle de Oportunidad
-                                </Badge>
-                                <DialogTitle className="text-3xl font-black tracking-tight text-white uppercase sm:text-4xl">
-                                    {viendo.nombre}
-                                </DialogTitle>
-                                <DialogDescription className="text-lg font-medium text-green-100/80">
-                                    Gestión y seguimiento comercial.
-                                </DialogDescription>
-                            </div>
-                        </DialogHeader>
-                        <div className="relative z-20 -mt-10 mb-6 flex max-h-[calc(85vh)] flex-col gap-6 overflow-y-auto px-8">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    {getEtapaBadge(viendo.etapa)}
-                                </div>
-                            </div>
-                            <div className="grid gap-4 text-sm">
-                                <div className="space-y-3 rounded-lg border bg-muted/30 p-4 shadow-sm">
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <span className="font-semibold text-muted-foreground">
-                                            Cliente:
-                                        </span>
-                                        <span>
-                                            {viendo.cliente?.nombre || '-'}
-                                        </span>
+                    <div className="max-h-[calc(95vh-180px)] overflow-y-auto p-4 md:p-6">
+                        <form onSubmit={handleSubmit}>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                            Nombre de la Oportunidad *
+                                        </Label>
+                                        <Input
+                                            placeholder="Ej: Implementación ERP Fase 1"
+                                            value={data.nombre}
+                                            onChange={(e) =>
+                                                setData(
+                                                    'nombre',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            required
+                                            className="h-11 rounded-xl border-none bg-muted/30 font-bold"
+                                        />
+                                    </div>
 
-                                        <span className="font-semibold text-muted-foreground">
-                                            Teléfono:
-                                        </span>
-                                        <div className="flex items-center gap-1">
-                                            {viendo.cliente?.telefono || (
-                                                <span className="text-muted-foreground">
-                                                    Sin teléfono
-                                                </span>
-                                            )}
-                                            <WhatsAppButton
-                                                phone={viendo.cliente?.telefono}
-                                                nombre={viendo.cliente?.nombre}
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                            Cliente Asignado *
+                                        </Label>
+                                        <Select
+                                            value={data.cliente_id.toString()}
+                                            onValueChange={(v) =>
+                                                setData('cliente_id', v)
+                                            }
+                                        >
+                                            <SelectTrigger className="h-11 rounded-xl border-none bg-muted/30 font-bold">
+                                                <SelectValue placeholder="Seleccione un cliente..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {clientes.map((c) => (
+                                                    <SelectItem
+                                                        key={c.id}
+                                                        value={c.id.toString()}
+                                                    >
+                                                        {c.nombre}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                Valor del Negocio
+                                            </Label>
+                                            <div className="relative">
+                                                <DollarSign className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-primary" />
+                                                <Input
+                                                    type="number"
+                                                    value={data.valor}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'valor',
+                                                            parseFloat(
+                                                                e.target.value,
+                                                            ),
+                                                        )
+                                                    }
+                                                    className="h-11 rounded-xl border-none bg-muted/30 pl-10 font-black text-primary"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                Cierre Estimado
+                                            </Label>
+                                            <Input
+                                                type="date"
+                                                value={
+                                                    data.fecha_cierre_estimada
+                                                }
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'fecha_cierre_estimada',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="h-11 rounded-xl border-none bg-muted/30 text-center font-bold"
                                             />
                                         </div>
-
-                                        <span className="font-semibold text-muted-foreground">
-                                            Progreso:
-                                        </span>
-                                        <span>
-                                            {viendo.probabilidad}% completado
-                                        </span>
-
-                                        <span className="font-semibold text-muted-foreground">
-                                            Valor Estimado:
-                                        </span>
-                                        <span className="font-medium text-green-600">
-                                            {formatCurrencyCLP(viendo.valor)}
-                                        </span>
-
-                                        <span className="font-semibold text-muted-foreground">
-                                            Fecha Estimada de Cierre:
-                                        </span>
-                                        <span>
-                                            {formatDateCLP(
-                                                viendo.fecha_cierre_estimada,
-                                            )}
-                                        </span>
                                     </div>
-                                    {viendo.descripcion && (
-                                        <div className="mt-2 w-full overflow-hidden border-t pt-2">
-                                            <span className="mb-1 block font-semibold text-muted-foreground">
-                                                Descripción y Notas:
-                                            </span>
-                                            <p className="break-all whitespace-pre-wrap text-foreground">
-                                                {viendo.descripcion}
-                                            </p>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                Etapa Actual
+                                            </Label>
+                                            <Select
+                                                value={data.etapa}
+                                                onValueChange={(v) =>
+                                                    setData('etapa', v)
+                                                }
+                                            >
+                                                <SelectTrigger className="h-11 rounded-xl border-none bg-muted/30 font-bold">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {ETAPAS.map((e) => (
+                                                        <SelectItem
+                                                            key={e.value}
+                                                            value={e.value}
+                                                        >
+                                                            {e.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                    )}
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                                Probabilidad (%)
+                                            </Label>
+                                            <div className="relative">
+                                                <Target className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    value={data.probabilidad}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'probabilidad',
+                                                            parseInt(
+                                                                e.target.value,
+                                                            ),
+                                                        )
+                                                    }
+                                                    className="h-11 rounded-xl border-none bg-muted/30 pl-10 font-bold"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                            Descripción del Alcance /
+                                            Requerimiento
+                                        </Label>
+                                        <textarea
+                                            value={data.descripcion || ''}
+                                            onChange={(e) =>
+                                                setData(
+                                                    'descripcion',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            className="flex min-h-[120px] w-full rounded-2xl border-none bg-muted/30 px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                                            placeholder="Detalle los servicios o productos involucrados..."
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <DialogFooter className="mt-4 flex flex-row justify-end space-x-2 border-t bg-gray-50 p-4">
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setIsViewOpen(false);
-                                    handleEdit(viendo);
-                                }}
-                            >
-                                <Pencil className="mr-2 h-4 w-4" /> Editar
-                            </Button>
-                            <Button onClick={() => setIsViewOpen(false)}>
-                                Cerrar
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            )}
-        </>
+
+                            <DialogFooter className="sticky bottom-0 mt-6 gap-2 border-t bg-background pt-4">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => setIsOpen(false)}
+                                    className="rounded-full px-8 font-bold"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={processing}
+                                    className="rounded-full bg-primary px-12 font-bold shadow-lg shadow-primary/20 hover:bg-primary/90"
+                                >
+                                    <Check className="mr-2 h-4 w-4" />{' '}
+                                    {editando
+                                        ? 'Guardar Cambios'
+                                        : 'Registrar Oportunidad'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </AppLayout>
     );
 }

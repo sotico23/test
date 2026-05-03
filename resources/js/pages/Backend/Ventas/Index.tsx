@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -31,7 +32,6 @@ import { WhatsAppButton } from '@/components/whatsapp-button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
-import Pagination from '@/components/ui/Pagination';
 
 interface Cliente {
     id: number;
@@ -357,6 +357,15 @@ export default function Index({
                                 className="absolute inset-0 cursor-pointer opacity-0"
                             />
                             <Button variant="outline">Importar CSV</Button>
+                        </div>
+                        <div className="relative">
+                            <input
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={handleImportCsv}
+                                className="absolute inset-0 cursor-pointer opacity-0"
+                            />
+                            <Button variant="outline">Importar Excel</Button>
                         </div>
                         <Button
                             onClick={() => {
@@ -899,7 +908,7 @@ export default function Index({
                                                                     <Input
                                                                         type="number"
                                                                         min="0"
-                                                                        step="0.01"
+                                                                        step="1"
                                                                         value={
                                                                             producto.precio_unitario
                                                                         }

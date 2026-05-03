@@ -1,7 +1,14 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, X, Eye } from 'lucide-react';
-import { ModalShow } from '@/components/ui/ModalShow';
-import { formatDateCLP, formatCurrencyCLP } from '@/lib/utils';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    Eye,
+    Download,
+    Upload,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -22,8 +29,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
+import { BulkActions } from '@/components/shared/BulkActions';
+import { ModalShow } from '@/components/ui/ModalShow';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
+import { formatDateCLP, formatCurrencyCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
 interface Cobranza {
@@ -191,9 +201,16 @@ export default function Index({
                                 Gestión de cobranzas
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo
+                            </Button>
+                            <BulkActions
+                                baseUrl="/cobranzas"
+                                filters={{}}
+                                modelName="Cobranzas"
+                            />
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -374,12 +391,12 @@ export default function Index({
                                     <Label>Monto *</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.monto}
                                         onChange={(e) =>
                                             setData(
                                                 'monto',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                         required

@@ -7,18 +7,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogFooter,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
@@ -217,8 +217,8 @@ export default function ComunidadIndex({ publicaciones }: Props) {
                         />
                         
                         {imagePreview && (
-                            <div className="relative group w-32 aspect-square rounded-xl overflow-hidden border">
-                                <img src={imagePreview} className="h-full w-full object-cover" />
+                            <div className="relative group w-32 aspect-square rounded-xl overflow-hidden border bg-muted/20">
+                                <img src={imagePreview} className="h-full w-full object-contain" />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                     <Button 
                                         variant="destructive" 
@@ -647,11 +647,11 @@ export default function ComunidadIndex({ publicaciones }: Props) {
                             />
                             
                             {editImagePreview ? (
-                                <div className="relative group aspect-video w-full overflow-hidden rounded-lg bg-muted border">
+                                <div className="relative group aspect-video w-full overflow-hidden rounded-lg bg-muted/40 border">
                                     <img
                                         src={editImagePreview}
                                         alt="Vista previa"
-                                        className="h-full w-full object-cover"
+                                        className="h-full w-full object-contain"
                                     />
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <Button

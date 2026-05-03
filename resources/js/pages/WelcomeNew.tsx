@@ -45,6 +45,11 @@ interface WelcomeProps {
         descripcion: string;
         boton: string;
     };
+    nav?: {
+        quienes_somos: string;
+        feedback: string;
+        fundacion: string;
+    };
 }
 
 const getPlanStyles = (plan: Plan, index: number) => {
@@ -91,6 +96,7 @@ export default function WelcomeNew({
     caracteristicas,
     planes,
     cta,
+    nav,
 }: WelcomeProps) {
     const appName = web_settings?.app_name || 'GrowERP';
     const appLogo = web_settings?.app_logo || null;
@@ -122,21 +128,35 @@ export default function WelcomeNew({
                             {appName}
                         </span>
                     </div>
-                    <nav className="flex items-center gap-4">
-                        <Link
-                            href="/login"
-                            className="text-sm font-medium text-gray-600 hover:text-gray-900"
-                        >
-                            Iniciar sesión
-                        </Link>
-                        {canRegister && (
-                            <Link
-                                href="/register"
-                                className="rounded-full bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 hover:shadow-lg"
-                            >
-                                Regístrate gratis
+                    <nav className="flex items-center gap-6">
+                        <div className="hidden md:flex items-center gap-6 mr-4">
+                            <Link href="/quienes-somos" className="text-sm font-medium text-gray-500 hover:text-amber-600 transition-colors">
+                                {nav?.quienes_somos || 'Quiénes Somos'}
                             </Link>
-                        )}
+                            <Link href="/feedback" className="text-sm font-medium text-gray-500 hover:text-amber-600 transition-colors">
+                                {nav?.feedback || 'Feedback'}
+                            </Link>
+                            <Link href="/fundacion" className="text-sm font-medium text-gray-500 hover:text-amber-600 transition-colors">
+                                {nav?.fundacion || 'Nuestra Fundación'}
+                            </Link>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            <Link
+                                href="/login"
+                                className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
+                            >
+                                Iniciar sesión
+                            </Link>
+                            {canRegister && (
+                                <Link
+                                    href="/register"
+                                    className="rounded-full bg-gray-900 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 hover:shadow-lg"
+                                >
+                                    Regístrate gratis
+                                </Link>
+                            )}
+                        </div>
                     </nav>
                 </div>
             </header>

@@ -1,6 +1,27 @@
 import { Head, useForm, router } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, Users, Truck, Package, Weight, Droplets } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    Users,
+    Truck,
+    Package,
+    Weight,
+    Droplets,
+    Download,
+    Upload,
+    FileSpreadsheet,
+    FileJson,
+} from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,6 +70,7 @@ interface GrupoTrabajo {
     color: string;
     estado: string;
     miembros: Miembro[];
+    conductores?: Conductor[];
     total_ventas?: number;
     cantidad_ventas?: number;
     total_kg?: number;
@@ -75,6 +97,8 @@ export default function Index({
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<GrupoTrabajo | null>(null);
     const [busqueda, setBusqueda] = useState('');
+    const [buscarConductor, setBuscarConductor] = useState('');
+    const [buscarEmpleado, setBuscarEmpleado] = useState('');
 
     const {
         data,
@@ -90,7 +114,37 @@ export default function Index({
         color: '#3B82F6',
         estado: 'activo',
         miembros: [] as number[],
+        conductores: [] as number[],
     });
+
+    const csvInputRef = useRef<HTMLInputElement>(null);
+    const excelInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImportCSV = () => {
+        csvInputRef.current?.click();
+    };
+
+    const handleImportExcel = () => {
+        excelInputRef.current?.click();
+    };
+
+    const handleFileChange = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        type: 'csv' | 'excel',
+    ) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        router.post('/grupos-trabajo/importar', formData, {
+            forceFormData: true,
+            onSuccess: () => {
+                e.target.value = '';
+            },
+        });
+    };
 
     const gruposFiltrados = useMemo(() => {
         if (!busqueda) return grupos;
@@ -102,9 +156,25 @@ export default function Index({
         );
     }, [grupos, busqueda]);
 
+    const conductoresFiltradosModal = useMemo(() => {
+        if (!buscarConductor) return conductores;
+        const b = buscarConductor.toLowerCase();
+        return conductores.filter(
+            (c) =>
+                c.nombre.toLowerCase().includes(b) ||
+                (c.rut && c.rut.toLowerCase().includes(b)),
+        );
+    }, [conductores, buscarConductor]);
+
+    const empleadosFiltradosModal = useMemo(() => {
+        if (!buscarEmpleado) return empleados;
+        const b = buscarEmpleado.toLowerCase();
+        return empleados.filter((e) => e.name.toLowerCase().includes(b));
+    }, [empleados, buscarEmpleado]);
+
     const handleOpenNew = () => {
         reset();
-        setData('miembros', []);
+        setData((prev) => ({ ...prev, miembros: [], conductores: [] }));
         setEditando(null);
         setIsOpen(true);
     };
@@ -116,6 +186,7 @@ export default function Index({
             color: grupo.color,
             estado: grupo.estado,
             miembros: grupo.miembros?.map((m) => m.id) || [],
+            conductores: grupo.conductores?.map((c) => c.id) || [],
         });
         setEditando(grupo);
         setIsOpen(true);
@@ -159,6 +230,18 @@ export default function Index({
         }
     };
 
+    const toggleConductor = (id: number) => {
+        const current = data.conductores || [];
+        if (current.includes(id)) {
+            setData(
+                'conductores',
+                current.filter((m) => m !== id),
+            );
+        } else {
+            setData('conductores', [...current, id]);
+        }
+    };
+
     const getEstadoBadge = (estado: string) => {
         return estado === 'activo' ? (
             <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
@@ -189,10 +272,60 @@ export default function Index({
                         </p>
                     </div>
                     {puedeGestionar && (
-                        <Button onClick={handleOpenNew} className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Nuevo Grupo
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button onClick={handleOpenNew} className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                Nuevo Grupo
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-9 gap-2 rounded-xl border-muted-foreground/10 font-bold"
+                                    >
+                                        <Download className="h-4 w-4 text-primary" />
+                                        <span>Herramientas</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="w-48"
+                                >
+                                    <DropdownMenuItem onClick={handleImportCSV}>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Importar CSV
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={handleImportExcel}
+                                    >
+                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                        Importar Excel
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={() =>
+                                            router.get(
+                                                '/grupos-trabajo/exportar?format=json',
+                                            )
+                                        }
+                                    >
+                                        <FileJson className="mr-2 h-4 w-4" />
+                                        Exportar JSON
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() =>
+                                            router.get(
+                                                '/grupos-trabajo/exportar?format=excel',
+                                            )
+                                        }
+                                    >
+                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                        Exportar Excel
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     )}
                 </div>
 
@@ -240,7 +373,7 @@ export default function Index({
                                     </div>
                                     <div className="flex flex-wrap gap-1">
                                         {grupo.miembros &&
-                                        grupo.miembros.length > 0 ? (
+                                            grupo.miembros.length > 0 &&
                                             grupo.miembros.map((miembro) => (
                                                 <Badge
                                                     key={miembro.id}
@@ -249,12 +382,30 @@ export default function Index({
                                                 >
                                                     {miembro.name}
                                                 </Badge>
-                                            ))
-                                        ) : (
-                                            <span className="text-xs text-muted-foreground italic">
-                                                Sin miembros
-                                            </span>
-                                        )}
+                                            ))}
+                                        {grupo.conductores &&
+                                            grupo.conductores.length > 0 &&
+                                            grupo.conductores.map(
+                                                (conductor) => (
+                                                    <Badge
+                                                        key={conductor.id}
+                                                        variant="secondary"
+                                                        className="bg-blue-50 text-[10px] text-blue-700 hover:bg-blue-100"
+                                                    >
+                                                        <Truck className="mr-1 h-3 w-3" />
+                                                        {conductor.nombre}
+                                                    </Badge>
+                                                ),
+                                            )}
+                                        {(!grupo.miembros ||
+                                            grupo.miembros.length === 0) &&
+                                            (!grupo.conductores ||
+                                                grupo.conductores.length ===
+                                                    0) && (
+                                                <span className="text-xs text-muted-foreground italic">
+                                                    Sin miembros ni conductores
+                                                </span>
+                                            )}
                                     </div>
                                 </div>
 
@@ -282,11 +433,17 @@ export default function Index({
                                         </div>
                                         <div className="flex flex-col">
                                             <p className="text-sm font-bold text-orange-600">
-                                                {(grupo.total_kg || 0).toLocaleString('es-CL')} Kg
+                                                {(
+                                                    grupo.total_kg || 0
+                                                ).toLocaleString('es-CL')}{' '}
+                                                Kg
                                             </p>
                                             <p className="text-xs font-medium text-blue-600">
-                                                <Droplets className="inline h-3 w-3 mr-1" />
-                                                {(grupo.total_l || 0).toLocaleString('es-CL')} L
+                                                <Droplets className="mr-1 inline h-3 w-3" />
+                                                {(
+                                                    grupo.total_l || 0
+                                                ).toLocaleString('es-CL')}{' '}
+                                                L
                                             </p>
                                         </div>
                                     </div>
@@ -413,78 +570,115 @@ export default function Index({
                             </div>
 
                             <div className="grid gap-2">
-                                <Label>Conductores</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label>Conductores</Label>
+                                    <Input
+                                        placeholder="Buscar conductor..."
+                                        value={buscarConductor}
+                                        onChange={(e) =>
+                                            setBuscarConductor(e.target.value)
+                                        }
+                                        className="h-7 w-48 text-xs"
+                                    />
+                                </div>
                                 <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
-                                    {conductores.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            No hay conductores disponibles
+                                    {conductoresFiltradosModal.length === 0 ? (
+                                        <p className="p-2 text-sm text-muted-foreground">
+                                            No hay conductores disponibles o
+                                            coincidentes
                                         </p>
                                     ) : (
-                                        conductores.map((conductor) => (
-                                            <label
-                                                key={conductor.id}
-                                                className="flex cursor-pointer items-center gap-2 rounded p-1 hover:bg-accent"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={
-                                                        data.miembros?.includes(
-                                                            conductor.id,
-                                                        ) || false
-                                                    }
-                                                    onChange={() =>
-                                                        toggleMiembro(
-                                                            conductor.id,
-                                                        )
-                                                    }
-                                                    className="h-4 w-4 rounded border-gray-300"
-                                                />
-                                                <Truck className="h-4 w-4 text-muted-foreground" />
-                                                <span className="text-sm">
-                                                    {conductor.nombre} -{' '}
-                                                    {conductor.rut}
-                                                </span>
-                                            </label>
-                                        ))
+                                        conductoresFiltradosModal.map(
+                                            (conductor) => (
+                                                <label
+                                                    key={conductor.id}
+                                                    className="flex cursor-pointer items-center gap-2 rounded p-1 hover:bg-accent"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={
+                                                            data.conductores?.includes(
+                                                                conductor.id,
+                                                            ) || false
+                                                        }
+                                                        onChange={() =>
+                                                            toggleConductor(
+                                                                conductor.id,
+                                                            )
+                                                        }
+                                                        className="h-4 w-4 rounded border-gray-300"
+                                                    />
+                                                    <Truck className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-sm">
+                                                        {conductor.nombre} -{' '}
+                                                        {conductor.rut}
+                                                    </span>
+                                                </label>
+                                            ),
+                                        )
                                     )}
                                 </div>
+                                {errors.conductores && (
+                                    <p className="mt-1 text-sm text-red-500">
+                                        Error en conductores:{' '}
+                                        {errors.conductores}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="grid gap-2">
-                                <Label>Empleados</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label>Empleados</Label>
+                                    <Input
+                                        placeholder="Buscar empleado..."
+                                        value={buscarEmpleado}
+                                        onChange={(e) =>
+                                            setBuscarEmpleado(e.target.value)
+                                        }
+                                        className="h-7 w-48 text-xs"
+                                    />
+                                </div>
                                 <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
-                                    {empleados.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            No hay empleados disponibles
+                                    {empleadosFiltradosModal.length === 0 ? (
+                                        <p className="p-2 text-sm text-muted-foreground">
+                                            No hay empleados disponibles o
+                                            coincidentes
                                         </p>
                                     ) : (
-                                        empleados.map((empleado) => (
-                                            <label
-                                                key={empleado.id}
-                                                className="flex cursor-pointer items-center gap-2 rounded p-1 hover:bg-accent"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={
-                                                        data.miembros?.includes(
-                                                            empleado.id,
-                                                        ) || false
-                                                    }
-                                                    onChange={() =>
-                                                        toggleMiembro(
-                                                            empleado.id,
-                                                        )
-                                                    }
-                                                    className="h-4 w-4 rounded border-gray-300"
-                                                />
-                                                <Users className="h-4 w-4 text-muted-foreground" />
-                                                <span className="text-sm">
-                                                    {empleado.name}
-                                                </span>
-                                            </label>
-                                        ))
+                                        empleadosFiltradosModal.map(
+                                            (empleado) => (
+                                                <label
+                                                    key={empleado.id}
+                                                    className="flex cursor-pointer items-center gap-2 rounded p-1 hover:bg-accent"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={
+                                                            data.miembros?.includes(
+                                                                empleado.id,
+                                                            ) || false
+                                                        }
+                                                        onChange={() =>
+                                                            toggleMiembro(
+                                                                empleado.id,
+                                                            )
+                                                        }
+                                                        className="h-4 w-4 rounded border-gray-300"
+                                                    />
+                                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-sm">
+                                                        {empleado.name}
+                                                    </span>
+                                                </label>
+                                            ),
+                                        )
                                     )}
                                 </div>
+                                {errors.miembros && (
+                                    <p className="mt-1 text-sm text-red-500">
+                                        Error en empleados: {errors.miembros}
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <DialogFooter>
@@ -502,6 +696,21 @@ export default function Index({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleFileChange(e, 'csv')}
+            />
+            <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => handleFileChange(e, 'excel')}
+            />
         </AppLayout>
     );
 }

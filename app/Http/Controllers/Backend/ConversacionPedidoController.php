@@ -5,12 +5,75 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Conversacion;
 use App\Models\MensajeConversacion;
+use App\Scopes\OwnerScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class ConversacionPedidoController extends Controller
 {
+    public function show(Conversacion $conversacion): InertiaResponse
+    {
+        if ($conversacion->comprador_id !== Auth::id() && $conversacion->vendedor_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $conversacion->load([
+            'pedido',
+            'comprador:id,name',
+            'publicProfile' => function ($query) {
+                $query->withoutGlobalScope(OwnerScope::class);
+            },
+            'mensajes' => function ($query) {
+                $query->with('sender:id,name,profile_photo_path')->orderBy('created_at', 'asc');
+            },
+        ]);
+
+        return Inertia::render('marketplace/ChatPedido', [
+            'conversacion' => [
+                'id' => $conversacion->id,
+                'pedido' => [
+                    'id' => $conversacion->pedido->id,
+                    'numero_pedido' => $conversacion->pedido->numero_pedido,
+                    'estado' => $conversacion->pedido->estado,
+                    'total' => $conversacion->pedido->total,
+                ],
+                'comprador' => [
+                    'id' => $conversacion->comprador->id,
+                    'name' => $conversacion->comprador->name,
+                ],
+                'publicProfile' => [
+                    'id' => $conversacion->publicProfile->id,
+                    'title' => $conversacion->publicProfile->title,
+                    'slug' => $conversacion->publicProfile->slug,
+                    'user_id' => $conversacion->publicProfile->user_id,
+                ],
+            ],
+            'mensajes' => $conversacion->mensajes->map(function ($msg) {
+                $data = [
+                    'id' => $msg->id,
+                    'sender_id' => $msg->sender_id,
+                    'contenido' => $msg->contenido,
+                    'created_at' => $msg->created_at->toISOString(),
+                    'sender' => [
+                        'id' => $msg->sender->id,
+                        'name' => $msg->sender->name,
+                        'profile_photo_path' => $msg->sender->profile_photo_path,
+                    ],
+                ];
+                if ($msg->file_path) {
+                    $data['file_url'] = asset('storage/'.$msg->file_path);
+                    $data['file_name'] = basename($msg->file_path);
+                    $data['is_image'] = in_array(pathinfo($msg->file_path, PATHINFO_EXTENSION), ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+                }
+
+                return $data;
+            }),
+        ]);
+    }
+
     public function getMensajes(Conversacion $conversacion): JsonResponse
     {
         // Verificar permisos (debe ser el cliente o el vendedor del pedido)

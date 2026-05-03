@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\GastosProyectoExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\GastosProyectoImport;
 use App\Models\GastoProyecto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,9 +14,12 @@ use Inertia\Response;
 
 class GastoProyectoController extends Controller
 {
+    use HasBulkOperations;
+
     public function index(): Response
     {
-        $gastos = GastoProyecto::orderBy('created_at', 'desc')->paginate(15);
+        $ownerId = auth()->user()->getOwnerId();
+        $gastos = GastoProyecto::where('owner_id', $ownerId)->orderBy('created_at', 'desc')->paginate(15);
 
         return Inertia::render('Backend/GastoProyecto/Index', ['gastos' => $gastos]);
     }
@@ -30,6 +36,7 @@ class GastoProyectoController extends Controller
             'aprobado' => 'nullable|boolean',
             'aprobador_id' => 'nullable|integer',
         ]);
+        $validated['owner_id'] = auth()->user()->getOwnerId();
         GastoProyecto::create($validated);
 
         return redirect()->route('gasto-proyecto.index');
@@ -57,5 +64,15 @@ class GastoProyectoController extends Controller
         $gastoProyecto->delete();
 
         return redirect()->route('gasto-proyecto.index');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new GastosProyectoExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new GastosProyectoImport;
     }
 }

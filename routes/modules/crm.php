@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Backend\CallCenterController;
 use App\Http\Controllers\Backend\CampanaController;
 use App\Http\Controllers\Backend\CategoriaController;
 use App\Http\Controllers\Backend\ClienteController;
@@ -9,13 +10,52 @@ use App\Http\Controllers\Backend\ProspectoController;
 use App\Http\Controllers\Backend\TicketController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('prospectos/export', [ProspectoController::class, 'exportCsv'])->name('prospectos.export');
+Route::get('prospectos/export-excel', [ProspectoController::class, 'exportExcel'])->name('prospectos.exportExcel');
+Route::post('prospectos/import', [ProspectoController::class, 'importCsv'])->name('prospectos.import');
+Route::post('prospectos/import-excel', [ProspectoController::class, 'importExcel'])->name('prospectos.importExcel');
 Route::resource('prospectos', ProspectoController::class);
 Route::patch('prospectos/{prospecto}/estado', [ProspectoController::class, 'updateEstado'])->name('prospectos.updateEstado');
 
+Route::get('oportunidades/export', [OportunidadController::class, 'exportCsv'])->name('oportunidades.export');
+Route::get('oportunidades/export-excel', [OportunidadController::class, 'exportExcel'])->name('oportunidades.exportExcel');
+Route::post('oportunidades/import', [OportunidadController::class, 'importCsv'])->name('oportunidades.import');
+Route::post('oportunidades/import-excel', [OportunidadController::class, 'importExcel'])->name('oportunidades.importExcel');
+Route::patch('oportunidades/{oportunidad}/etapa', [OportunidadController::class, 'updateEtapa'])->name('oportunidades.updateEtapa');
 Route::resource('oportunidades', OportunidadController::class)->parameters(['oportunidades' => 'oportunidad']);
 
+Route::get('clientes/export', [ClienteController::class, 'exportCsv'])->name('clientes.export');
+Route::get('clientes/export-excel', [ClienteController::class, 'exportExcel'])->name('clientes.exportExcel');
+Route::post('clientes/import', [ClienteController::class, 'importCsv'])->name('clientes.import');
+Route::post('clientes/import-excel', [ClienteController::class, 'importExcel'])->name('clientes.importExcel');
 Route::resource('clientes', ClienteController::class);
+Route::get('productos/export', [ProductoController::class, 'exportCsv'])->name('productos.export');
+Route::get('productos/export-excel', [ProductoController::class, 'exportExcel'])->name('productos.exportExcel');
+Route::post('productos/import', [ProductoController::class, 'importCsv'])->name('productos.import');
+Route::post('productos/import-excel', [ProductoController::class, 'importExcel'])->name('productos.importExcel');
 Route::resource('productos', ProductoController::class);
+
+Route::get('categorias/export', [CategoriaController::class, 'exportCsv'])->name('categorias.export');
+Route::get('categorias/export-excel', [CategoriaController::class, 'exportExcel'])->name('categorias.exportExcel');
+Route::post('categorias/import', [CategoriaController::class, 'importCsv'])->name('categorias.import');
+Route::post('categorias/import-excel', [CategoriaController::class, 'importExcel'])->name('categorias.importExcel');
 Route::resource('categorias', CategoriaController::class);
+Route::get('campanas/export', [CampanaController::class, 'exportCsv'])->name('campanas.export');
+Route::get('campanas/export-excel', [CampanaController::class, 'exportExcel'])->name('campanas.exportExcel');
+Route::post('campanas/import', [CampanaController::class, 'importCsv'])->name('campanas.import');
+Route::post('campanas/import-excel', [CampanaController::class, 'importExcel'])->name('campanas.importExcel');
 Route::resource('campanas', CampanaController::class);
+Route::get('tickets/export', [TicketController::class, 'exportCsv'])->name('tickets.export');
+Route::get('tickets/export-excel', [TicketController::class, 'exportExcel'])->name('tickets.exportExcel');
+Route::post('tickets/import', [TicketController::class, 'importCsv'])->name('tickets.import');
+Route::post('tickets/import-excel', [TicketController::class, 'importExcel'])->name('tickets.importExcel');
 Route::resource('tickets', TicketController::class);
+
+Route::get('call-center', [CallCenterController::class, 'index'])->name('call-center.index');
+Route::post('call-center/llamadas', [CallCenterController::class, 'storeLlamada'])->name('call-center.llamadas.store');
+Route::delete('call-center/llamadas/{id}', [CallCenterController::class, 'destroyLlamada'])->name('call-center.llamadas.destroy');
+Route::post('call-center/gestiones', [CallCenterController::class, 'storeGestion'])->name('call-center.gestiones.store');
+Route::get('call-center/export', [CallCenterController::class, 'exportCsv'])->name('call-center.export');
+Route::get('call-center/export-excel', [CallCenterController::class, 'exportExcel'])->name('call-center.exportExcel');
+Route::post('call-center/import', [CallCenterController::class, 'importCsv'])->name('call-center.import');
+Route::post('call-center/import-excel', [CallCenterController::class, 'importExcel'])->name('call-center.importExcel');

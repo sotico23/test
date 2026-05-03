@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\AsistenciasExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
 use App\Models\Asistencia;
 use App\Models\Empleado;
 use Illuminate\Http\RedirectResponse;
@@ -12,15 +14,34 @@ use Inertia\Response;
 
 class AsistenciaController extends Controller
 {
+    use HasBulkOperations;
+
     public function index(): Response
     {
-        $asistencias = Asistencia::with('empleado')->orderBy('created_at', 'desc')->paginate(15);
-        $empleados = Empleado::where('estado', 'activo')->orderBy('nombre')->get(['id', 'nombre', 'apellido', 'cargo']);
+        $ownerId = auth()->user()->getOwnerId();
+        $asistencias = Asistencia::with('empleado')
+            ->where('owner_id', $ownerId)
+            ->orderBy('fecha', 'desc')
+            ->paginate(15);
+        $empleados = Empleado::where('owner_id', $ownerId)
+            ->where('estado', 'activo')
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'apellido', 'cargo']);
 
         return Inertia::render('Backend/Asistencia/Index', [
             'asistencias' => $asistencias,
             'empleados' => $empleados,
         ]);
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new AsistenciasExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new AsistenciasImport;
     }
 
     public function store(Request $request): RedirectResponse
@@ -34,6 +55,7 @@ class AsistenciaController extends Controller
             'estado' => 'required|string|max:50',
             'notas' => 'nullable|string',
         ]);
+        $validated['owner_id'] = auth()->user()->getOwnerId();
         Asistencia::create($validated);
 
         return back();

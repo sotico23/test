@@ -2,19 +2,31 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOwner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Movimiento extends Model
 {
-    use HasFactory;
+    use BelongsToOwner, HasFactory;
 
     protected $table = 'movimientos';
 
-    protected $fillable = ['tipo', 'monto', 'descripcion', 'referencia', 'fecha', 'cuenta_id', 'categoria', 'estado'];
+    protected $fillable = [
+        'owner_id',
+        'producto',
+        'tipo',
+        'cantidad',
+        'almacen_origen',
+        'almacen_destino',
+        'referencia',
+        'notas',
+    ];
 
     protected function casts(): array
     {
-        return ['monto' => 'decimal:2', 'fecha' => 'date'];
+        return [
+            'cantidad' => 'integer',
+        ];
     }
 }

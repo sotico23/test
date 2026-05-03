@@ -14,10 +14,20 @@ import {
     ShieldAlert,
     MapPin,
     Navigation,
+    Download,
+    Upload,
+    FileSpreadsheet,
+    FileJson,
 } from 'lucide-react';
-import { WhatsAppButton } from '@/components/whatsapp-button';
-import Pagination from '@/components/ui/Pagination';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { FormInput } from '@/components/form-input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +46,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -43,16 +54,38 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { WhatsAppButton } from '@/components/whatsapp-button';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 const ESTADOS = [
-    { value: 'activo', label: 'Activo', color: 'bg-green-500 border-green-600 text-white', hover: 'hover:bg-green-500 hover:text-white hover:border-green-500' },
-    { value: 'inactivo', label: 'Inactivo', color: 'bg-gray-500 border-gray-500 text-white', hover: 'hover:bg-gray-500 hover:text-white hover:border-gray-500' },
-    { value: 'licencia_vencida', label: 'Lic. Vencida', color: 'bg-red-500 border-red-500 text-white', hover: 'hover:bg-red-500 hover:text-white hover:border-red-500' },
+    {
+        value: 'activo',
+        label: 'Activo',
+        color: 'bg-green-500 border-green-600 text-white',
+        hover: 'hover:bg-green-500 hover:text-white hover:border-green-500',
+    },
+    {
+        value: 'inactivo',
+        label: 'Inactivo',
+        color: 'bg-gray-500 border-gray-500 text-white',
+        hover: 'hover:bg-gray-500 hover:text-white hover:border-gray-500',
+    },
+    {
+        value: 'licencia_vencida',
+        label: 'Lic. Vencida',
+        color: 'bg-red-500 border-red-500 text-white',
+        hover: 'hover:bg-red-500 hover:text-white hover:border-red-500',
+    },
 ] as const;
 
-function StatusDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function StatusDropdown({
+    value,
+    onChange,
+}: {
+    value: string;
+    onChange: (v: string) => void;
+}) {
     const current = ESTADOS.find((e) => e.value === value) ?? ESTADOS[2];
 
     return (
@@ -64,9 +97,15 @@ function StatusDropdown({ value, onChange }: { value: string; onChange: (v: stri
             </SelectTrigger>
             <SelectContent>
                 {ESTADOS.map((e) => (
-                    <SelectItem key={e.value} value={e.value} className="text-xs">
+                    <SelectItem
+                        key={e.value}
+                        value={e.value}
+                        className="text-xs"
+                    >
                         <div className="flex items-center gap-2">
-                            <div className={`h-2 w-2 rounded-full ${e.value === 'activo' ? 'bg-green-500' : e.value === 'inactivo' ? 'bg-gray-500' : 'bg-red-500'}`} />
+                            <div
+                                className={`h-2 w-2 rounded-full ${e.value === 'activo' ? 'bg-green-500' : e.value === 'inactivo' ? 'bg-gray-500' : 'bg-red-500'}`}
+                            />
                             {e.label}
                         </div>
                     </SelectItem>
@@ -88,6 +127,10 @@ interface Conductor {
     lat: number | null;
     lng: number | null;
     ultima_actualizacion: string | null;
+    estadisticas_ventas?: {
+        diario: { productos: number; kilos: number; litros: number };
+        mensual: { productos: number; kilos: number; litros: number };
+    };
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -97,8 +140,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Index({
     conductores,
+    filters = {},
 }: {
     conductores: { data: Conductor[]; links: any[]; meta?: any; total: number };
+    filters?: { search?: string; estado?: string };
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isVerOpen, setIsVerOpen] = useState(false);
@@ -125,31 +170,55 @@ export default function Index({
     });
 
     const [filtros, setFiltros] = useState({
-        busqueda: '',
-        estado: '',
+        search: filters.search || '',
+        estado: filters.estado || '',
     });
 
-    const conductoresFiltrados = useMemo(() => {
-        return (conductores.data || []).filter((c: Conductor) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (
-                    !c.nombre.toLowerCase().includes(busca) &&
-                    !(c.licencia || '').toLowerCase().includes(busca) &&
-                    !(c.rut || '').toLowerCase().includes(busca)
-                ) {
-                    return false;
-                }
-            }
-            if (filtros.estado && c.estado !== filtros.estado) return false;
+    const csvInputRef = useRef<HTMLInputElement>(null);
+    const excelInputRef = useRef<HTMLInputElement>(null);
 
-            return true;
+    const handleImportCSV = () => {
+        csvInputRef.current?.click();
+    };
+
+    const handleImportExcel = () => {
+        excelInputRef.current?.click();
+    };
+
+    const handleFileChange = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        type: 'csv' | 'excel',
+    ) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        router.post('/conductores/importar', formData, {
+            forceFormData: true,
+            onSuccess: () => {
+                e.target.value = '';
+            },
         });
-    }, [conductores, filtros]);
+    };
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            router.get('/conductores', filtros, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                only: ['conductores'],
+            });
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+    }, [filtros.search, filtros.estado]);
 
     const limpiarFiltros = () => {
         setFiltros({
-            busqueda: '',
+            search: '',
             estado: '',
         });
     };
@@ -261,16 +330,66 @@ export default function Index({
                                 Personal de transporte
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo Conductor
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo
+                                Conductor
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-9 gap-2 rounded-xl border-muted-foreground/10 font-bold"
+                                    >
+                                        <Download className="h-4 w-4 text-primary" />
+                                        <span>Herramientas</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="w-48"
+                                >
+                                    <DropdownMenuItem onClick={handleImportCSV}>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Importar CSV
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={handleImportExcel}
+                                    >
+                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                        Importar Excel
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={() =>
+                                            router.get(
+                                                '/conductores/exportar?format=json',
+                                            )
+                                        }
+                                    >
+                                        <FileJson className="mr-2 h-4 w-4" />
+                                        Exportar JSON
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() =>
+                                            router.get(
+                                                '/conductores/exportar?format=excel',
+                                            )
+                                        }
+                                    >
+                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                        Exportar Excel
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
                             <CardTitle>Conductores</CardTitle>
                             <CardDescription>
-                                {conductoresFiltrados.length} conductores
-                                encontrados
+                                {conductores.total} conductores encontrados
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -280,11 +399,11 @@ export default function Index({
                                         <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             placeholder="Buscar por nombre o licencia..."
-                                            value={filtros.busqueda}
+                                            value={filtros.search}
                                             onChange={(e) =>
                                                 setFiltros({
                                                     ...filtros,
-                                                    busqueda: e.target.value,
+                                                    search: e.target.value,
                                                 })
                                             }
                                             className="h-9 pl-8"
@@ -349,84 +468,93 @@ export default function Index({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {conductoresFiltrados.map((c) => (
-                                            <tr
-                                                key={c.id}
-                                                className="border-b transition-colors hover:bg-muted/30"
-                                            >
-                                                <td className="py-2">
-                                                    <div className="font-medium">
-                                                        {c.nombre}
-                                                    </div>
-                                                    <div className="text-[10px] text-muted-foreground">
-                                                        RUT: {c.rut || '-'} | L:{' '}
-                                                        {c.licencia || '-'}
-                                                    </div>
-                                                </td>
-                                                <td className="py-2">
-                                                    <div className="text-[10px]">
-                                                        {c.telefono || '-'}
-                                                    </div>
-                                                    <div className="text-[10px] text-muted-foreground">
-                                                        {c.email || '-'}
-                                                    </div>
-                                                </td>
-                                                <td className="py-2 text-center">
-                                                    <StatusDropdown
-                                                        value={c.estado}
-                                                        onChange={(val) =>
-                                                            router.put(
-                                                                `/conductores/${c.id}`,
-                                                                { estado: val },
-                                                                {
-                                                                    preserveScroll: true,
-                                                                    only: ['conductores'],
-                                                                },
-                                                            )
-                                                        }
-                                                    />
-                                                </td>
-                                                <td className="py-2 text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                                                            onClick={() =>
-                                                                handleVer(c)
-                                                            }
-                                                            title="Ver Detalles"
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0"
-                                                            onClick={() =>
-                                                                handleEdit(c)
-                                                            }
-                                                            title="Editar"
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                            onClick={() =>
-                                                                handleDelete(
-                                                                    c.id,
+                                        {conductores.data.map(
+                                            (c: Conductor) => (
+                                                <tr
+                                                    key={c.id}
+                                                    className="border-b transition-colors hover:bg-muted/30"
+                                                >
+                                                    <td className="py-2">
+                                                        <div className="font-medium">
+                                                            {c.nombre}
+                                                        </div>
+                                                        <div className="text-[10px] text-muted-foreground">
+                                                            RUT: {c.rut || '-'}{' '}
+                                                            | L:{' '}
+                                                            {c.licencia || '-'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-2">
+                                                        <div className="text-[10px]">
+                                                            {c.telefono || '-'}
+                                                        </div>
+                                                        <div className="text-[10px] text-muted-foreground">
+                                                            {c.email || '-'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-2 text-center">
+                                                        <StatusDropdown
+                                                            value={c.estado}
+                                                            onChange={(val) =>
+                                                                router.put(
+                                                                    `/conductores/${c.id}`,
+                                                                    {
+                                                                        estado: val,
+                                                                    },
+                                                                    {
+                                                                        preserveScroll: true,
+                                                                        only: [
+                                                                            'conductores',
+                                                                        ],
+                                                                    },
                                                                 )
                                                             }
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {conductoresFiltrados.length === 0 && (
+                                                        />
+                                                    </td>
+                                                    <td className="py-2 text-right">
+                                                        <div className="flex justify-end gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                                                onClick={() =>
+                                                                    handleVer(c)
+                                                                }
+                                                                title="Ver Detalles"
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0"
+                                                                onClick={() =>
+                                                                    handleEdit(
+                                                                        c,
+                                                                    )
+                                                                }
+                                                                title="Editar"
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                                onClick={() =>
+                                                                    handleDelete(
+                                                                        c.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ),
+                                        )}
+                                        {conductores.data.length === 0 && (
                                             <tr>
                                                 <td
                                                     colSpan={4}
@@ -459,83 +587,60 @@ export default function Index({
                     <form onSubmit={handleSubmit} className="p-6 pt-0">
                         <div className="grid gap-6 py-4">
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                                        Nombre Completo *
-                                    </Label>
-                                    <Input
-                                        value={data.nombre}
-                                        onChange={(e) =>
-                                            setData('nombre', e.target.value)
-                                        }
-                                        required
-                                        placeholder="Ej: Juan Pérez"
-                                        className={`h-11 border-none bg-muted/30 font-bold focus-visible:ring-primary/30 ${errors.nombre ? 'ring-2 ring-destructive' : ''}`}
-                                    />
-                                    {errors.nombre && (
-                                        <p className="mt-1 text-xs font-medium text-destructive">
-                                            {errors.nombre}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                                        RUT (Documento ID)
-                                    </Label>
-                                    <Input
-                                        value={data.rut || ''}
-                                        onChange={handleRutChange}
-                                        placeholder="12.345.678-9"
-                                        className={`h-11 border-none bg-muted/30 font-mono focus-visible:ring-primary/30 ${errors.rut ? 'ring-2 ring-destructive' : ''}`}
-                                    />
-                                    {errors.rut && (
-                                        <p className="mt-1 text-xs font-medium text-destructive">
-                                            {errors.rut}
-                                        </p>
-                                    )}
-                                </div>
+                                <FormInput
+                                    label="Nombre Completo *"
+                                    id="nombre"
+                                    value={data.nombre}
+                                    onChange={(e) =>
+                                        setData('nombre', e.target.value)
+                                    }
+                                    error={errors.nombre}
+                                    required
+                                    placeholder="Ej: Juan Pérez"
+                                />
+                                <FormInput
+                                    label="RUT (Documento ID)"
+                                    id="rut"
+                                    value={data.rut || ''}
+                                    onChange={handleRutChange}
+                                    error={errors.rut}
+                                    placeholder="12.345.678-9"
+                                    className="font-mono"
+                                />
                             </div>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                                        N° Licencia
-                                    </Label>
-                                    <Input
-                                        value={data.licencia || ''}
-                                        onChange={(e) =>
-                                            setData('licencia', e.target.value)
-                                        }
-                                        className="h-11 border-none bg-muted/30 font-mono focus-visible:ring-primary/30"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                                        Teléfono
-                                    </Label>
-                                    <Input
-                                        value={data.telefono || ''}
-                                        onChange={(e) =>
-                                            setData('telefono', e.target.value)
-                                        }
-                                        placeholder="+56 9..."
-                                        className="h-11 border-none bg-muted/30 focus-visible:ring-primary/30"
-                                    />
-                                </div>
+                                <FormInput
+                                    label="N° Licencia"
+                                    id="licencia"
+                                    value={data.licencia || ''}
+                                    onChange={(e) =>
+                                        setData('licencia', e.target.value)
+                                    }
+                                    error={errors.licencia}
+                                    className="font-mono"
+                                />
+                                <FormInput
+                                    label="Teléfono"
+                                    id="telefono"
+                                    value={data.telefono || ''}
+                                    onChange={(e) =>
+                                        setData('telefono', e.target.value)
+                                    }
+                                    error={errors.telefono}
+                                    placeholder="+56 9..."
+                                />
                             </div>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                                        Correo Electrónico
-                                    </Label>
-                                    <Input
-                                        type="email"
-                                        value={data.email || ''}
-                                        onChange={(e) =>
-                                            setData('email', e.target.value)
-                                        }
-                                        className="h-11 border-none bg-muted/30 focus-visible:ring-primary/30"
-                                    />
-                                </div>
+                                <FormInput
+                                    label="Correo Electrónico"
+                                    id="email"
+                                    type="email"
+                                    value={data.email || ''}
+                                    onChange={(e) =>
+                                        setData('email', e.target.value)
+                                    }
+                                    error={errors.email}
+                                />
                                 <div className="space-y-2">
                                     <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                                         Estado Operativo
@@ -565,18 +670,15 @@ export default function Index({
                                     </Select>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                                    Notas Internas
-                                </Label>
-                                <Input
-                                    value={data.notas || ''}
-                                    onChange={(e) =>
-                                        setData('notas', e.target.value)
-                                    }
-                                    className="h-11 border-none bg-muted/30 focus-visible:ring-primary/30"
-                                />
-                            </div>
+                            <FormInput
+                                label="Notas Internas"
+                                id="notas"
+                                value={data.notas || ''}
+                                onChange={(e) =>
+                                    setData('notas', e.target.value)
+                                }
+                                error={errors.notas}
+                            />
                         </div>
                         <DialogFooter className="gap-2 border-t pt-6 sm:gap-0">
                             <Button
@@ -634,194 +736,314 @@ export default function Index({
                                 </div>
                             </DialogHeader>
 
-                            <div className="grid grid-cols-1 gap-8 p-8 md:grid-cols-2">
-                                <div className="space-y-6">
-                                    <div className="space-y-4">
-                                        <h3 className="text-xs font-black tracking-[0.2em] text-primary/70 uppercase">
-                                            Contacto Directo
-                                        </h3>
-                                        <div className="space-y-3">
-                                            <div className="group flex items-center gap-4 rounded-2xl border border-border/50 bg-muted/30 p-4 transition-colors hover:bg-muted/50">
-                                                <div className="rounded-xl bg-white p-2.5 text-primary shadow-sm transition-transform group-hover:scale-110">
-                                                    <Phone className="h-4 w-4" />
-                                                </div>
-                                                <div className="flex flex-1 items-center justify-between">
-                                                    <div>
-                                                        <p className="mb-1 text-[10px] leading-none font-black text-muted-foreground uppercase">
-                                                            Celular / Red Fija
-                                                        </p>
-                                                        <p className="text-sm font-bold">
-                                                            {conductorSeleccionado.telefono ||
-                                                                'No disponible'}
-                                                        </p>
-                                                    </div>
-                                                    {conductorSeleccionado.telefono && (
-                                                        <WhatsAppButton
-                                                            phone={
-                                                                conductorSeleccionado.telefono
-                                                            }
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="group flex items-center gap-4 rounded-2xl border border-border/50 bg-muted/30 p-4 transition-colors hover:bg-muted/50">
-                                                <div className="rounded-xl bg-white p-2.5 text-primary shadow-sm transition-transform group-hover:scale-110">
-                                                    <Mail className="h-4 w-4" />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="mb-1 text-[10px] leading-none font-black text-muted-foreground uppercase">
-                                                        Email Oficial
-                                                    </p>
-                                                    <p className="truncate text-sm font-bold">
-                                                        {conductorSeleccionado.email ||
-                                                            'Sin correo registrado'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-6">
-                                    <div className="space-y-4">
-                                        <h3 className="text-xs font-black tracking-[0.2em] text-primary/70 uppercase">
-                                            Estado de Alertas
-                                        </h3>
-                                        <div className="flex flex-col items-center justify-center space-y-3 rounded-2xl border-2 border-primary/5 bg-primary/[0.03] p-6 text-center">
-                                            {conductorSeleccionado.estado ===
-                                            'licencia_vencida' ? (
-                                                <>
-                                                    <div className="flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-destructive/10 text-destructive">
-                                                        <ShieldAlert className="h-6 w-6" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-black text-destructive uppercase">
-                                                            Licencia no Vigente
-                                                        </p>
-                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">
-                                                            Requiere
-                                                            actualización
-                                                            inmediata antes de
-                                                            asignar rutas.
-                                                        </p>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10 text-green-600">
-                                                        <FileText className="h-6 w-6" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-black tracking-tight text-green-600 uppercase">
-                                                            Habilitado para
-                                                            Conducir
-                                                        </p>
-                                                        <p className="mt-1 text-xs font-medium text-muted-foreground">
-                                                            Documentación al día
-                                                            y estado operativo
-                                                            disponible.
-                                                        </p>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="border-t pt-6 md:col-span-2">
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
+                            <div className="max-h-[calc(90vh-160px)] overflow-y-auto">
+                                <div className="grid grid-cols-1 gap-8 p-8 md:grid-cols-2">
+                                    <div className="space-y-6">
+                                        <div className="space-y-4">
                                             <h3 className="text-xs font-black tracking-[0.2em] text-primary/70 uppercase">
-                                                Estado de Seguimiento
+                                                Contacto Directo
                                             </h3>
-                                            <div className="flex items-center gap-2">
-                                                <div
-                                                    className={`h-2.5 w-2.5 rounded-full ${conductorSeleccionado.lat && conductorSeleccionado.lng && conductorSeleccionado.ultima_actualizacion ? 'animate-pulse bg-green-500 shadow-lg shadow-green-500/50' : 'bg-red-400'}`}
-                                                ></div>
-                                                <span className="text-[10px] font-bold uppercase">
-                                                    {conductorSeleccionado.lat &&
-                                                    conductorSeleccionado.lng &&
-                                                    conductorSeleccionado.ultima_actualizacion
-                                                        ? 'Conectado'
-                                                        : 'Sin señal'}
-                                                </span>
+                                            <div className="space-y-3">
+                                                <div className="group flex items-center gap-4 rounded-2xl border border-border/50 bg-muted/30 p-4 transition-colors hover:bg-muted/50">
+                                                    <div className="rounded-xl bg-white p-2.5 text-primary shadow-sm transition-transform group-hover:scale-110">
+                                                        <Phone className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="flex flex-1 items-center justify-between">
+                                                        <div>
+                                                            <p className="mb-1 text-[10px] leading-none font-black text-muted-foreground uppercase">
+                                                                Celular / Red
+                                                                Fija
+                                                            </p>
+                                                            <p className="text-sm font-bold">
+                                                                {conductorSeleccionado.telefono ||
+                                                                    'No disponible'}
+                                                            </p>
+                                                        </div>
+                                                        {conductorSeleccionado.telefono && (
+                                                            <WhatsAppButton
+                                                                phone={
+                                                                    conductorSeleccionado.telefono
+                                                                }
+                                                            />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="group flex items-center gap-4 rounded-2xl border border-border/50 bg-muted/30 p-4 transition-colors hover:bg-muted/50">
+                                                    <div className="rounded-xl bg-white p-2.5 text-primary shadow-sm transition-transform group-hover:scale-110">
+                                                        <Mail className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="mb-1 text-[10px] leading-none font-black text-muted-foreground uppercase">
+                                                            Email Oficial
+                                                        </p>
+                                                        <p className="truncate text-sm font-bold">
+                                                            {conductorSeleccionado.email ||
+                                                                'Sin correo registrado'}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="space-y-3 rounded-2xl border border-primary/10 bg-primary/5 p-4">
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                                                    Última Ubicación
-                                                </p>
-                                                <p
-                                                    className={`rounded-lg border bg-white p-2 text-xs font-medium shadow-sm ${!conductorSeleccionado.lat || !conductorSeleccionado.lng ? 'text-red-500 italic' : 'font-mono'}`}
-                                                >
-                                                    {conductorSeleccionado.lat &&
-                                                    conductorSeleccionado.lng
-                                                        ? `${conductorSeleccionado.lat.toFixed(6)}, ${conductorSeleccionado.lng.toFixed(6)}`
-                                                        : '⚠️ Sin coordenadas - Esperando señal'}
-                                                </p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                                                    Último Reporte
-                                                </p>
-                                                <p
-                                                    className={`text-xs font-medium ${!conductorSeleccionado.ultima_actualizacion ? 'text-red-500 italic' : ''}`}
-                                                >
-                                                    {conductorSeleccionado.ultima_actualizacion
-                                                        ? new Date(
-                                                              conductorSeleccionado.ultima_actualizacion,
-                                                          ).toLocaleString(
-                                                              'es-CL',
-                                                              {
-                                                                  dateStyle:
-                                                                      'medium',
-                                                                  timeStyle:
-                                                                      'short',
-                                                              },
-                                                          )
-                                                        : '⚠️ Sin datos recientes'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() =>
-                                                    simularTracking(
-                                                        conductorSeleccionado.id,
-                                                    )
-                                                }
-                                                className="text-xs font-bold"
-                                            >
-                                                <Navigation className="mr-1 h-3 w-3" />{' '}
-                                                Simular
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() =>
-                                                    limpiarTracking(
-                                                        conductorSeleccionado.id,
-                                                    )
-                                                }
-                                                className="text-xs font-bold text-red-500"
-                                            >
-                                                <Trash2 className="mr-1 h-3 w-3" />{' '}
-                                                Limpiar
-                                            </Button>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="border-t pt-6 md:col-span-2">
-                                    <h3 className="mb-4 text-xs font-black tracking-[0.2em] text-primary/70 uppercase">
-                                        Notas y Observaciones
-                                    </h3>
-                                    <div className="rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 p-5 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground italic">
-                                        {conductorSeleccionado.notas ||
-                                            'No existen anotaciones especiales en el perfil de este conductor operativo.'}
+                                    <div className="space-y-6">
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-black tracking-[0.2em] text-primary/70 uppercase">
+                                                Estado de Alertas
+                                            </h3>
+                                            <div className="flex flex-col items-center justify-center space-y-3 rounded-2xl border-2 border-primary/5 bg-primary/[0.03] p-6 text-center">
+                                                {conductorSeleccionado.estado ===
+                                                'licencia_vencida' ? (
+                                                    <>
+                                                        <div className="flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                                                            <ShieldAlert className="h-6 w-6" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-black text-destructive uppercase">
+                                                                Licencia no
+                                                                Vigente
+                                                            </p>
+                                                            <p className="mt-1 text-xs font-medium text-muted-foreground">
+                                                                Requiere
+                                                                actualización
+                                                                inmediata antes
+                                                                de asignar
+                                                                rutas.
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10 text-green-600">
+                                                            <FileText className="h-6 w-6" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-black tracking-tight text-green-600 uppercase">
+                                                                Habilitado para
+                                                                Conducir
+                                                            </p>
+                                                            <p className="mt-1 text-xs font-medium text-muted-foreground">
+                                                                Documentación al
+                                                                día y estado
+                                                                operativo
+                                                                disponible.
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t pt-6 md:col-span-2">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="text-xs font-black tracking-[0.2em] text-primary/70 uppercase">
+                                                    Estado de Seguimiento
+                                                </h3>
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className={`h-2.5 w-2.5 rounded-full ${conductorSeleccionado.lat && conductorSeleccionado.lng && conductorSeleccionado.ultima_actualizacion ? 'animate-pulse bg-green-500 shadow-lg shadow-green-500/50' : 'bg-red-400'}`}
+                                                    ></div>
+                                                    <span className="text-[10px] font-bold uppercase">
+                                                        {conductorSeleccionado.lat &&
+                                                        conductorSeleccionado.lng &&
+                                                        conductorSeleccionado.ultima_actualizacion
+                                                            ? 'Conectado'
+                                                            : 'Sin señal'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-3 rounded-2xl border border-primary/10 bg-primary/5 p-4">
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                        Última Ubicación
+                                                    </p>
+                                                    <p
+                                                        className={`rounded-lg border bg-white p-2 text-xs font-medium shadow-sm ${!conductorSeleccionado.lat || !conductorSeleccionado.lng ? 'text-red-500 italic' : 'font-mono'}`}
+                                                    >
+                                                        {conductorSeleccionado.lat &&
+                                                        conductorSeleccionado.lng
+                                                            ? `${conductorSeleccionado.lat.toFixed(6)}, ${conductorSeleccionado.lng.toFixed(6)}`
+                                                            : '⚠️ Sin coordenadas - Esperando señal'}
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                        Último Reporte
+                                                    </p>
+                                                    <p
+                                                        className={`text-xs font-medium ${!conductorSeleccionado.ultima_actualizacion ? 'text-red-500 italic' : ''}`}
+                                                    >
+                                                        {conductorSeleccionado.ultima_actualizacion
+                                                            ? new Date(
+                                                                  conductorSeleccionado.ultima_actualizacion,
+                                                              ).toLocaleString(
+                                                                  'es-CL',
+                                                                  {
+                                                                      dateStyle:
+                                                                          'medium',
+                                                                      timeStyle:
+                                                                          'short',
+                                                                  },
+                                                              )
+                                                            : '⚠️ Sin datos recientes'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        simularTracking(
+                                                            conductorSeleccionado.id,
+                                                        )
+                                                    }
+                                                    className="text-xs font-bold"
+                                                >
+                                                    <Navigation className="mr-1 h-3 w-3" />{' '}
+                                                    Simular
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        limpiarTracking(
+                                                            conductorSeleccionado.id,
+                                                        )
+                                                    }
+                                                    className="text-xs font-bold text-red-500"
+                                                >
+                                                    <Trash2 className="mr-1 h-3 w-3" />{' '}
+                                                    Limpiar
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t pt-6 md:col-span-2">
+                                        <h3 className="mb-4 text-xs font-black tracking-[0.2em] text-primary/70 uppercase">
+                                            Desempeño y Ventas Asociadas
+                                        </h3>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                            <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-5">
+                                                <p className="mb-3 text-xs font-black tracking-widest text-blue-700 uppercase">
+                                                    Rendimiento de Hoy
+                                                </p>
+                                                <div className="flex flex-col gap-2 text-sm font-semibold text-blue-900">
+                                                    <div className="flex items-center justify-between rounded bg-white/60 p-2 shadow-sm">
+                                                        <span>
+                                                            Productos o
+                                                            Cilindros:
+                                                        </span>
+                                                        <span className="font-black text-blue-700">
+                                                            {conductorSeleccionado
+                                                                .estadisticas_ventas
+                                                                ?.diario
+                                                                ?.productos ||
+                                                                0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between rounded bg-white/60 p-2 shadow-sm">
+                                                        <span>
+                                                            Total en Kilos:
+                                                        </span>
+                                                        <span className="font-black text-blue-700">
+                                                            {(
+                                                                conductorSeleccionado
+                                                                    .estadisticas_ventas
+                                                                    ?.diario
+                                                                    ?.kilos || 0
+                                                            ).toLocaleString(
+                                                                'es-CL',
+                                                            )}{' '}
+                                                            Kg
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between rounded bg-white/60 p-2 shadow-sm">
+                                                        <span>
+                                                            Total en Litros:
+                                                        </span>
+                                                        <span className="font-black text-blue-700">
+                                                            {(
+                                                                conductorSeleccionado
+                                                                    .estadisticas_ventas
+                                                                    ?.diario
+                                                                    ?.litros ||
+                                                                0
+                                                            ).toLocaleString(
+                                                                'es-CL',
+                                                            )}{' '}
+                                                            L
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="rounded-2xl border border-green-100 bg-green-50/50 p-5">
+                                                <p className="mb-3 text-xs font-black tracking-widest text-green-700 uppercase">
+                                                    Rendimiento del Mes
+                                                </p>
+                                                <div className="flex flex-col gap-2 text-sm font-semibold text-green-900">
+                                                    <div className="flex items-center justify-between rounded bg-white/60 p-2 shadow-sm">
+                                                        <span>
+                                                            Productos o
+                                                            Cilindros:
+                                                        </span>
+                                                        <span className="font-black text-green-700">
+                                                            {conductorSeleccionado
+                                                                .estadisticas_ventas
+                                                                ?.mensual
+                                                                ?.productos ||
+                                                                0}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between rounded bg-white/60 p-2 shadow-sm">
+                                                        <span>
+                                                            Total en Kilos:
+                                                        </span>
+                                                        <span className="font-black text-green-700">
+                                                            {(
+                                                                conductorSeleccionado
+                                                                    .estadisticas_ventas
+                                                                    ?.mensual
+                                                                    ?.kilos || 0
+                                                            ).toLocaleString(
+                                                                'es-CL',
+                                                            )}{' '}
+                                                            Kg
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between rounded bg-white/60 p-2 shadow-sm">
+                                                        <span>
+                                                            Total en Litros:
+                                                        </span>
+                                                        <span className="font-black text-green-700">
+                                                            {(
+                                                                conductorSeleccionado
+                                                                    .estadisticas_ventas
+                                                                    ?.mensual
+                                                                    ?.litros ||
+                                                                0
+                                                            ).toLocaleString(
+                                                                'es-CL',
+                                                            )}{' '}
+                                                            L
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t pt-6 md:col-span-2">
+                                        <h3 className="mb-4 text-xs font-black tracking-[0.2em] text-primary/70 uppercase">
+                                            Notas y Observaciones
+                                        </h3>
+                                        <div className="rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-muted/20 p-5 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground italic">
+                                            {conductorSeleccionado.notas ||
+                                                'No existen anotaciones especiales en el perfil de este conductor operativo.'}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -838,6 +1060,21 @@ export default function Index({
                     )}
                 </DialogContent>
             </Dialog>
+
+            <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleFileChange(e, 'csv')}
+            />
+            <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => handleFileChange(e, 'excel')}
+            />
         </>
     );
 }

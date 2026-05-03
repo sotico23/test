@@ -11,8 +11,12 @@ import {
     Eye,
     CheckCircle2,
     AlertCircle,
+    Download,
+    Upload,
+    FileSpreadsheet,
+    FileText,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +35,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BulkActions } from '@/components/shared/BulkActions';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -41,7 +47,6 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import MapaVehiculos from './MapaVehiculos';
-import Pagination from '@/components/ui/Pagination';
 
 interface Vehiculo {
     id: number;
@@ -68,6 +73,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Index({
     vehiculos,
+    filters,
 }: {
     vehiculos: {
         data: Vehiculo[];
@@ -75,12 +81,83 @@ export default function Index({
         meta?: any;
         total: number;
     };
+    filters: {
+        search?: string;
+        tipo?: string;
+        estado?: string;
+    };
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isVerOpen, setIsVerOpen] = useState(false);
     const [editando, setEditando] = useState<Vehiculo | null>(null);
     const [vehiculoSeleccionado, setVehiculoSeleccionado] =
         useState<Vehiculo | null>(null);
+    const importFileRef = useRef<HTMLInputElement>(null);
+    const importExcelRef = useRef<HTMLInputElement>(null);
+
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [tipoFilter, setTipoFilter] = useState(filters.tipo || '');
+    const [estadoFilter, setEstadoFilter] = useState(filters.estado || '');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            router.get(
+                '/vehiculos',
+                {
+                    search: searchTerm,
+                    tipo: tipoFilter,
+                    estado: estadoFilter,
+                },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                },
+            );
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm, tipoFilter, estadoFilter]);
+
+    const handleExport = (type: 'csv' | 'excel') => {
+        const baseUrl =
+            type === 'csv' ? '/vehiculos/export' : '/vehiculos/export-excel';
+        const params = new URLSearchParams({
+            search: searchTerm,
+            tipo: tipoFilter,
+            estado: estadoFilter,
+        });
+        window.location.href = `${baseUrl}?${params.toString()}`;
+    };
+
+    const handleImport = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        isExcel = false,
+    ) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('archivo', file);
+
+        router.post(
+            isExcel ? '/vehiculos/import-excel' : '/vehiculos/import',
+            formData,
+            {
+                onSuccess: () => {
+                    if (importFileRef.current) importFileRef.current.value = '';
+                    if (importExcelRef.current)
+                        importExcelRef.current.value = '';
+                },
+            },
+        );
+    };
+
+    const limpiarFiltros = () => {
+        setSearchTerm('');
+        setTipoFilter('');
+        setEstadoFilter('');
+    };
+
     const {
         data,
         setData,
@@ -102,36 +179,6 @@ export default function Index({
         kilometraje: 0,
         notas: '',
     });
-
-    const [filtros, setFiltros] = useState({
-        busqueda: '',
-        estado: '',
-    });
-
-    const vehiculosFiltrados = useMemo(() => {
-        return vehiculos.data.filter((v) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (
-                    !v.placa.toLowerCase().includes(busca) &&
-                    !(v.marca || '').toLowerCase().includes(busca) &&
-                    !(v.modelo || '').toLowerCase().includes(busca)
-                ) {
-                    return false;
-                }
-            }
-            if (filtros.estado && v.estado !== filtros.estado) return false;
-
-            return true;
-        });
-    }, [vehiculos, filtros]);
-
-    const limpiarFiltros = () => {
-        setFiltros({
-            busqueda: '',
-            estado: '',
-        });
-    };
 
     const handlePlacaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setData('placa', e.target.value.toUpperCase());
@@ -263,12 +310,19 @@ export default function Index({
                                 Flota vehicular
                             </p>
                         </div>
-                        <Button
-                            onClick={handleNew}
-                            className="rounded-full bg-primary px-6 font-bold shadow-lg shadow-primary/20 hover:bg-primary/90"
-                        >
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo Vehículo
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                            <BulkActions
+                                baseUrl="/vehiculos"
+                                filters={filters}
+                                modelName="Vehículos"
+                            />
+                            <Button
+                                onClick={handleNew}
+                                className="rounded-full bg-primary px-6 font-bold shadow-lg shadow-primary/20 hover:bg-primary/90"
+                            >
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo Vehículo
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="grid gap-6">
@@ -302,26 +356,22 @@ export default function Index({
                                             <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
                                             <Input
                                                 placeholder="Buscar por placa, marca o modelo..."
-                                                value={filtros.busqueda}
+                                                value={searchTerm}
                                                 onChange={(e) =>
-                                                    setFiltros({
-                                                        ...filtros,
-                                                        busqueda:
-                                                            e.target.value,
-                                                    })
+                                                    setSearchTerm(
+                                                        e.target.value,
+                                                    )
                                                 }
                                                 className="h-9 pl-8"
                                             />
                                         </div>
                                     </div>
                                     <Select
-                                        value={filtros.estado}
+                                        value={estadoFilter}
                                         onValueChange={(val) =>
-                                            setFiltros({
-                                                ...filtros,
-                                                estado:
-                                                    val === 'all' ? '' : val,
-                                            })
+                                            setEstadoFilter(
+                                                val === 'all' ? '' : val,
+                                            )
                                         }
                                     >
                                         <SelectTrigger className="h-9 w-full bg-background sm:w-[180px]">
@@ -379,80 +429,85 @@ export default function Index({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {vehiculosFiltrados.map((v) => (
-                                                <tr
-                                                    key={v.id}
-                                                    className="border-b transition-colors hover:bg-muted/30"
-                                                >
-                                                    <td className="py-2 font-mono">
-                                                        <div className="font-bold">
-                                                            {v.placa}
-                                                        </div>
-                                                        <div className="text-[10px] text-muted-foreground">
-                                                            {v.marca || '-'} /{' '}
-                                                            {v.modelo || '-'}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-2">
-                                                        <div className="text-[10px]">
-                                                            {v.tipo || '-'}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-2 text-right font-medium">
-                                                        {Number(
-                                                            v.kilometraje,
-                                                        ).toFixed(0)}{' '}
-                                                        km
-                                                    </td>
-                                                    <td className="py-2 text-center">
-                                                        {getEstadoBadge(
-                                                            v.estado,
-                                                        )}
-                                                    </td>
-                                                    <td className="py-2 text-right">
-                                                        <div className="flex justify-end gap-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                                                                onClick={() =>
-                                                                    handleVer(v)
-                                                                }
-                                                                title="Ver Detalles"
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 w-8 p-0"
-                                                                onClick={() =>
-                                                                    handleEdit(
-                                                                        v,
-                                                                    )
-                                                                }
-                                                                title="Editar"
-                                                            >
-                                                                <Pencil className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                                onClick={() =>
-                                                                    handleDelete(
-                                                                        v.id,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {vehiculosFiltrados.length ===
-                                                0 && (
+                                            {vehiculos.data.map(
+                                                (v: Vehiculo) => (
+                                                    <tr
+                                                        key={v.id}
+                                                        className="border-b transition-colors hover:bg-muted/30"
+                                                    >
+                                                        <td className="py-2 font-mono">
+                                                            <div className="font-bold">
+                                                                {v.placa}
+                                                            </div>
+                                                            <div className="text-[10px] text-muted-foreground">
+                                                                {v.marca || '-'}{' '}
+                                                                /{' '}
+                                                                {v.modelo ||
+                                                                    '-'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2">
+                                                            <div className="text-[10px]">
+                                                                {v.tipo || '-'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2 text-right font-medium">
+                                                            {Number(
+                                                                v.kilometraje,
+                                                            ).toFixed(0)}{' '}
+                                                            km
+                                                        </td>
+                                                        <td className="py-2 text-center">
+                                                            {getEstadoBadge(
+                                                                v.estado,
+                                                            )}
+                                                        </td>
+                                                        <td className="py-2 text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                                                    onClick={() =>
+                                                                        handleVer(
+                                                                            v,
+                                                                        )
+                                                                    }
+                                                                    title="Ver Detalles"
+                                                                >
+                                                                    <Eye className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0"
+                                                                    onClick={() =>
+                                                                        handleEdit(
+                                                                            v,
+                                                                        )
+                                                                    }
+                                                                    title="Editar"
+                                                                >
+                                                                    <Pencil className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                                    onClick={() =>
+                                                                        handleDelete(
+                                                                            v.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ),
+                                            )}
+                                            {vehiculos.data.length === 0 && (
                                                 <tr>
                                                     <td
                                                         colSpan={5}
@@ -479,7 +534,7 @@ export default function Index({
                                 />
                                 {/* Mobile Grid Layout */}
                                 <div className="grid grid-cols-1 gap-4 md:hidden">
-                                    {vehiculosFiltrados.map((v) => (
+                                    {vehiculos.data.map((v: Vehiculo) => (
                                         <div
                                             key={v.id}
                                             className="flex flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground shadow-sm"
@@ -555,7 +610,7 @@ export default function Index({
                                             </div>
                                         </div>
                                     ))}
-                                    {vehiculosFiltrados.length === 0 && (
+                                    {vehiculos.data.length === 0 && (
                                         <div className="rounded-xl border py-8 text-center text-muted-foreground">
                                             No se encontraron vehículos.
                                         </div>
@@ -656,7 +711,7 @@ export default function Index({
                                         onChange={(e) =>
                                             setData(
                                                 'año',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                         className="h-11 border-none bg-muted/30 focus-visible:ring-primary/30"
@@ -686,7 +741,7 @@ export default function Index({
                                         onChange={(e) =>
                                             setData(
                                                 'kilometraje',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                         className="h-11 border-none bg-muted/30 font-bold focus-visible:ring-primary/30"

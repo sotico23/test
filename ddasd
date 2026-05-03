@@ -1,0 +1,10 @@
+[90m= [39m<<<[32mEOS[39m
+  [32m❌ Error: Error SII: 11. Respuesta: <?xml version="1.0" encoding="UTF-8"?>[39m
+  [32m<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">[39m
+  [32m <soapenv:Body>[39m
+  [32m  <ns1:getTokenResponse soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:ns1="http://DefaultNamespace">[39m
+  [32m   <ns1:getTokenReturn xsi:type="xsd:string">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&lt;SII:RESPUESTA xmlns:SII=&quot;http://www.sii.cl/XMLSchema&quot;&gt;&lt;SII:RESP_HDR&gt;&lt;ESTADO&gt;11&lt;/ESTADO&gt;&lt;GLOSA&gt;XML Inv&#239;&#191;&#189;lido, elemento &#239;&#191;&#189;Certificate&#239;&#191;&#189; no existe, funci&#239;&#191;&#189;n getCertificado&lt;/GLOSA&gt;&lt;/SII:RESP_HDR&gt;&lt;/SII:RESPUESTA&gt;</ns1:getTokenReturn>[39m
+  [32m  </ns1:getTokenResponse>[39m
+  [32m </soapenv:Body>[39m
+  [32m</soapenv:Envelope>[39m
+  [32mEOS[39m

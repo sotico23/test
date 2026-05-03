@@ -21,6 +21,7 @@ class PublicProfile extends Model
         'phone',
         'email',
         'is_active',
+        'is_official',
         'likes_count',
         'rating_total',
         'rating_count',
@@ -30,6 +31,7 @@ class PublicProfile extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_official' => 'boolean',
             'likes_count' => 'integer',
             'rating_total' => 'integer',
             'rating_count' => 'integer',

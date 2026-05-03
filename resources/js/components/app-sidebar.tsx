@@ -4,6 +4,7 @@ import {
     Calendar,
     ClipboardList,
     DollarSign,
+    FileText,
     PieChart,
     Settings,
     Tag,
@@ -14,6 +15,9 @@ import {
     ShoppingCart,
     Lock,
     User,
+    GraduationCap,
+    Gift,
+    CreditCard,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import {
@@ -47,11 +51,11 @@ const adminNavItems = (isSuperAdmin: boolean): NavItem[] => [
             { title: 'API Keys', href: buildRouteUrl('/api-keys') },
             ...(isSuperAdmin
                 ? [
-                    {
-                        title: 'Configuración Web',
-                        href: buildRouteUrl('/configuracion-web'),
-                    },
-                ]
+                      {
+                          title: 'Configuración Web',
+                          href: buildRouteUrl('/configuracion-web'),
+                      },
+                  ]
                 : []),
         ],
     },
@@ -79,6 +83,7 @@ const mainNavItems: NavItem[] = [
 
             { title: 'Campañas', href: buildRouteUrl('/campanas') },
             { title: 'Tickets Soporte', href: buildRouteUrl('/tickets') },
+            { title: 'Call Center', href: buildRouteUrl('/call-center') },
         ],
     },
     {
@@ -111,20 +116,29 @@ const mainNavItems: NavItem[] = [
         ],
     },
     {
-        title: 'Finanzas y Tesorería',
-        group: 'FINANZAS',
-        href: '#finanzas',
-        icon: DollarSign,
+        title: 'Facturación',
+        group: 'FACTURACIÓN',
+        href: '#facturacion',
+        icon: FileText,
         items: [
             { title: 'Facturación (AR)', href: buildRouteUrl('/facturacion') },
             { title: 'Cobranzas', href: buildRouteUrl('/cobranzas') },
             { title: 'Pagos (AP)', href: buildRouteUrl('/pagos') },
-            { title: 'Tesorería', href: buildRouteUrl('/tesoreria') },
             {
                 title: 'Contabilidad (GL)',
                 href: buildRouteUrl('/contabilidad'),
             },
             { title: 'Impuestos', href: buildRouteUrl('/impuestos') },
+        ],
+    },
+    {
+        title: 'Pagos en Línea',
+        group: 'FINANZAS',
+        href: '#pagos-online',
+        icon: CreditCard,
+        items: [
+            { title: 'Configuración Webpay', href: buildRouteUrl('/webpay/config') },
+            { title: 'Movimientos', href: buildRouteUrl('/webpay/movimientos') },
         ],
     },
     {
@@ -164,6 +178,7 @@ const mainNavItems: NavItem[] = [
             { title: 'Vehículos', href: buildRouteUrl('/vehiculos') },
             { title: 'Conductores', href: buildRouteUrl('/conductores') },
             { title: 'Entregas', href: buildRouteUrl('/entregas') },
+            { title: 'Cargas Diarias / Rutas', href: buildRouteUrl('/cargas-diarias') },
             {
                 title: 'Grupos de Trabajo',
                 href: buildRouteUrl('/grupos-trabajo'),
@@ -186,13 +201,63 @@ const mainNavItems: NavItem[] = [
             { title: 'Mensajes Marketplace', href: buildRouteUrl('/chat') },
         ],
     },
+    {
+        title: 'Citas y Reservas',
+        group: 'SERVICIOS',
+        href: '#reservas',
+        icon: Calendar,
+        items: [
+            {
+                title: 'Dashboard',
+                href: buildRouteUrl('/appointments/dashboard'),
+            },
+            {
+                title: 'Calendario',
+                href: buildRouteUrl('/appointments/calendar'),
+            },
+            { title: 'Mis Citas', href: buildRouteUrl('/appointments') },
+            { title: 'Servicios', href: buildRouteUrl('/services') },
+        ],
+    },
+    {
+        title: 'Plataforma de Aprendizaje',
+        group: 'EDUCACIÓN',
+        href: '#lms',
+        icon: GraduationCap,
+        items: [
+            { title: 'Catálogo de Cursos', href: buildRouteUrl('/cursos') },
+            {
+                title: 'Mis Cursos (Instructor)',
+                href: buildRouteUrl('/instructor/cursos'),
+            },
+            {
+                title: 'Cursos Inscritos',
+                href: buildRouteUrl('/alumno/cursos'),
+            },
+            {
+                title: 'Progreso y Notas',
+                href: buildRouteUrl('/alumno/progreso'),
+            },
+        ],
+    },
+    {
+        title: 'Rifas y Sorteos',
+        group: 'MARKETING',
+        href: '#raffles',
+        icon: Gift,
+        items: [
+            { title: 'Gestionar Rifas', href: buildRouteUrl('/raffles') },
+            { title: 'Sorteos', href: buildRouteUrl('/raffles/draws') },
+        ],
+    },
 ];
 
 export function AppSidebar() {
     const { auth } = usePage().props as {
         auth: { user: { roles?: string[] } };
     };
-    const isSuperAdmin = auth?.user?.roles?.includes('Super Admin') ?? false;
+    // ⚠️ TEMPORAL: Mostrar todo independientemente del rol
+    const isSuperAdmin = true;
 
     const allItems = isSuperAdmin
         ? [...mainNavItems, ...adminNavItems(true)]

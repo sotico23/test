@@ -1,7 +1,14 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
-import { useState } from 'react';
-import { useMemo } from 'react';
+import { Head, useForm, router } from '@inertiajs/react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    Download,
+    Upload,
+} from 'lucide-react';
+import { useState, useMemo, ChangeEvent } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,8 +27,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
+import { BulkActions } from '@/components/shared/BulkActions';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 interface Timesheet {
@@ -43,7 +51,18 @@ const breadcrumbs: BreadcrumbItem[] = [
 const estados = ['pendiente', 'aprobado', 'rechazado'];
 const tipos = ['normal', 'extra', 'enfermedad', 'vacacion'];
 
-export default function Index({ timesheets }: { timesheets: { data: Timesheet[]; links: any[]; from?: number; to?: number; total?: number; meta?: any } }) {
+export default function Index({
+    timesheets,
+}: {
+    timesheets: {
+        data: Timesheet[];
+        links: any[];
+        from?: number;
+        to?: number;
+        total?: number;
+        meta?: any;
+    };
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Timesheet | null>(null);
     const {
@@ -143,6 +162,37 @@ export default function Index({ timesheets }: { timesheets: { data: Timesheet[];
     const handleDelete = (id: number) => {
         if (confirm('¿Eliminar?')) destroy(`/timesheets/${id}`);
     };
+
+    const handleExportCsv = () => {
+        window.location.href = '/timesheets/export';
+    };
+
+    const handleExportExcel = () => {
+        window.location.href = '/timesheets/export-excel';
+    };
+
+    const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('archivo', file);
+        router.post('/timesheets/import', formData, {
+            onSuccess: () => alert('Importación completada'),
+            onError: (err) => alert('Error: ' + Object.values(err)[0]),
+        });
+    };
+
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('archivo', file);
+        router.post('/timesheets/import-excel', formData, {
+            onSuccess: () => alert('Importación completada'),
+            onError: (err) => alert('Error: ' + Object.values(err)[0]),
+        });
+    };
+
     const getEstadoBadge = (estado: string) => {
         const colores: Record<string, string> = {
             pendiente: 'bg-yellow-500',
@@ -166,9 +216,16 @@ export default function Index({ timesheets }: { timesheets: { data: Timesheet[];
                                 Registro de tiempo
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo
+                            </Button>
+                            <BulkActions
+                                baseUrl="/timesheets"
+                                filters={{}}
+                                modelName="Timesheets"
+                            />
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -204,7 +261,7 @@ export default function Index({ timesheets }: { timesheets: { data: Timesheet[];
                                             estado: e.target.value,
                                         })
                                     }
-                                    className="flex h-9 rounded-md border bg-background px-3 py-1 min-w-[150px]"
+                                    className="flex h-9 min-w-[150px] rounded-md border bg-background px-3 py-1"
                                 >
                                     <option value="">Todos los estados</option>
                                     {estados.map((e) => (
@@ -254,11 +311,11 @@ export default function Index({ timesheets }: { timesheets: { data: Timesheet[];
                                                     <div className="font-medium">
                                                         {t.fecha
                                                             ? new Date(
-                                                                t.fecha,
-                                                            ).toLocaleDateString()
+                                                                  t.fecha,
+                                                              ).toLocaleDateString()
                                                             : '-'}
                                                     </div>
-                                                    <div className="text-[10px] uppercase text-muted-foreground">
+                                                    <div className="text-[10px] text-muted-foreground uppercase">
                                                         {t.tipo || '-'}
                                                     </div>
                                                 </td>
@@ -266,15 +323,12 @@ export default function Index({ timesheets }: { timesheets: { data: Timesheet[];
                                                     {t.horas}h
                                                 </td>
                                                 <td className="py-2">
-                                                    <div className="text-[10px] truncate max-w-[200px]">
-                                                        {t.descripcion ||
-                                                            '-'}
+                                                    <div className="max-w-[200px] truncate text-[10px]">
+                                                        {t.descripcion || '-'}
                                                     </div>
                                                 </td>
                                                 <td className="py-2 text-center">
-                                                    {getEstadoBadge(
-                                                        t.estado,
-                                                    )}
+                                                    {getEstadoBadge(t.estado)}
                                                 </td>
                                                 <td className="py-2 text-right">
                                                     <div className="flex justify-end gap-1">
@@ -304,22 +358,23 @@ export default function Index({ timesheets }: { timesheets: { data: Timesheet[];
                                                 </td>
                                             </tr>
                                         ))}
-                                        {timesheetsFiltrados.length ===
-                                            0 && (
-                                                <tr>
-                                                    <td
-                                                        colSpan={5}
-                                                        className="py-8 text-center text-muted-foreground"
-                                                    >
-                                                        No se encontraron
-                                                        registros con los
-                                                        filtros aplicados
-                                                    </td>
-                                                </tr>
-                                            )}
+                                        {timesheetsFiltrados.length === 0 && (
+                                            <tr>
+                                                <td
+                                                    colSpan={5}
+                                                    className="py-8 text-center text-muted-foreground"
+                                                >
+                                                    No se encontraron registros
+                                                    con los filtros aplicados
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
-                                <Pagination links={timesheets.links} meta={timesheets.meta || timesheets} />
+                                <Pagination
+                                    links={timesheets.links}
+                                    meta={timesheets.meta || timesheets}
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -334,7 +389,7 @@ export default function Index({ timesheets }: { timesheets: { data: Timesheet[];
                     </DialogHeader>
                     <form onSubmit={handleSubmit}>
                         <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Fecha</Label>
                                     <Input
@@ -349,19 +404,19 @@ export default function Index({ timesheets }: { timesheets: { data: Timesheet[];
                                     <Label>Horas *</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.horas}
                                         onChange={(e) =>
                                             setData(
                                                 'horas',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                         required
                                     />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Tipo</Label>
                                     <select

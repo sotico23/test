@@ -2,21 +2,29 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOwner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Prospecto extends Model
 {
-    use HasFactory;
+    use BelongsToOwner, HasFactory;
 
     protected $fillable = [
+        'owner_id',
         'nombre',
+        'rut',
         'email',
         'telefono',
         'empresa',
+        'cargo',
+        'direccion',
+        'comuna',
+        'region',
         'descripcion',
         'fuente',
         'estado',
+        'prioridad',
         'valor_estimado',
         'fecha_seguimiento',
         'notas',

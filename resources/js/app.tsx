@@ -7,6 +7,9 @@ import { initializeTheme } from './hooks/use-appearance';
 
 const appName = (window as any).appName || import.meta.env.VITE_APP_NAME || 'Laravel';
 
+import { router } from '@inertiajs/react';
+import { toast } from 'sonner';
+
 createInertiaApp({
     title: (title) => {
         const dynamicAppName = (window as any).appName || import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -29,6 +32,18 @@ createInertiaApp({
     progress: {
         color: '#4B5563',
     },
+});
+
+// Manejo Global de Errores
+router.on('invalid', (event) => {
+    event.preventDefault();
+    console.error('Inertia Invalid Response:', event.detail.response);
+    toast.error('Error de servidor: Intente más tarde');
+});
+
+router.on('exception', (event) => {
+    console.error('Inertia Exception:', event.detail.exception);
+    toast.error('Error de conexión o excepcion interna: Intente más tarde');
 });
 
 // This will set light / dark mode on load...

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Backend;
 
+use App\Rules\RutRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProveedorRequest extends FormRequest
@@ -15,7 +16,7 @@ class StoreProveedorRequest extends FormRequest
     {
         return [
             'nombre' => ['required', 'string', 'max:255'],
-            'nit' => ['nullable', 'string', 'max:50', 'unique:proveedors,nit'],
+            'nit' => ['nullable', 'string', 'max:50', 'unique:proveedors,nit', new RutRule],
             'telefono' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
             'direccion' => ['nullable', 'string', 'max:500'],
@@ -29,7 +30,7 @@ class StoreProveedorRequest extends FormRequest
     {
         return [
             'nombre.required' => 'El nombre del proveedor es obligatorio.',
-            'nit.unique' => 'Este NIT ya está registrado.',
+            'nit.unique' => 'Este RUT ya está registrado.',
             'email.email' => 'El correo electrónico debe ser válido.',
         ];
     }

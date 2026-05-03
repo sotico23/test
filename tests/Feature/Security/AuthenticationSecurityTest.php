@@ -60,7 +60,7 @@ test('remember me cookie is set when requested', function () {
         'remember' => 'on',
     ]);
 
-    $response->assertCookieHasKey('remember_web');
+    $response->assertCookie(auth()->guard()->getRecallerName());
 });
 
 test('password reset request returns success for valid email', function () {

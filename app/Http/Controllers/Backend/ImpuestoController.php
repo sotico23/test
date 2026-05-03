@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\ImpuestosExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\ImpuestosImport;
 use App\Models\Impuesto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +14,8 @@ use Inertia\Response;
 
 class ImpuestoController extends Controller
 {
+    use HasBulkOperations;
+
     public function index(): Response
     {
         $impuestos = Impuesto::orderBy('created_at', 'desc')->paginate(15);
@@ -57,5 +62,15 @@ class ImpuestoController extends Controller
         $impuesto->delete();
 
         return redirect()->route('impuestos.index');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new ImpuestosExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new ImpuestosImport;
     }
 }

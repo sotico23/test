@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\ProyectosExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\ProyectosImport;
 use App\Models\Proyecto;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,9 +14,12 @@ use Inertia\Response;
 
 class ProyectoController extends Controller
 {
+    use HasBulkOperations;
+
     public function index(): Response
     {
-        $proyectos = Proyecto::orderBy('created_at', 'desc')->paginate(15);
+        $ownerId = auth()->user()->getOwnerId();
+        $proyectos = Proyecto::where('owner_id', $ownerId)->orderBy('created_at', 'desc')->paginate(15);
 
         return Inertia::render('Backend/Proyectos/Index', ['proyectos' => $proyectos]);
     }
@@ -63,5 +69,15 @@ class ProyectoController extends Controller
         $proyecto->delete();
 
         return redirect()->route('proyectos.index');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new ProyectosExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new ProyectosImport;
     }
 }

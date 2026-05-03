@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Evaluacion {
     id: number;
@@ -179,9 +180,15 @@ export default function Index({
                                 Gestión de evaluaciones
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nueva
-                        </Button>
+                        <div className="flex gap-2 items-center">
+                            <BulkActions
+                                baseUrl="/evaluaciones"
+                                modelName="Evaluaciones"
+                            />
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nueva
+                            </Button>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -391,12 +398,12 @@ export default function Index({
                                     <Label>Puntuación</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.puntuacion}
                                         onChange={(e) =>
                                             setData(
                                                 'puntuacion',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />

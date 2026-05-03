@@ -2,36 +2,73 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\ProductosExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\ProductosImport;
 use App\Models\Categoria;
 use App\Models\Producto;
 use App\Models\PublicProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ProductoController extends Controller
 {
-    public function index(): Response
+    use HasBulkOperations;
+
+    public function getExportClass(array $filters): object
+    {
+        return new ProductosExport($filters);
+    }
+
+    public function getImportClass(): object
+    {
+        return new ProductosImport;
+    }
+
+    public function index(Request $request): Response
     {
         $userId = Auth::user()->getOwnerId();
 
-        $productos = Producto::with('categoria', 'inventario')
-            ->where(fn ($q) => $q->where('owner_id', $userId))
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
-        $categorias = Categoria::where(fn ($q) => $q->where('tipo', 'producto'))
-            ->where(fn ($q) => $q->where('activo', true))
-            ->where(fn ($q) => $q->where('owner_id', $userId))
+        $query = Producto::with(['categoria', 'inventario'])
+            ->where('owner_id', $userId);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                    ->orWhere('codigo', 'like', "%{$search}%")
+                    ->orWhere('descripcion', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('categoria_id')) {
+            $query->where('categoria_id', $request->input('categoria_id'));
+        }
+
+        if ($request->boolean('stock_bajo')) {
+            $query->whereHas('inventario', function ($q) {
+                $q->whereColumn('cantidad', '<=', 'cantidad_minima');
+            });
+        }
+
+        $productos = $query->orderBy('created_at', 'desc')
+            ->paginate(15)
+            ->withQueryString();
+
+        $categorias = Categoria::where('tipo', 'producto')
+            ->where('activo', true)
+            ->where('owner_id', $userId)
             ->get();
 
         return Inertia::render('Backend/Productos/Index', [
             'productos' => $productos,
             'categorias' => $categorias,
+            'filters' => $request->only(['search', 'categoria_id', 'stock_bajo']),
         ]);
     }
 
@@ -268,167 +305,5 @@ class ProductoController extends Controller
         $producto->delete();
 
         return redirect()->route('productos.index');
-    }
-
-    public function exportCsv(Request $request)
-    {
-        $userId = auth()->user()->getOwnerId();
-        $productos = Producto::with(['categoria', 'inventarios'])
-            ->where(fn ($q) => $q->where('owner_id', $userId))
-            ->get();
-
-        $filename = 'productos_'.now()->format('Ymd_His').'.csv';
-
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-            'Pragma' => 'no-cache',
-            'Expires' => '0',
-        ];
-
-        $callback = function () use ($productos) {
-            $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            fputcsv($file, [
-                'Codigo', 'Nombre', 'Descripcion', 'Precio_Compra', 'Precio_Venta',
-                'Stock', 'Stock_Minimo', 'Unidad_Medida', 'Categoria', 'Activo',
-            ], ';');
-
-            foreach ($productos as $p) {
-                fputcsv($file, [
-                    $p->codigo,
-                    $p->nombre,
-                    $p->descripcion,
-                    $p->precio_compra,
-                    $p->precio_venta,
-                    $p->inventarios->first()->cantidad ?? 0,
-                    $p->stock_minimo,
-                    $p->unidad_medida,
-                    $p->categoria->nombre ?? '',
-                    $p->activo ? 'Si' : 'No',
-                ], ';');
-            }
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
-
-    public function exportExcel(Request $request)
-    {
-        $userId = auth()->user()->getOwnerId();
-        $productos = Producto::with(['categoria', 'inventarios'])
-            ->where(fn ($q) => $q->where('owner_id', $userId))
-            ->get();
-
-        $filename = 'productos_'.now()->format('Ymd_His').'.xls';
-
-        $headers = [
-            'Content-Type' => 'application/vnd.ms-excel',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
-        ];
-
-        return response()->stream(function () use ($productos) {
-            echo '<html><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /><body><table border="1">';
-            echo '<tr>
-                <th style="background-color: #f2f2f2;">Codigo</th>
-                <th style="background-color: #f2f2f2;">Nombre</th>
-                <th style="background-color: #f2f2f2;">Descripcion</th>
-                <th style="background-color: #f2f2f2;">Precio_Compra</th>
-                <th style="background-color: #f2f2f2;">Precio_Venta</th>
-                <th style="background-color: #f2f2f2;">Stock</th>
-                <th style="background-color: #f2f2f2;">Stock_Minimo</th>
-                <th style="background-color: #f2f2f2;">Unidad_Medida</th>
-                <th style="background-color: #f2f2f2;">Categoria</th>
-                <th style="background-color: #f2f2f2;">Activo</th>
-            </tr>';
-            foreach ($productos as $p) {
-                echo '<tr>
-                    <td>'.$p->codigo.'</td>
-                    <td>'.$p->nombre.'</td>
-                    <td>'.$p->descripcion.'</td>
-                    <td>'.$p->precio_compra.'</td>
-                    <td>'.$p->precio_venta.'</td>
-                    <td>'.($p->inventarios->first()->cantidad ?? 0).'</td>
-                    <td>'.$p->stock_minimo.'</td>
-                    <td>'.$p->unidad_medida.'</td>
-                    <td>'.($p->categoria->nombre ?? '').'</td>
-                    <td>'.($p->activo ? 'Si' : 'No').'</td>
-                </tr>';
-            }
-            echo '</table></body></html>';
-        }, 200, $headers);
-    }
-
-    public function importCsv(Request $request)
-    {
-        $request->validate([
-            'archivo' => 'required|file',
-        ]);
-
-        $file = $request->file('archivo');
-        $filePath = $file->getRealPath();
-
-        $handle = fopen($filePath, 'r');
-        $firstLine = fgets($handle);
-        fclose($handle);
-
-        $delimiter = (strpos($firstLine, ';') !== false) ? ';' : ',';
-
-        $handle = fopen($filePath, 'r');
-        $bom = fread($handle, 3);
-        if ($bom !== chr(0xEF).chr(0xBB).chr(0xBF)) {
-            rewind($handle);
-        }
-
-        $header = fgetcsv($handle, 0, $delimiter);
-
-        $rows = [];
-        while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
-            if (count($row) >= 8) {
-                $rows[] = array_combine([
-                    'codigo', 'nombre', 'descripcion', 'precio_compra', 'precio_venta',
-                    'stock', 'stock_minimo', 'unidad_medida',
-                ], array_slice($row, 0, 8));
-            }
-        }
-        fclose($handle);
-
-        if (empty($rows)) {
-            return redirect()->back()->with('error', 'No se encontraron datos válidos en el archivo.');
-        }
-
-        $ownerId = auth()->user()->getOwnerId();
-        $importedCount = 0;
-
-        DB::transaction(function () use ($rows, $ownerId, &$importedCount) {
-            foreach ($rows as $row) {
-                $producto = Producto::updateOrCreate(
-                    ['codigo' => $row['codigo'], 'owner_id' => $ownerId],
-                    [
-                        'nombre' => $row['nombre'],
-                        'descripcion' => $row['descripcion'] ?? '',
-                        'precio_compra' => (float) $row['precio_compra'],
-                        'precio_venta' => (float) $row['precio_venta'],
-                        'stock_minimo' => (float) $row['stock_minimo'],
-                        'unidad_medida' => in_array($row['unidad_medida'], ['unidad', 'kg', 'lt']) ? $row['unidad_medida'] : 'unidad',
-                        'user_id' => auth()->id(),
-                        'activo' => true,
-                    ]
-                );
-
-                $producto->inventarios()->updateOrCreate(
-                    ['producto_id' => $producto->id],
-                    [
-                        'cantidad' => (float) $row['stock'],
-                        'cantidad_minima' => (float) $row['stock_minimo'],
-                    ]
-                );
-
-                $importedCount++;
-            }
-        });
-
-        return redirect()->back()->with('success', "Se procesaron $importedCount productos correctamente.");
     }
 }

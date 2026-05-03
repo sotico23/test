@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import Pagination from '@/components/ui/Pagination';
+import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Empleado {
     id: number;
@@ -152,10 +153,16 @@ export default function Index({
                             Control de asistencia de empleados
                         </p>
                     </div>
-                    <Button onClick={openNew}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nuevo Registro
-                    </Button>
+                    <div className="flex gap-2 items-center">
+                        <BulkActions
+                            baseUrl="/asistencia"
+                            modelName="Asistencia"
+                        />
+                        <Button onClick={openNew}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nuevo Registro
+                        </Button>
+                    </div>
                 </div>
 
                 <Card>
@@ -362,12 +369,12 @@ export default function Index({
                                     <Label>Horas Trabajadas</Label>
                                     <Input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={data.horas_trabajadas}
                                         onChange={(e) =>
                                             setData(
                                                 'horas_trabajadas',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />

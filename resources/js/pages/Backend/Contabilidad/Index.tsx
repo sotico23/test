@@ -1,5 +1,15 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Check, Pencil, Plus, Trash2, Calculator, Search, X } from 'lucide-react';
+import {
+    Check,
+    Pencil,
+    Plus,
+    Trash2,
+    Calculator,
+    Search,
+    X,
+    Download,
+    Upload,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -21,8 +31,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
+import { BulkActions } from '@/components/shared/BulkActions';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -52,7 +63,18 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Contabilidad', href: '/contabilidad' },
 ];
 
-export default function Index({ asientos }: { asientos: { data: Asiento[]; links: any[]; from?: number; to?: number; total?: number; meta?: any } }) {
+export default function Index({
+    asientos,
+}: {
+    asientos: {
+        data: Asiento[];
+        links: any[];
+        from?: number;
+        to?: number;
+        total?: number;
+        meta?: any;
+    };
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Asiento | null>(null);
     const {
@@ -165,18 +187,24 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                 Gestione los asientos contables
                             </p>
                         </div>
-                        <Button onClick={() => setIsOpen(true)}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Nuevo Asiento
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button onClick={() => setIsOpen(true)}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Nuevo Asiento
+                            </Button>
+                            <BulkActions
+                                baseUrl="/contabilidad"
+                                filters={{}}
+                                modelName="Asientos"
+                            />
+                        </div>
                     </div>
 
                     <Card>
                         <CardHeader>
                             <CardTitle>Asientos Contables</CardTitle>
                             <CardDescription>
-                                {asientosFiltrados.length} registros
-                                encontrados
+                                {asientosFiltrados.length} registros encontrados
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -205,7 +233,7 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                             tipo: e.target.value,
                                         })
                                     }
-                                    className="flex h-9 rounded-md border bg-background px-3 py-1 min-w-[150px]"
+                                    className="flex h-9 min-w-[150px] rounded-md border bg-background px-3 py-1"
                                 >
                                     <option value="">Todos los tipos</option>
                                     <option value="diario">Diario</option>
@@ -246,7 +274,9 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                                             }
                                                         </p>
                                                         <p className="text-sm text-muted-foreground">
-                                                            {formatDateCLP(asiento.fecha)}
+                                                            {formatDateCLP(
+                                                                asiento.fecha,
+                                                            )}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -256,7 +286,9 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                                             Debe
                                                         </p>
                                                         <p className="font-medium">
-                                                            {formatCurrencyCLP(asiento.total_debe)}
+                                                            {formatCurrencyCLP(
+                                                                asiento.total_debe,
+                                                            )}
                                                         </p>
                                                     </div>
                                                     <div className="text-right">
@@ -264,7 +296,9 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                                             Haber
                                                         </p>
                                                         <p className="font-medium">
-                                                            {formatCurrencyCLP(asiento.total_haber)}
+                                                            {formatCurrencyCLP(
+                                                                asiento.total_haber,
+                                                            )}
                                                         </p>
                                                     </div>
                                                     <Badge
@@ -334,10 +368,14 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                                                                 }
                                                                             </td>
                                                                             <td className="py-1 text-right">
-                                                                                {formatCurrencyCLP(detalle.debe)}
+                                                                                {formatCurrencyCLP(
+                                                                                    detalle.debe,
+                                                                                )}
                                                                             </td>
                                                                             <td className="py-1 text-right">
-                                                                                {formatCurrencyCLP(detalle.haber)}
+                                                                                {formatCurrencyCLP(
+                                                                                    detalle.haber,
+                                                                                )}
                                                                             </td>
                                                                         </tr>
                                                                     ),
@@ -351,14 +389,17 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                 </div>
                             )}
                             <div className="mt-4">
-                                <Pagination links={asientos.links} meta={asientos.meta || asientos} />
+                                <Pagination
+                                    links={asientos.links}
+                                    meta={asientos.meta || asientos}
+                                />
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogContent className="sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl md:max-w-4xl">
                         <DialogHeader>
                             <DialogTitle>Nuevo Asiento Contable</DialogTitle>
                             <DialogDescription>
@@ -367,7 +408,7 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                         </DialogHeader>
                         <form onSubmit={handleSubmit}>
                             <div className="grid gap-4 py-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label htmlFor="numero">Número</Label>
                                         <Input
@@ -492,7 +533,7 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                                         )
                                                     }
                                                     className="w-28"
-                                                    step="0.01"
+                                                    step="1"
                                                     min="0"
                                                     required
                                                 />
@@ -510,7 +551,7 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                                         )
                                                     }
                                                     className="w-28"
-                                                    step="0.01"
+                                                    step="1"
                                                     min="0"
                                                     required
                                                 />
@@ -544,7 +585,8 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                                         : 'text-red-600'
                                                 }
                                             >
-                                                Debe: {formatCurrencyCLP(totalDebe)}
+                                                Debe:{' '}
+                                                {formatCurrencyCLP(totalDebe)}
                                             </span>
                                             <span
                                                 className={
@@ -553,7 +595,8 @@ export default function Index({ asientos }: { asientos: { data: Asiento[]; links
                                                         : 'text-red-600'
                                                 }
                                             >
-                                                Haber: {formatCurrencyCLP(totalHaber)}
+                                                Haber:{' '}
+                                                {formatCurrencyCLP(totalHaber)}
                                             </span>
                                             {isBalanced && (
                                                 <Badge variant="default">

@@ -4,6 +4,7 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { FlashMessages } from '@/components/flash-messages';
+import { useSidebarNotification } from '@/components/sidebar-notification';
 import { Toaster } from '@/components/ui/sonner';
 import type { AppLayoutProps } from '@/types';
 
@@ -11,6 +12,8 @@ export default function AppSidebarLayout({
     children,
     breadcrumbs = [],
 }: AppLayoutProps) {
+    useSidebarNotification();
+
     return (
         <AppShell variant="sidebar">
             <AppSidebar />
@@ -20,6 +23,7 @@ export default function AppSidebarLayout({
             </AppContent>
             <AppRightSidebar />
             <Toaster position="top-right" closeButton richColors />
+
             <FlashMessages />
         </AppShell>
     );

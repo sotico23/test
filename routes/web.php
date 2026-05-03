@@ -1,27 +1,37 @@
 <?php
 
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\Backend\ConversacionPedidoController;
 use App\Http\Controllers\Backend\CotizacionController;
 use App\Http\Controllers\Backend\DashboardController;
 use App\Http\Controllers\Backend\FollowerController;
+use App\Http\Controllers\Backend\GlobalSearchController;
 use App\Http\Controllers\Backend\MensajeController;
 use App\Http\Controllers\Backend\OnboardingController;
 use App\Http\Controllers\Backend\PedidoRecibidoController;
 use App\Http\Controllers\Backend\PosController;
 use App\Http\Controllers\Backend\ProductoController;
 use App\Http\Controllers\Backend\PublicacionController;
+use App\Http\Controllers\Backend\SiiController;
 use App\Http\Controllers\Backend\TareaController;
 use App\Http\Controllers\Backend\VentaController;
+use App\Http\Controllers\Backend\WebpayConfigController;
+use App\Http\Controllers\Backend\WebpayController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\PedidoController;
+use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\StatusPageController;
 use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
+Route::get('/quienes-somos', [WelcomeController::class, 'quienesSomos'])->name('quienes-somos');
+Route::get('/feedback', [WelcomeController::class, 'feedback'])->name('feedback');
+Route::get('/fundacion', [WelcomeController::class, 'fundacion'])->name('fundacion');
 Route::get('/status', [StatusPageController::class, 'index'])->name('status');
 Route::get('/status/embed', [StatusPageController::class, 'embed'])->name('status.embed');
 
@@ -37,12 +47,13 @@ Route::middleware(['auth'])->group(function () {
 
         return back();
     })->name('notifications.mark-as-read');
-    
+
     Route::delete('/notifications/{id}', function (string $id) {
         $notification = auth()->user()->notifications()->find($id);
         if ($notification) {
             $notification->delete();
         }
+
         return back();
     })->name('notifications.destroy');
 
@@ -60,18 +71,23 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('cotizaciones/export', [CotizacionController::class, 'exportCsv'])->name('cotizaciones.export');
     Route::get('cotizaciones/export-excel', [CotizacionController::class, 'exportExcel'])->name('cotizaciones.export_excel');
-    Route::post('cotizaciones/import', [CotizacionController::class, 'importCsv'])->name('cotizaciones.import');
+    Route::middleware('throttle')->group(function () {
+        Route::post('cotizaciones/import', [CotizacionController::class, 'importCsv'])->name('cotizaciones.import');
+        Route::post('cotizaciones/import-excel', [CotizacionController::class, 'importExcel'])->name('cotizaciones.import_excel');
+        Route::post('ventas/import', [VentaController::class, 'importCsv'])->name('ventas.import');
+        Route::post('ventas/import-excel', [VentaController::class, 'importCsv'])->name('ventas.import_excel');
+        Route::post('productos/import', [ProductoController::class, 'importCsv'])->name('productos.import');
+        Route::post('productos/import-excel', [ProductoController::class, 'importExcel'])->name('productos.import_excel');
+    });
 
     // Ventas
     Route::get('ventas/export', [VentaController::class, 'exportCsv'])->name('ventas.export');
     Route::get('ventas/export-excel', [VentaController::class, 'exportExcel'])->name('ventas.export_excel');
-    Route::post('ventas/import', [VentaController::class, 'importCsv'])->name('ventas.import');
     Route::get('ventas/{venta}/download', [VentaController::class, 'downloadPdf'])->name('ventas.download');
 
     // Productos
     Route::get('productos/export', [ProductoController::class, 'exportCsv'])->name('productos.export');
     Route::get('productos/export-excel', [ProductoController::class, 'exportExcel'])->name('productos.export_excel');
-    Route::post('productos/import', [ProductoController::class, 'importCsv'])->name('productos.import');
     Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class, 'downloadPdf'])->name('cotizaciones.pdf');
     Route::get('cotizaciones/{cotizacion}/preview', [CotizacionController::class, 'previewPdf'])->name('cotizaciones.preview');
     Route::resource('cotizaciones', CotizacionController::class)->parameters(['cotizaciones' => 'cotizacion']);
@@ -86,9 +102,12 @@ Route::middleware(['auth'])->group(function () {
     require __DIR__.'/modules/uptime.php';
     require __DIR__.'/modules/flota.php';
     require __DIR__.'/modules/admin.php';
+    require __DIR__.'/modules/lms.php';
+    require __DIR__.'/modules/raffles.php';
 
     Route::get('pos', [PosController::class, 'index'])->name('pos.index');
     Route::get('pos/cierre', [PosController::class, 'cierreCaja'])->name('pos.cierre');
+    Route::post('pos/cierre/cerrar', [PosController::class, 'cerrarTurno'])->name('pos.cierre.cerrar');
     Route::get('pos/facturacion', [PosController::class, 'facturacion'])->name('pos.facturacion');
     Route::get('pos/promociones', [PosController::class, 'promociones'])->name('pos.promociones');
     Route::post('pos/promociones', [PosController::class, 'storePromocion'])->name('pos.promociones.store');
@@ -96,6 +115,8 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('pos/promociones/{promocion}/toggle', [PosController::class, 'togglePromocion'])->name('pos.promociones.toggle');
     Route::delete('pos/promociones/{promocion}', [PosController::class, 'destroyPromocion'])->name('pos.promociones.destroy');
     Route::get('pos/reportes', [PosController::class, 'reportes'])->name('pos.reportes');
+    Route::get('pos/reportes/exportar', [PosController::class, 'exportarReportes'])->name('pos.reportes.exportar');
+    Route::post('pos/reportes/importar', [PosController::class, 'importarReportes'])->name('pos.reportes.importar');
 
     Route::get('onboarding', [OnboardingController::class, 'index'])->name('onboarding');
     Route::post('onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
@@ -103,7 +124,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('mensajes', [MensajeController::class, 'index'])->name('mensajes.index');
     Route::get('mensajes/usuarios', [MensajeController::class, 'usuarios'])->name('mensajes.usuarios');
     Route::get('mensajes/{usuarioId}', [MensajeController::class, 'conversacion'])->name('mensajes.conversacion');
-    Route::post('mensajes', [MensajeController::class, 'enviar'])->name('mensajes.enviar');
+    Route::post('mensajes', [MensajeController::class, 'enviar'])->name('mensajes.enviar')->middleware('throttle:messages');
 
     Route::get('tareas', [TareaController::class, 'index'])->name('tareas.index');
     Route::post('tareas', [TareaController::class, 'store'])->name('tareas.store');
@@ -112,16 +133,43 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('pedidos-recibidos', [PedidoRecibidoController::class, 'index'])->name('pedidos-recibidos.index');
     Route::get('pedidos-recibidos/{pedido}', [PedidoRecibidoController::class, 'show'])->name('pedidos-recibidos.show');
+
+    // Chat de Pedidos (Marketplace) - Vista
+    Route::get('conversaciones-pedidos/{conversacion}/chat', [ConversacionPedidoController::class, 'show'])->name('conversaciones-pedidos.show');
     Route::put('pedidos-recibidos/{pedido}/estado', [PedidoRecibidoController::class, 'actualizarEstado'])->name('pedidos-recibidos.estado');
     Route::post('pedidos-recibidos/{pedido}/venta', [PedidoRecibidoController::class, 'generarVenta'])->name('pedidos-recibidos.generar-venta');
 
+    // Chat de Pedidos - API
     Route::get('conversaciones-pedidos/{conversacion}/mensajes', [ConversacionPedidoController::class, 'getMensajes'])->name('conversaciones-pedidos.mensajes');
-    Route::post('conversaciones-pedidos/{conversacion}/mensajes', [ConversacionPedidoController::class, 'enviarMensaje'])->name('conversaciones-pedidos.enviar');
+    Route::post('conversaciones-pedidos/{conversacion}/mensajes', [ConversacionPedidoController::class, 'enviarMensaje'])->name('conversaciones-pedidos.enviar')->middleware('throttle:messages');
 
     // Marketplace Chat
     Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
     Route::get('/chat/{conversation}', [ChatController::class, 'show'])->name('chat.show');
-    Route::post('/chat/{conversation}/messages', [ChatController::class, 'sendMessage'])->name('chat.send');
+    Route::post('/chat/{conversation}/messages', [ChatController::class, 'sendMessage'])->name('chat.send')->middleware('throttle:messages');
+    // Citas y Reservas
+    Route::get('/appointments/export', [AppointmentController::class, 'exportCsv'])->name('appointments.export');
+    Route::get('/appointments/exportar', [AppointmentController::class, 'exportar'])->name('appointments.exportar');
+    Route::post('/appointments/importar', [AppointmentController::class, 'importar'])->name('appointments.importar');
+    Route::get('/appointments/dashboard', [AppointmentController::class, 'dashboard'])->name('appointments.dashboard');
+    Route::get('/appointments/calendar', [AppointmentController::class, 'calendar'])->name('appointments.calendar');
+    Route::resource('appointments', AppointmentController::class);
+    Route::resource('services', ServiceController::class);
+
+    // Búsqueda Global
+    Route::get('/api/global-search', [GlobalSearchController::class, 'search'])->name('api.global-search')->middleware('throttle:search');
+    Route::get('/api/sii/consultar/{rut}', [SiiController::class, 'validarRut'])->name('api.sii.consultar');
+    Route::post('/api/sii/validar-rut', [SiiController::class, 'validarRut'])->name('api.sii.validar-rut');
+
+    // Pagos Webpay Plus CONFIG
+    Route::get('/webpay/config', [WebpayConfigController::class, 'index'])->name('webpay.config');
+    Route::post('/webpay/config', [WebpayConfigController::class, 'update'])->name('webpay.config.update');
+
+    // Transbank Checkout & Callbacks
+    Route::post('/webpay/pay', [WebpayController::class, 'pay'])->name('webpay.pay');
+    Route::get('/webpay/return', [WebpayController::class, 'callback'])->name('webpay.callback');
+    Route::post('/webpay/return', [WebpayController::class, 'callback']);
+    Route::get('/webpay/error', [WebpayConfigController::class, 'error'])->name('webpay.error');
 });
 
 Route::group(['prefix' => 'auth/{provider}'], function () {
@@ -139,5 +187,7 @@ Route::get('/tienda/{slug}/chat', [ChatController::class, 'start'])->name('chat.
 Route::get('/mis-pedidos', [PedidoController::class, 'misPedidos'])->name('pedidos.mios')->middleware('auth');
 Route::get('/pedidos/{pedido}', [PedidoController::class, 'verPedido'])->name('pedidos.ver')->middleware('auth');
 Route::get('/pedidos/{pedido}/estado', [PedidoController::class, 'estado'])->name('pedidos.estado')->middleware('auth');
+Route::get('/booking/{slug}', [BookingController::class, 'show'])->name('booking.show');
+Route::post('/booking/{slug}', [BookingController::class, 'store'])->name('booking.store');
 
 require __DIR__.'/settings.php';

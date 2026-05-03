@@ -23,4 +23,5 @@ Route::post('usuarios-roles/permission', [UsuarioRolController::class, 'storePer
 Route::put('usuarios-roles/permission/{permission}', [UsuarioRolController::class, 'updatePermission'])->name('usuarios-roles.permission.update');
 Route::delete('usuarios-roles/permission/{permission}', [UsuarioRolController::class, 'destroyPermission'])->name('usuarios-roles.permission.destroy');
 
+Route::patch('usuarios-roles/public-profile/{publicProfile}/toggle-official', [UsuarioRolController::class, 'toggleOfficial'])->name('usuarios-roles.toggle-official');
 Route::resource('usuarios-roles', UsuarioRolController::class);

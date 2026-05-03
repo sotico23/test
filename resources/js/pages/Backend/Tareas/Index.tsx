@@ -316,7 +316,7 @@ export default function TareasIndex({
                                             <Input
                                                 type="number"
                                                 min="1"
-                                                step="0.01"
+                                                step="1"
                                                 value={cantidadProducto}
                                                 onChange={(e) =>
                                                     setCantidadProducto(

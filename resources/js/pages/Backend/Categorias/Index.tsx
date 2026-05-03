@@ -9,9 +9,9 @@ import {
     Search,
     Eye,
     ShoppingBag,
+    HelpCircle,
 } from 'lucide-react';
-import { useState, useRef } from 'react';
-import { useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -38,11 +39,24 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import Pagination from '@/components/ui/Pagination';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
-function ActiveDropdown({ activo, onChange }: { activo: boolean; onChange: (v: boolean) => void }) {
+import { BulkActions } from '@/components/shared/BulkActions';
+
+function ActiveDropdown({
+    activo,
+    onChange,
+}: {
+    activo: boolean;
+    onChange: (v: boolean) => void;
+}) {
     return (
         <Select
             value={activo ? '1' : '0'}
@@ -55,9 +69,7 @@ function ActiveDropdown({ activo, onChange }: { activo: boolean; onChange: (v: b
                         : 'border-gray-500 bg-gray-500 text-white hover:bg-gray-600'
                 }`}
             >
-                <SelectValue>
-                    {activo ? 'Activo' : 'Inactivo'}
-                </SelectValue>
+                <SelectValue>{activo ? 'Activo' : 'Inactivo'}</SelectValue>
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="1" className="text-xs">
@@ -96,6 +108,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function Index({
     categorias,
     tiendaSlug,
+    filters = {},
 }: {
     categorias: {
         data: Categoria[];
@@ -103,6 +116,10 @@ export default function Index({
         meta: { from: number; to: number; total: number };
     };
     tiendaSlug?: string | null;
+    filters?: {
+        search?: string;
+        tipo?: string;
+    };
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isViewOpen, setIsViewOpen] = useState(false);
@@ -119,51 +136,54 @@ export default function Index({
         imagen: null as File | null,
         mostrar_en_perfil: true,
     });
+    const [imagenError, setImagenError] = useState<string | null>(null);
+    const [serverError, setServerError] = useState<string | null>(null);
 
-    const [filtros, setFiltros] = useState({
-        busqueda: '',
-        tipo: '',
-        activo: '',
-    });
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [tipoFilter, setTipoFilter] = useState(filters.tipo || 'all');
 
-    const categoriasFiltradas = useMemo(() => {
-        return categorias.data.filter((c) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (
-                    !c.nombre.toLowerCase().includes(busca) &&
-                    !(c.descripcion || '').toLowerCase().includes(busca)
-                ) {
-                    return false;
-                }
-            }
-            if (
-                filtros.tipo &&
-                filtros.tipo !== 'all' &&
-                c.tipo !== filtros.tipo
-            )
-                return false;
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const query: any = {};
+            if (searchTerm) query.search = searchTerm;
+            if (tipoFilter !== 'all') query.tipo = tipoFilter;
 
-            if (filtros.activo && filtros.activo !== 'all') {
-                const isActivo = filtros.activo === '1';
-                if (c.activo !== isActivo) return false;
-            }
-
-            return true;
-        });
-    }, [categorias.data, filtros]);
+            router.get('/categorias', query, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            });
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm, tipoFilter]);
 
     const limpiarFiltros = () => {
-        setFiltros({
-            busqueda: '',
-            tipo: 'all',
-            activo: 'all',
-        });
+        setSearchTerm('');
+        setTipoFilter('all');
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            const allowedTypes = [
+                'image/jpeg',
+                'image/jpg',
+                'image/png',
+                'image/gif',
+                'image/svg+xml',
+                'image/webp',
+            ];
+            if (!allowedTypes.includes(file.type)) {
+                setImagenError(
+                    'Archivo de imagen no compatible. Formatos aceptados: JPG, JPEG, PNG, GIF, SVG, WebP',
+                );
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                setImagenError('El archivo excede el tamaño máximo de 5MB');
+                return;
+            }
+            setImagenError(null);
             setFormData({ ...formData, imagen: file });
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -176,6 +196,7 @@ export default function Index({
     const removeImage = () => {
         setFormData({ ...formData, imagen: null });
         setImagenPreview(null);
+        setImagenError(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -208,6 +229,11 @@ export default function Index({
                     mostrar_en_perfil: true,
                 });
                 setImagenPreview(null);
+                setServerError(null);
+            },
+            onError: (errors: any) => {
+                const errorMessages = Object.values(errors).flat();
+                setServerError(errorMessages.join(' '));
             },
         };
 
@@ -235,6 +261,8 @@ export default function Index({
         setImagenPreview(
             categoria.imagen ? `/storage/${categoria.imagen}` : null,
         );
+        setImagenError(null);
+        setServerError(null);
         setIsOpen(true);
     };
 
@@ -255,6 +283,8 @@ export default function Index({
             mostrar_en_perfil: true,
         });
         setImagenPreview(null);
+        setImagenError(null);
+        setServerError(null);
         setIsOpen(true);
     };
 
@@ -281,17 +311,27 @@ export default function Index({
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">Categorías</h1>
-                    <Button onClick={openNew}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nueva Categoría
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <BulkActions
+                            baseUrl="/categorias"
+                            filters={{ search: searchTerm, tipo: tipoFilter }}
+                            modelName="Categorías"
+                        />
+                        <Button onClick={openNew}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nueva Categoría
+                        </Button>
+                    </div>
                 </div>
 
                 <Card>
                     <CardHeader>
                         <CardTitle>Listado de Categorías</CardTitle>
                         <CardDescription>
-                            {categoriasFiltradas.length} categorías encontradas
+                            {(categorias as any).total ??
+                                categorias.meta?.total ??
+                                0}{' '}
+                            categorías encontradas
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -301,12 +341,9 @@ export default function Index({
                                     <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
                                     <Input
                                         placeholder="Buscar por nombre o descripción..."
-                                        value={filtros.busqueda}
+                                        value={searchTerm}
                                         onChange={(e) =>
-                                            setFiltros({
-                                                ...filtros,
-                                                busqueda: e.target.value,
-                                            })
+                                            setSearchTerm(e.target.value)
                                         }
                                         className="h-10 border-muted-foreground/20 pl-9 transition-all focus:border-primary"
                                     />
@@ -314,15 +351,10 @@ export default function Index({
                             </div>
 
                             <Select
-                                value={filtros.tipo}
-                                onValueChange={(v) =>
-                                    setFiltros({
-                                        ...filtros,
-                                        tipo: v,
-                                    })
-                                }
+                                value={tipoFilter}
+                                onValueChange={setTipoFilter}
                             >
-                                <SelectTrigger className="h-10 w-[180px] border-muted-foreground/20 bg-background">
+                                <SelectTrigger className="h-10 min-w-[140px] border-muted-foreground/20 bg-background md:w-[180px]">
                                     <SelectValue placeholder="Todos los tipos" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -341,24 +373,14 @@ export default function Index({
                                 </SelectContent>
                             </Select>
 
-                            <Select
-                                value={filtros.activo}
-                                onValueChange={(v) =>
-                                    setFiltros({
-                                        ...filtros,
-                                        activo: v,
-                                    })
-                                }
-                            >
-                                <SelectTrigger className="h-10 w-[180px] border-muted-foreground/20 bg-background">
+                            <Select value="all" disabled>
+                                <SelectTrigger className="h-10 w-[180px] border-muted-foreground/20 bg-muted/30">
                                     <SelectValue placeholder="Todos los estados" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">
                                         Todos los estados
                                     </SelectItem>
-                                    <SelectItem value="1">Activos</SelectItem>
-                                    <SelectItem value="0">Inactivos</SelectItem>
                                 </SelectContent>
                             </Select>
 
@@ -397,105 +419,120 @@ export default function Index({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {categoriasFiltradas.map((categoria) => (
-                                        <tr
-                                            key={categoria.id}
-                                            className="border-b transition-colors hover:bg-muted/30"
-                                        >
-                                            <td className="px-4 py-2 text-center sm:text-left">
-                                                {categoria.imagen ? (
-                                                    <img
-                                                        src={`/storage/${categoria.imagen}`}
-                                                        alt={categoria.nombre}
-                                                        className="mx-auto h-8 w-8 rounded object-cover sm:mx-0"
-                                                    />
-                                                ) : (
-                                                    <div className="mx-auto flex h-8 w-8 items-center justify-center rounded bg-muted sm:mx-0">
-                                                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-2 font-medium">
-                                                {categoria.nombre}
-                                            </td>
-                                            <td className="px-4 py-2 text-sm capitalize">
-                                                <Badge
-                                                    variant="outline"
-                                                    className="text-[10px] font-bold uppercase"
-                                                >
-                                                    {categoria.tipo}
-                                                </Badge>
-                                            </td>
-                                            <td className="hidden px-4 py-2 text-sm md:table-cell">
-                                                {categoria.descripcion || '-'}
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <ActiveDropdown
-                                                    activo={categoria.activo}
-                                                    onChange={(val) => {
-                                                        if (val !== categoria.activo) {
-                                                            toggleActivo(categoria);
-                                                        }
-                                                    }}
-                                                />
-                                            </td>
-                                            <td className="px-4 py-2 text-right">
-                                                <div className="flex justify-end gap-1">
-                                                    {categoria.mostrar_en_perfil && tiendaSlug && (
-                                                        <a
-                                                            href={`/tienda/${tiendaSlug}/categoria/${categoria.id}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none"
-                                                            title="Ver catálogo público"
-                                                        >
-                                                            <ShoppingBag className="h-3.5 w-3.5" />
-                                                            Ver Catálogo
-                                                        </a>
+                                    {categorias.data.map(
+                                        (categoria: Categoria) => (
+                                            <tr
+                                                key={categoria.id}
+                                                className="border-b transition-colors hover:bg-muted/30"
+                                            >
+                                                <td className="px-4 py-2 text-center sm:text-left">
+                                                    {categoria.imagen ? (
+                                                        <img
+                                                            src={`/storage/${categoria.imagen}`}
+                                                            alt={
+                                                                categoria.nombre
+                                                            }
+                                                            className="mx-auto h-8 w-8 rounded object-cover sm:mx-0"
+                                                        />
+                                                    ) : (
+                                                        <div className="mx-auto flex h-8 w-8 items-center justify-center rounded bg-muted sm:mx-0">
+                                                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                                        </div>
                                                     )}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={() => {
-                                                            setViendo(
-                                                                categoria,
-                                                            );
-                                                            setIsViewOpen(true);
+                                                </td>
+                                                <td className="px-4 py-2 font-medium">
+                                                    {categoria.nombre}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm capitalize">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="text-[10px] font-bold uppercase"
+                                                    >
+                                                        {categoria.tipo}
+                                                    </Badge>
+                                                </td>
+                                                <td className="hidden px-4 py-2 text-sm md:table-cell">
+                                                    {categoria.descripcion ||
+                                                        '-'}
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <ActiveDropdown
+                                                        activo={
+                                                            categoria.activo
+                                                        }
+                                                        onChange={(val) => {
+                                                            if (
+                                                                val !==
+                                                                categoria.activo
+                                                            ) {
+                                                                toggleActivo(
+                                                                    categoria,
+                                                                );
+                                                            }
                                                         }}
-                                                        title="Ver detalles"
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={() =>
-                                                            handleEdit(
-                                                                categoria,
-                                                            )
-                                                        }
-                                                    >
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                        onClick={() =>
-                                                            handleDelete(
-                                                                categoria.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {categoriasFiltradas.length === 0 && (
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2 text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        {categoria.mostrar_en_perfil &&
+                                                            tiendaSlug && (
+                                                                <a
+                                                                    href={`/tienda/${tiendaSlug}/categoria/${categoria.id}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none"
+                                                                    title="Ver catálogo público"
+                                                                >
+                                                                    <ShoppingBag className="h-3.5 w-3.5" />
+                                                                    Ver Catálogo
+                                                                </a>
+                                                            )}
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                            onClick={() => {
+                                                                setViendo(
+                                                                    categoria,
+                                                                );
+                                                                setIsViewOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                            title="Ver detalles"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                            onClick={() =>
+                                                                handleEdit(
+                                                                    categoria,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                            onClick={() =>
+                                                                handleDelete(
+                                                                    categoria.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ),
+                                    )}
+                                    {categorias.data.length === 0 && (
                                         <tr>
                                             <td
                                                 colSpan={6}
@@ -511,183 +548,245 @@ export default function Index({
                         </div>
                         <Pagination
                             links={categorias.links}
-                            meta={categorias.meta}
+                            meta={categorias.meta || (categorias as any)}
                         />
                     </CardContent>
                 </Card>
 
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogContent className="max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle>
+                    <DialogContent className="max-h-[95vh] max-w-[95vw] overflow-y-auto border-none p-0 shadow-2xl md:max-w-lg">
+                        <DialogHeader className="sticky top-0 z-10 bg-background p-4 pb-4 backdrop-blur-sm md:p-6">
+                            <DialogTitle className="text-xl font-black md:text-2xl">
                                 {editando
                                     ? 'Editar Categoría'
                                     : 'Nueva Categoría'}
                             </DialogTitle>
-                            <DialogDescription>
+                            <DialogDescription className="text-sm">
                                 {editando
                                     ? 'Modifique los datos de la categoría'
                                     : 'Ingrese los datos de la nueva categoría'}
                             </DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleSubmit}>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="nombre">Nombre</Label>
-                                    <Input
-                                        id="nombre"
-                                        value={formData.nombre}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                nombre: e.target.value,
-                                            })
-                                        }
-                                        required
-                                    />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="descripcion">
-                                        Descripción
-                                    </Label>
-                                    <Input
-                                        id="descripcion"
-                                        value={formData.descripcion}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                descripcion: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="tipo">Tipo</Label>
-                                    <Select
-                                        value={formData.tipo}
-                                        onValueChange={(v: string) =>
-                                            setFormData({
-                                                ...formData,
-                                                tipo: v as
-                                                    | 'producto'
-                                                    | 'cliente'
-                                                    | 'proveedor',
-                                            })
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="producto">
-                                                Producto
-                                            </SelectItem>
-                                            <SelectItem value="cliente">
-                                                Cliente
-                                            </SelectItem>
-                                            <SelectItem value="proveedor">
-                                                Proveedor
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        id="activo"
-                                        checked={formData.activo}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                activo: e.target.checked,
-                                            })
-                                        }
-                                        className="h-4 w-4"
-                                    />
-                                    <Label htmlFor="activo">
-                                        Categoría activa
-                                    </Label>
-                                </div>
-                                <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-                                    <input
-                                        type="checkbox"
-                                        id="mostrar-en-perfil"
-                                        checked={formData.mostrar_en_perfil}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                mostrar_en_perfil:
-                                                    e.target.checked,
-                                            })
-                                        }
-                                        className="h-4 w-4"
-                                    />
-                                    <Label
-                                        htmlFor="mostrar-en-perfil"
-                                        className="font-medium text-blue-800"
-                                    >
-                                        Mostrar en perfil público de tienda
-                                    </Label>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label>Imagen</Label>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex-1">
-                                            <input
-                                                ref={fileInputRef}
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleImageChange}
-                                                className="hidden"
-                                                id="imagen-upload"
-                                            />
-                                            <Label
-                                                htmlFor="imagen-upload"
-                                                className="flex h-32 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground hover:bg-muted"
-                                            >
-                                                {imagenPreview ? (
-                                                    <img
-                                                        src={imagenPreview}
-                                                        alt="Preview"
-                                                        className="h-full w-full rounded-lg object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                                        <ImageIcon className="h-8 w-8" />
-                                                        <span className="text-sm">
-                                                            Click para subir
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </Label>
-                                        </div>
-                                        {(imagenPreview || formData.imagen) && (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="icon"
-                                                onClick={removeImage}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
+
+                        <div className="max-h-[calc(95vh-180px)] overflow-y-auto p-4 md:p-6">
+                            <form onSubmit={handleSubmit}>
+                                <div className="grid gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="nombre">Nombre</Label>
+                                        <Input
+                                            id="nombre"
+                                            value={formData.nombre}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    nombre: e.target.value,
+                                                })
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="descripcion">
+                                            Descripción
+                                        </Label>
+                                        <Input
+                                            id="descripcion"
+                                            value={formData.descripcion}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    descripcion: e.target.value,
+                                                })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="tipo">Tipo</Label>
+                                        <Select
+                                            value={formData.tipo}
+                                            onValueChange={(v: string) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    tipo: v as
+                                                        | 'producto'
+                                                        | 'cliente'
+                                                        | 'proveedor',
+                                                })
+                                            }
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="producto">
+                                                    Producto
+                                                </SelectItem>
+                                                <SelectItem value="cliente">
+                                                    Cliente
+                                                </SelectItem>
+                                                <SelectItem value="proveedor">
+                                                    Proveedor
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="activo"
+                                            checked={formData.activo}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    activo: e.target.checked,
+                                                })
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                        <Label
+                                            htmlFor="activo"
+                                            className="flex items-center gap-1"
+                                        >
+                                            Categoría activa
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <HelpCircle className="h-3.5 w-3.5 cursor-help text-slate-400" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-xs">
+                                                            Si se desactiva, la
+                                                            categoría y sus
+                                                            productos asociados
+                                                            no serán visibles en
+                                                            el sistema ni
+                                                            marketplace.
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </Label>
+                                    </div>
+                                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                                        <input
+                                            type="checkbox"
+                                            id="mostrar-en-perfil"
+                                            checked={formData.mostrar_en_perfil}
+                                            onChange={(e) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    mostrar_en_perfil:
+                                                        e.target.checked,
+                                                })
+                                            }
+                                            className="h-4 w-4"
+                                        />
+                                        <Label
+                                            htmlFor="mostrar-en-perfil"
+                                            className="flex items-center gap-1 font-medium text-blue-800"
+                                        >
+                                            Mostrar en perfil público de tienda
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <HelpCircle className="h-3.5 w-3.5 cursor-help text-blue-400" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p className="max-w-xs border-none bg-white font-normal text-slate-900">
+                                                            Determina si esta
+                                                            categoría aparece en
+                                                            el catálogo público
+                                                            que ven tus clientes
+                                                            en el marketplace.
+                                                        </p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </Label>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Imagen</Label>
+                                        {imagenError && (
+                                            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                                                {imagenError}
+                                            </div>
                                         )}
+                                        {serverError && (
+                                            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                                                {serverError}
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex-1">
+                                                <input
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    accept="image/jpeg,image/jpg,image/png,image/gif,image/svg+xml,image/webp"
+                                                    onChange={handleImageChange}
+                                                    className="hidden"
+                                                    id="imagen-upload"
+                                                />
+                                                <Label
+                                                    htmlFor="imagen-upload"
+                                                    className="flex min-h-[250px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/30 transition-all hover:bg-muted/50"
+                                                >
+                                                    {imagenPreview ? (
+                                                        <img
+                                                            src={imagenPreview}
+                                                            alt="Preview"
+                                                            className="max-h-[400px] w-full object-contain"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                                            <div className="rounded-full bg-background p-4 shadow-sm">
+                                                                <ImageIcon className="h-10 w-10 text-primary/60" />
+                                                            </div>
+                                                            <div className="text-center">
+                                                                <p className="text-sm font-bold">
+                                                                    Haga clic
+                                                                    para subir
+                                                                    una imagen
+                                                                </p>
+                                                                <p className="text-xs opacity-70">
+                                                                    PNG, JPG,
+                                                                    WebP hasta
+                                                                    5MB
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </Label>
+                                            </div>
+                                            {(imagenPreview ||
+                                                formData.imagen) && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="icon"
+                                                    onClick={removeImage}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setIsOpen(false)}
-                                >
-                                    Cancelar
-                                </Button>
-                                <Button type="submit">
-                                    <Check className="mr-2 h-4 w-4" />
-                                    Guardar
-                                </Button>
-                            </DialogFooter>
-                        </form>
+
+                                <DialogFooter className="sticky bottom-0 mt-4 bg-background pt-4">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setIsOpen(false)}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button type="submit">
+                                        <Check className="mr-2 h-4 w-4" />
+                                        Guardar
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </div>
                     </DialogContent>
                 </Dialog>
 
@@ -769,7 +868,7 @@ export default function Index({
                                                 <img
                                                     src={`/storage/${viendo.imagen}`}
                                                     alt={viendo.nombre}
-                                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                    className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
                                                 />
                                             ) : (
                                                 <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-40">

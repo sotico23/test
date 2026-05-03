@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Conductor;
 use App\Models\DetalleVenta;
+use App\Models\Entrega;
 use App\Models\GrupoTrabajo;
 use App\Models\User;
 use App\Models\Venta;
@@ -24,25 +25,28 @@ class GrupoTrabajoController extends Controller
         $canManage = $user->hasPermissionTo('gestionar grupos trabajo');
 
         if ($canManage) {
-            $grupos = GrupoTrabajo::with(['miembros'])
+            $grupos = GrupoTrabajo::with(['miembros', 'conductores'])
                 ->where('owner_id', $ownerId)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             // Calculate metrics for each group
             $grupos->each(function ($grupo) use ($ownerId) {
-                $memberIds = $grupo->miembros->pluck('id');
+                $conductorIds = $grupo->conductores->pluck('id');
 
-                // Get all sales for these members
-                $ventasQuery = Venta::whereIn('user_id', $memberIds)
+                // Get Ventas that are linked to Entregas assigned to this group's conductors
+                $ventaIds = Entrega::whereIn('conductor_id', $conductorIds)
                     ->where('owner_id', $ownerId)
-                    ->where('estado', 'pagada');
+                    ->whereHas('venta', function ($q) {
+                        $q->where('estado', 'pagada');
+                    })
+                    ->pluck('venta_id');
 
-                $grupo->total_ventas = (float) $ventasQuery->sum('total');
-                $grupo->cantidad_ventas = $ventasQuery->count();
+                $grupo->cantidad_ventas = count($ventaIds);
+                $grupo->total_ventas = Venta::whereIn('id', $ventaIds)->sum('total');
 
-                // Calculate Kg and Liters
-                $detalles = DetalleVenta::whereIn('venta_id', $ventasQuery->pluck('id'))
+                // Calculate Kg and Liters from those specific sales
+                $detalles = DetalleVenta::whereIn('venta_id', $ventaIds)
                     ->with('producto')
                     ->get();
 
@@ -76,7 +80,7 @@ class GrupoTrabajoController extends Controller
 
             $conductores = Conductor::where('owner_id', $ownerId)->orderBy('nombre')->get();
         } else {
-            $grupos = GrupoTrabajo::with('miembros')
+            $grupos = GrupoTrabajo::with(['miembros', 'conductores'])
                 ->where('owner_id', $ownerId)
                 ->whereHas('miembros', function ($query) use ($user) {
                     $query->where('user_id', $user->id);
@@ -107,21 +111,31 @@ class GrupoTrabajoController extends Controller
             'estado' => 'nullable|in:activo,inactivo',
             'miembros' => 'nullable|array',
             'miembros.*' => 'exists:users,id',
+            'conductores' => 'nullable|array',
+            'conductores.*' => 'exists:conductores,id',
         ]);
 
         $validated['user_id'] = Auth::id();
         $validated['owner_id'] = Auth::user()->getOwnerId();
         $validated['estado'] = $validated['estado'] ?? 'activo';
 
-        DB::transaction(function () use ($validated) {
-            $grupo = GrupoTrabajo::create($validated);
+        try {
+            DB::transaction(function () use ($validated) {
+                $grupo = GrupoTrabajo::create($validated);
 
-            if (! empty($validated['miembros'])) {
-                $grupo->miembros()->sync($validated['miembros']);
-            }
-        });
+                if (! empty($validated['miembros'])) {
+                    $grupo->miembros()->sync($validated['miembros']);
+                }
 
-        return redirect()->route('grupos-trabajo.index');
+                if (! empty($validated['conductores'])) {
+                    $grupo->conductores()->sync($validated['conductores']);
+                }
+            });
+
+            return redirect()->route('grupos-trabajo.index')->with('success', 'Grupo de trabajo creado exitosamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al crear el grupo de trabajo: '.$e->getMessage());
+        }
     }
 
     public function update(Request $request, GrupoTrabajo $grupoTrabajo): RedirectResponse
@@ -135,30 +149,47 @@ class GrupoTrabajoController extends Controller
             'estado' => 'nullable|in:activo,inactivo',
             'miembros' => 'nullable|array',
             'miembros.*' => 'exists:users,id',
+            'conductores' => 'nullable|array',
+            'conductores.*' => 'exists:conductores,id',
         ]);
 
-        DB::transaction(function () use ($grupoTrabajo, $validated) {
-            $grupoTrabajo->update($validated);
+        try {
+            DB::transaction(function () use ($grupoTrabajo, $validated) {
+                $grupoTrabajo->update($validated);
 
-            if (isset($validated['miembros'])) {
-                $grupoTrabajo->miembros()->sync($validated['miembros']);
-            } else {
-                $grupoTrabajo->miembros()->sync([]);
-            }
-        });
+                if (isset($validated['miembros'])) {
+                    $grupoTrabajo->miembros()->sync($validated['miembros']);
+                } else {
+                    $grupoTrabajo->miembros()->sync([]);
+                }
 
-        return redirect()->route('grupos-trabajo.index');
+                if (isset($validated['conductores'])) {
+                    $grupoTrabajo->conductores()->sync($validated['conductores']);
+                } else {
+                    $grupoTrabajo->conductores()->sync([]);
+                }
+            });
+
+            return redirect()->route('grupos-trabajo.index')->with('success', 'Grupo de trabajo actualizado exitosamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al actualizar el grupo de trabajo: '.$e->getMessage());
+        }
     }
 
     public function destroy(GrupoTrabajo $grupoTrabajo): RedirectResponse
     {
         abort_unless(Auth::user()->can('gestionar grupos trabajo'), 403);
 
-        DB::transaction(function () use ($grupoTrabajo) {
-            $grupoTrabajo->miembros()->detach();
-            $grupoTrabajo->delete();
-        });
+        try {
+            DB::transaction(function () use ($grupoTrabajo) {
+                $grupoTrabajo->miembros()->detach();
+                $grupoTrabajo->conductores()->detach();
+                $grupoTrabajo->delete();
+            });
 
-        return redirect()->route('grupos-trabajo.index');
+            return redirect()->route('grupos-trabajo.index')->with('success', 'Grupo de trabajo eliminado exitosamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al eliminar el grupo de trabajo: '.$e->getMessage());
+        }
     }
 }

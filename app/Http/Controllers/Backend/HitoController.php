@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\HitosExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\HitosImport;
 use App\Models\Hito;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,9 +14,12 @@ use Inertia\Response;
 
 class HitoController extends Controller
 {
+    use HasBulkOperations;
+
     public function index(): Response
     {
-        $hitos = Hito::orderBy('created_at', 'desc')->paginate(15);
+        $ownerId = auth()->user()->getOwnerId();
+        $hitos = Hito::where('owner_id', $ownerId)->orderBy('created_at', 'desc')->paginate(15);
 
         return Inertia::render('Backend/Hitos/Index', ['hitos' => $hitos]);
     }
@@ -55,5 +61,15 @@ class HitoController extends Controller
         $hito->delete();
 
         return redirect()->route('hitos.index');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new HitosExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new HitosImport;
     }
 }

@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\CobranzasExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Traits\FiltraPorCliente;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\CobranzasImport;
 use App\Models\Cobranza;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,7 +15,7 @@ use Inertia\Response;
 
 class CobranzaController extends Controller
 {
-    use FiltraPorCliente;
+    use FiltraPorCliente, HasBulkOperations;
 
     public function index(): Response
     {
@@ -66,5 +69,15 @@ class CobranzaController extends Controller
         $cobranza->delete();
 
         return redirect()->route('cobranzas.index');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new CobranzasExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new CobranzasImport;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOwner;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,7 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Pedido extends Model
 {
+    use BelongsToOwner;
+
     protected $fillable = [
+        'owner_id',
         'user_id',
         'public_profile_id',
         'cliente_id',

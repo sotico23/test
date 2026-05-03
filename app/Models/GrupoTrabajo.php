@@ -32,4 +32,10 @@ class GrupoTrabajo extends Model
             ->withPivot('rol')
             ->withTimestamps();
     }
+
+    public function conductores(): BelongsToMany
+    {
+        return $this->belongsToMany(Conductor::class, 'grupo_trabajo_conductores', 'grupo_trabajo_id', 'conductor_id')
+            ->withTimestamps();
+    }
 }

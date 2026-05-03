@@ -8,6 +8,7 @@ import {
     Lock,
     Users,
     CheckCircle2,
+    Store,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import InputError from '@/components/input-error';
@@ -64,11 +65,23 @@ interface UsuarioRol {
     permissions: { id: number; name: string }[];
 }
 
+interface PublicProfile {
+    id: number;
+    title: string;
+    slug: string;
+    is_official: boolean;
+    user: {
+        id: number;
+        name: string;
+    }
+}
+
 interface Props {
     usuarios: User[];
     roles: Role[];
     permisos: Permission[];
     usuariosRoles: UsuarioRol[];
+    publicProfiles: PublicProfile[];
 }
 
 const GRUPO_PERMISOS = {
@@ -249,9 +262,10 @@ export default function Index({
     roles,
     permisos,
     usuariosRoles,
+    publicProfiles,
 }: Props) {
     const [activeTab, setActiveTab] = useState<
-        'asignaciones' | 'roles' | 'permisos'
+        'asignaciones' | 'roles' | 'permisos' | 'tiendas'
     >('asignaciones');
 
     // Modals states
@@ -308,6 +322,7 @@ export default function Index({
         asignacion: '',
         rol: '',
         permiso: '',
+        tienda: '',
     });
 
     const asignacionesFiltradas = useMemo(() => {
@@ -431,6 +446,12 @@ export default function Index({
         }
     };
 
+    const handleToggleOfficial = (profileId: number) => {
+        router.patch(route('usuarios-roles.toggle-official', profileId), {}, {
+            preserveScroll: true,
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Gestión de Accesos" />
@@ -482,6 +503,17 @@ export default function Index({
                     >
                         <Lock className="h-4 w-4" />
                         Permisos
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('tiendas')}
+                        className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                            activeTab === 'tiendas'
+                                ? 'bg-background text-primary shadow-sm ring-1 ring-border'
+                                : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
+                        }`}
+                    >
+                        <Store className="h-4 w-4" />
+                        Tiendas
                     </button>
                 </div>
 
@@ -935,6 +967,67 @@ export default function Index({
                             </div>
                         </div>
                     )}
+
+                    {activeTab === 'tiendas' && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="relative max-w-sm flex-1">
+                                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Buscar tienda..."
+                                        className="h-9 rounded-lg pl-9"
+                                        value={filtros.tienda}
+                                        onChange={(e) =>
+                                            setFiltros({
+                                                ...filtros,
+                                                tienda: e.target.value,
+                                            })
+                                        }
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {publicProfiles
+                                    .filter(p => p.title.toLowerCase().includes(filtros.tienda.toLowerCase()))
+                                    .map((profile) => (
+                                    <Card
+                                        key={profile.id}
+                                        className="bg-card/50 transition-all hover:ring-primary/50"
+                                    >
+                                        <CardHeader className="pb-3">
+                                            <div className="flex items-center justify-between">
+                                                <Badge variant="outline" className="text-[10px]">Tienda</Badge>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Oficial</span>
+                                                    <Checkbox 
+                                                        checked={profile.is_official}
+                                                        onCheckedChange={() => handleToggleOfficial(profile.id)}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <CardTitle className="mt-2 text-base font-bold">
+                                                {profile.title}
+                                            </CardTitle>
+                                            <CardDescription className="text-[10px] flex items-center gap-1">
+                                                <Users className="h-3 w-3" /> {profile.user.name}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="pt-0">
+                                            <div className="flex items-center justify-between">
+                                                 <span className="text-[10px] text-muted-foreground">/{profile.slug}</span>
+                                                 {profile.is_official && (
+                                                     <Badge className="bg-blue-500/10 text-blue-600 border-none px-2 py-0 h-5 text-[9px] font-black uppercase tracking-widest">
+                                                         <CheckCircle2 className="mr-1 h-2.5 w-2.5" /> Oficial
+                                                     </Badge>
+                                                 )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1298,5 +1391,7 @@ function route(name: string, params?: any) {
         return `/usuarios-roles/permission/${params}`;
     if (name === 'usuarios-roles.permission.destroy')
         return `/usuarios-roles/permission/${params}`;
+    if (name === 'usuarios-roles.toggle-official')
+        return `/usuarios-roles/public-profile/${params}/toggle-official`;
     return '#';
 }

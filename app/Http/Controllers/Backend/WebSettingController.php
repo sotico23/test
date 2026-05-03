@@ -83,6 +83,14 @@ class WebSettingController extends Controller
                 'nombre_sitio' => $settings->app_name ?? 'GrowERP',
                 'logo_letra' => substr($settings->app_name ?? 'G', 0, 1),
             ],
+            'nav' => [
+                'quienes_somos_label' => $settings->nav_quienes_somos_label ?? 'Quiénes Somos',
+                'quienes_somos_content' => $settings->nav_quienes_somos_content ?? '',
+                'feedback_label' => $settings->nav_feedback_label ?? 'Feedback',
+                'feedback_content' => $settings->nav_feedback_content ?? '',
+                'fundacion_label' => $settings->nav_fundacion_label ?? 'Nuestra Fundación',
+                'fundacion_content' => $settings->nav_fundacion_content ?? '',
+            ],
         ];
 
         return Inertia::render('Backend/ConfiguracionWeb/Index', array_merge(['settings' => $settings], $defaults));
@@ -145,6 +153,62 @@ class WebSettingController extends Controller
             $validated['cta_titulo'] = $data['cta']['titulo'] ?? null;
             $validated['cta_descripcion'] = $data['cta']['descripcion'] ?? null;
             $validated['cta_boton'] = $data['cta']['boton'] ?? null;
+        }
+
+        if (isset($data['nav']) && is_array($data['nav'])) {
+            $validated['nav_quienes_somos_visible'] = $data['nav_quienes_somos_visible'] ?? true;
+            $validated['nav_quienes_somos_label'] = $data['nav_quienes_somos_label'] ?? null;
+            $validated['nav_quienes_somos_content'] = $data['nav_quienes_somos_content'] ?? null;
+            $validated['nav_quienes_somos_subtitle'] = $data['nav_quienes_somos_subtitle'] ?? null;
+            $validated['nav_quienes_somos_image'] = $data['nav_quienes_somos_image'] ?? null;
+
+            $validated['nav_feedback_visible'] = $data['nav_feedback_visible'] ?? true;
+            $validated['nav_feedback_label'] = $data['nav_feedback_label'] ?? null;
+            $validated['nav_feedback_content'] = $data['nav_feedback_content'] ?? null;
+            $validated['nav_feedback_subtitle'] = $data['nav_feedback_subtitle'] ?? null;
+            $validated['nav_feedback_image'] = $data['nav_feedback_image'] ?? null;
+
+            $validated['nav_fundacion_visible'] = $data['nav_fundacion_visible'] ?? true;
+            $validated['nav_fundacion_label'] = $data['nav_fundacion_label'] ?? null;
+            $validated['nav_fundacion_content'] = $data['nav_fundacion_content'] ?? null;
+            $validated['nav_fundacion_subtitle'] = $data['nav_fundacion_subtitle'] ?? null;
+            $validated['nav_fundacion_image'] = $data['nav_fundacion_image'] ?? null;
+        } else {
+            $validated['nav_quienes_somos_visible'] = $data['nav_quienes_somos_visible'] ?? true;
+            $validated['nav_quienes_somos_label'] = $data['nav_quienes_somos_label'] ?? null;
+            $validated['nav_quienes_somos_content'] = $data['nav_quienes_somos_content'] ?? null;
+            $validated['nav_quienes_somos_subtitle'] = $data['nav_quienes_somos_subtitle'] ?? null;
+
+            $validated['nav_feedback_visible'] = $data['nav_feedback_visible'] ?? true;
+            $validated['nav_feedback_label'] = $data['nav_feedback_label'] ?? null;
+            $validated['nav_feedback_content'] = $data['nav_feedback_content'] ?? null;
+            $validated['nav_feedback_subtitle'] = $data['nav_feedback_subtitle'] ?? null;
+
+            $validated['nav_fundacion_visible'] = $data['nav_fundacion_visible'] ?? true;
+            $validated['nav_fundacion_label'] = $data['nav_fundacion_label'] ?? null;
+            $validated['nav_fundacion_content'] = $data['nav_fundacion_content'] ?? null;
+            $validated['nav_fundacion_subtitle'] = $data['nav_fundacion_subtitle'] ?? null;
+        }
+
+        if (isset($data['nav_extra']) && is_array($data['nav_extra'])) {
+            $validated['nav_extra'] = $data['nav_extra'];
+        }
+
+        // Handle navigation pages file uploads
+        $navImageFields = [
+            'nav_quienes_somos_image_file' => 'nav_quienes_somos_image',
+            'nav_feedback_image_file' => 'nav_feedback_image',
+            'nav_fundacion_image_file' => 'nav_fundacion_image',
+        ];
+
+        foreach ($navImageFields as $fileInput => $dbColumn) {
+            if ($request->hasFile($fileInput)) {
+                if ($configuracion_web->$dbColumn && str_starts_with($configuracion_web->$dbColumn, '/storage/branding/')) {
+                    Storage::disk('public')->delete(str_replace('/storage/', '', $configuracion_web->$dbColumn));
+                }
+                $path = $request->file($fileInput)->store('branding', 'public');
+                $validated[$dbColumn] = '/storage/'.$path;
+            }
         }
 
         $configuracion_web->update($validated);

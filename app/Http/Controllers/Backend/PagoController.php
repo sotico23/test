@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\PagosExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\PagosImport;
 use App\Models\Pago;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +14,8 @@ use Inertia\Response;
 
 class PagoController extends Controller
 {
+    use HasBulkOperations;
+
     public function index(): Response
     {
         $pagos = Pago::orderBy('created_at', 'desc')->paginate(15);
@@ -57,5 +62,15 @@ class PagoController extends Controller
         $pago->delete();
 
         return redirect()->route('pagos.index');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new PagosExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new PagosImport;
     }
 }

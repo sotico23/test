@@ -36,6 +36,11 @@ class WelcomeController extends Controller
                 'app_description' => $settings->app_description,
                 'app_keywords' => $settings->app_keywords,
             ],
+            'nav' => [
+                'quienes_somos' => $settings->nav_quienes_somos_label ?? 'Quiénes Somos',
+                'feedback' => $settings->nav_feedback_label ?? 'Feedback',
+                'fundacion' => $settings->nav_fundacion_label ?? 'Nuestra Fundación',
+            ],
             'hero' => [
                 'titulo' => $settings->hero_titulo ?? 'Gestiona tu negocio como un experto',
                 'subtitulo' => $settings->hero_subtitulo ?? 'La plataforma todo-en-uno que necesitas para hacer crecer tu empresa. Desde inventario hasta facturación, todo en un solo lugar.',
@@ -102,5 +107,56 @@ class WelcomeController extends Controller
         ];
 
         return Inertia::render('WelcomeNew', $config);
+    }
+
+    public function quienesSomos()
+    {
+        $settings = WebSetting::getSettings();
+
+        return Inertia::render('Frontend/QuienesSomos', [
+            'title' => $settings->nav_quienes_somos_label ?? 'Quiénes Somos',
+            'subtitle' => $settings->nav_quienes_somos_subtitle ?? 'Sobre Nosotros',
+            'content' => $settings->nav_quienes_somos_content ?? 'Contenido en construcción.',
+            'image' => $settings->nav_quienes_somos_image ?? '/images/about_us_team.png',
+            'nav_extra' => $settings->nav_extra ?? [],
+            'web_settings' => [
+                'app_name' => $settings->app_name,
+                'app_logo' => $settings->app_logo,
+            ],
+        ]);
+    }
+
+    public function feedback()
+    {
+        $settings = WebSetting::getSettings();
+
+        return Inertia::render('Frontend/Feedback', [
+            'title' => $settings->nav_feedback_label ?? 'Feedback',
+            'subtitle' => $settings->nav_feedback_subtitle ?? 'Tu opinión moldea el futuro',
+            'content' => $settings->nav_feedback_content ?? 'Contenido en construcción.',
+            'image' => $settings->nav_feedback_image ?? '/images/feedback_hero.png',
+            'nav_extra' => $settings->nav_extra ?? [],
+            'web_settings' => [
+                'app_name' => $settings->app_name,
+                'app_logo' => $settings->app_logo,
+            ],
+        ]);
+    }
+
+    public function fundacion()
+    {
+        $settings = WebSetting::getSettings();
+
+        return Inertia::render('Frontend/Fundacion', [
+            'title' => $settings->nav_fundacion_label ?? 'Nuestra Fundación',
+            'subtitle' => $settings->nav_fundacion_subtitle ?? 'Transformando vidas mediante la educación y ayuda',
+            'content' => $settings->nav_fundacion_content ?? 'Contenido en construcción.',
+            'image' => $settings->nav_fundacion_image ?? '/images/ngo_foundation.png',
+            'nav_extra' => $settings->nav_extra ?? [],
+            'web_settings' => [
+                'app_name' => $settings->app_name,
+                'app_logo' => $settings->app_logo,
+            ],
+        ]);
     }
 }

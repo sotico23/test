@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\TimesheetsExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\TimesheetsImport;
 use App\Models\Timesheet;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +14,8 @@ use Inertia\Response;
 
 class TimesheetController extends Controller
 {
+    use HasBulkOperations;
+
     public function index(): Response
     {
         $timesheets = Timesheet::orderBy('created_at', 'desc')->paginate(15);
@@ -55,5 +60,15 @@ class TimesheetController extends Controller
         $timesheet->delete();
 
         return redirect()->route('timesheets.index');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new TimesheetsExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new TimesheetsImport;
     }
 }

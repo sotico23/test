@@ -30,4 +30,9 @@ class Entrega extends Model
     {
         return ['fecha_entrega' => 'date'];
     }
+
+    public function venta()
+    {
+        return $this->belongsTo(Venta::class);
+    }
 }

@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import axios from 'axios';
 import { 
     Search, 
     LayoutDashboard, 
@@ -9,9 +10,16 @@ import {
     Truck, 
     UserCheck,
     Car,
-    Briefcase
+    Briefcase,
+    Package,
+    User,
+    BadgeDollarSign,
+    ReceiptText,
+    BarChart3,
+    Building2,
+    Loader2
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -20,21 +28,37 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 
-const modules = [
-    { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-    { name: 'Clientes', icon: Users, href: '/clientes' },
-    { name: 'Categorías', icon: Tags, href: '/categorias' },
-    { name: 'Cotizaciones', icon: FileText, href: '/cotizaciones' },
-    { name: 'Ventas (POS)', icon: ShoppingCart, href: '/ventas' },
-    { name: 'Entregas', icon: Truck, href: '/entregas' },
-    { name: 'Conductores', icon: UserCheck, href: '/conductores' },
-    { name: 'Vehículos', icon: Car, href: '/vehiculos' },
-    { name: 'Proyectos', icon: Briefcase, href: '/proyectos' },
-];
+type SearchResult = {
+    name: string;
+    type: string;
+    href: string;
+    icon: string;
+    subtitle?: string;
+};
+
+const iconMap: Record<string, any> = {
+    LayoutDashboard,
+    Users,
+    Tags,
+    FileText,
+    ShoppingCart,
+    Truck,
+    UserCheck,
+    Car,
+    Briefcase,
+    Package,
+    User,
+    BadgeDollarSign,
+    ReceiptText,
+    BarChart3,
+    Building2
+};
 
 export function GlobalSearch() {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
+    const [results, setResults] = useState<SearchResult[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         const down = (e: KeyboardEvent) => {
@@ -48,12 +72,38 @@ export function GlobalSearch() {
         return () => document.removeEventListener('keydown', down);
     }, []);
 
-    const filteredModules = modules.filter((m) =>
-        m.name.toLowerCase().includes(query.toLowerCase())
-    );
+    const fetchResults = useCallback(async (searchQuery: string) => {
+        if (searchQuery.length < 2) {
+            setResults([]);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const response = await axios.get(`/api/global-search?q=${searchQuery}`);
+            setResults(response.data);
+        } catch (error) {
+            console.error('Error in global search:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (query) {
+                fetchResults(query);
+            } else {
+                setResults([]);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [query, fetchResults]);
 
     const navigate = (href: string) => {
         setOpen(false);
+        setQuery('');
         router.visit(href);
     };
 
@@ -71,44 +121,75 @@ export function GlobalSearch() {
             </button>
 
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="p-0 border-none shadow-2xl max-w-xl bg-background/80 backdrop-blur-xl">
+                <DialogContent className="p-0 border-none shadow-2xl max-w-xl bg-background/95 backdrop-blur-xl">
                     <DialogHeader className="p-4 border-b">
                         <DialogTitle className="sr-only">Búsqueda Global</DialogTitle>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             <Search className="h-5 w-5 text-primary" />
                             <Input
                                 autoFocus
-                                placeholder="Escribe para buscar un módulo..."
+                                placeholder="Busca facturas, clientes, productos o módulos..."
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                className="border-none focus-visible:ring-0 text-lg h-10 bg-transparent"
+                                className="border-none focus-visible:ring-0 text-lg h-10 bg-transparent placeholder:text-muted-foreground/50"
                             />
+                            {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                         </div>
                     </DialogHeader>
-                    <div className="max-h-[300px] overflow-y-auto p-2">
-                        {filteredModules.length > 0 ? (
+                    <div className="max-h-[400px] overflow-y-auto p-2 scrollbar-thin">
+                        {results.length > 0 ? (
                             <div className="grid gap-1">
-                                {filteredModules.map((m) => (
-                                    <button
-                                        key={m.href}
-                                        onClick={() => navigate(m.href)}
-                                        className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-primary/10 transition-all text-left group"
-                                    >
-                                        <div className="p-2 rounded-lg bg-muted group-hover:bg-primary group-hover:text-white transition-colors">
-                                            <m.icon className="h-4 w-4" />
-                                        </div>
-                                        <span className="font-bold">{m.name}</span>
-                                    </button>
-                                ))}
+                                {results.map((result, idx) => {
+                                    const IconComponent = iconMap[result.icon] || FileText;
+                                    return (
+                                        <button
+                                            key={`${result.href}-${idx}`}
+                                            onClick={() => navigate(result.href)}
+                                            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-primary/10 transition-all text-left group"
+                                        >
+                                            <div className="p-2.5 rounded-lg bg-muted group-hover:bg-primary group-hover:text-white transition-all transform group-hover:scale-110">
+                                                <IconComponent className="h-4 w-4" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-sm leading-tight text-foreground group-hover:text-primary transition-colors">
+                                                    {result.name}
+                                                </span>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/60 bg-muted px-1.5 py-0.5 rounded leading-none group-hover:bg-primary/20 group-hover:text-primary transition-colors">
+                                                        {result.type}
+                                                    </span>
+                                                    {result.subtitle && (
+                                                        <span className="text-xs text-muted-foreground line-clamp-1">
+                                                            • {result.subtitle}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : query.length >= 2 ? (
+                            <div className="p-12 text-center text-muted-foreground">
+                                <div className="flex justify-center mb-4">
+                                    <div className="bg-muted p-4 rounded-full">
+                                        <Search className="h-8 w-8 opacity-20" />
+                                    </div>
+                                </div>
+                                <p className="text-sm font-medium">No se encontraron resultados para "{query}"</p>
+                                <p className="text-xs opacity-60">Intenta con términos más generales como "factura", "cliente" o "pos".</p>
                             </div>
                         ) : (
-                            <div className="p-8 text-center text-muted-foreground">
-                                No se encontraron resultados para "{query}"
+                            <div className="p-12 text-center text-muted-foreground opacity-50">
+                                <p className="text-sm">Empieza a escribir para buscar en todo el sistema...</p>
                             </div>
                         )}
                     </div>
-                    <div className="p-2 border-t bg-muted/30 text-[10px] text-muted-foreground flex justify-between px-4">
-                        <span>Selecciona un módulo para navegar</span>
+                    <div className="p-3 border-t bg-muted/50 text-[10px] text-muted-foreground flex justify-between px-4">
+                        <div className="flex gap-4">
+                            <span className="flex items-center gap-1"><kbd className="bg-background px-1 rounded border">⏎</kbd> seleccionar</span>
+                            <span className="flex items-center gap-1"><kbd className="bg-background px-1 rounded border">↑↓</kbd> navegar</span>
+                        </div>
                         <span>ESC para cerrar</span>
                     </div>
                 </DialogContent>

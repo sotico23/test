@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Backend;
 
+use App\Rules\RutRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreClienteRequest extends FormRequest
@@ -15,7 +16,7 @@ class StoreClienteRequest extends FormRequest
     {
         return [
             'nombre' => ['required', 'string', 'max:255'],
-            'nit' => ['nullable', 'string', 'max:50', 'unique:clientes,nit'],
+            'nit' => ['nullable', 'string', 'max:50', 'unique:clientes,nit', new RutRule],
             'rut' => ['nullable', 'string', 'max:20'],
             'telefono' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
@@ -36,7 +37,7 @@ class StoreClienteRequest extends FormRequest
     {
         return [
             'nombre.required' => 'El nombre del cliente es obligatorio.',
-            'nit.unique' => 'Este NIT ya está registrado.',
+            'nit.unique' => 'Este RUT ya está registrado.',
             'email.email' => 'El correo electrónico debe ser válido.',
             'categoria_id.exists' => 'La categoría seleccionada no existe.',
         ];

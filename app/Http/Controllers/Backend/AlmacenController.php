@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Imports\AlmacenesImport;
 use App\Models\Almacen;
 use App\Models\Empleado;
 use Illuminate\Http\RedirectResponse;
@@ -10,6 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AlmacenController extends Controller
 {
@@ -118,5 +121,88 @@ class AlmacenController extends Controller
         $almacen->delete();
 
         return redirect()->route('almacenes.index');
+    }
+
+    public function show(Almacen $almacen)
+    {
+        $almacen->load('empleados');
+
+        return Inertia::render('Backend/Almacenes/Show', [
+            'almacen' => $almacen,
+        ]);
+    }
+
+    public function exportCsv(Request $request)
+    {
+        $ownerId = auth()->user()->getOwnerId();
+        $almacenes = Almacen::with('empleados')
+            ->where('owner_id', $ownerId)
+            ->orderBy('nombre')
+            ->get();
+
+        $filename = 'almacenes_'.now()->format('Ymd_His').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ];
+
+        $callback = function () use ($almacenes) {
+            $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($file, [
+                'Codigo',
+                'Nombre',
+                'Direccion',
+                'Telefono',
+                'Capacidad',
+                'Tipo',
+                'Activo',
+                'Notas',
+            ], ';');
+
+            foreach ($almacenes as $a) {
+                fputcsv($file, [
+                    $a->codigo,
+                    $a->nombre,
+                    $a->direccion,
+                    $a->telefono,
+                    $a->capacidad,
+                    $a->tipo,
+                    $a->activo ? 'Si' : 'No',
+                    $a->notas,
+                ], ';');
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        return $this->exportCsv($request);
+    }
+
+    public function importCsv(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:csv,txt,xlsx,xls',
+        ]);
+
+        try {
+            Excel::import(new AlmacenesImport, $request->file('archivo'));
+
+            return redirect()->back()->with('success', 'Almacenes importados correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error en el formato del archivo: '.$e->getMessage());
+        }
+    }
+
+    public function importExcel(Request $request): RedirectResponse
+    {
+        return $this->importCsv($request);
     }
 }

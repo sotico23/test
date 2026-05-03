@@ -1,8 +1,8 @@
 import { Link } from '@inertiajs/react';
 import AppLogo from '@/components/app-logo';
-import { home } from '@/routes';
 import { FlashMessages } from '@/components/flash-messages';
 import { Toaster } from '@/components/ui/sonner';
+import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
 
 export default function AuthSimpleLayout({

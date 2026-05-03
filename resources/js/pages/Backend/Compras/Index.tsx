@@ -1,6 +1,35 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Check, Pencil, Plus, Trash2, Search, X } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { Head, useForm, router } from '@inertiajs/react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    ShoppingCart,
+    Truck,
+    Package,
+    Calendar,
+    User,
+    CheckCircle2,
+    Clock,
+    AlertCircle,
+    Download,
+    Upload,
+    FileSpreadsheet,
+    FileText,
+    TrendingUp,
+    DollarSign,
+    Hash,
+    MoreHorizontal,
+    MoreVertical,
+    ChevronRight,
+    ArrowUpRight,
+    LayoutGrid,
+    Calculator,
+    CreditCard,
+    Receipt
+} from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +45,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,61 +56,86 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { WhatsAppButton } from '@/components/whatsapp-button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
-import Pagination from '@/components/ui/Pagination';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
+import Pagination from '@/components/ui/Pagination';
 import type { BreadcrumbItem } from '@/types';
+import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 
 interface Proveedor {
     id: number;
     nombre: string;
-    telefono?: string;
 }
+
 interface Producto {
     id: number;
-    codigo: string;
     nombre: string;
-    precio_compra: number;
+    precio_venta: number;
 }
+
 interface DetalleCompra {
     id: number;
     producto_id: number;
+    producto?: Producto;
     cantidad: number;
     precio_unitario: number;
     subtotal: number;
-    producto?: Producto;
 }
+
 interface Compra {
     id: number;
     numero: string;
     proveedor_id: number;
+    proveedor?: Proveedor;
     fecha: string;
     subtotal: number;
     iva: number;
     total: number;
     estado: 'pendiente' | 'recibida' | 'cancelada';
     notas: string | null;
-    proveedor?: Proveedor;
-    detalleCompras?: DetalleCompra[];
+    detalle_compras?: DetalleCompra[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Compras', href: '/compras' },
+    { title: 'Inventarios', href: '/inventarios' },
+    { title: 'Ordenes de Compra', href: '/compras' },
+];
+
+const ESTADOS = [
+    { value: 'pendiente', label: 'Pendiente', color: 'bg-orange-500/10 text-orange-600', icon: Clock },
+    { value: 'recibida', label: 'Recibida', color: 'bg-green-500/10 text-green-600', icon: CheckCircle2 },
+    { value: 'cancelada', label: 'Cancelada', color: 'bg-red-500/10 text-red-600', icon: X },
 ];
 
 export default function Index({
     compras,
     proveedors,
     productos,
+    filters,
 }: {
-    compras: { data: Compra[]; links: any[]; from?: number; to?: number; total?: number; meta?: any };
+    compras: { data: Compra[]; links: any[]; meta: any };
     proveedors: Proveedor[];
     productos: Producto[];
+    filters: {
+        search?: string;
+        estado?: string;
+    };
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Compra | null>(null);
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [estadoFilter, setEstadoFilter] = useState(filters.estado || 'all');
+    const csvInputRef = useRef<HTMLInputElement>(null);
+    const excelInputRef = useRef<HTMLInputElement>(null);
+
     const {
         data,
         setData,
@@ -88,697 +143,380 @@ export default function Index({
         put,
         delete: destroy,
         reset,
+        processing,
         errors,
-        transform,
     } = useForm({
         numero: '',
-        proveedor_id: '' as string,
-        fecha: new Date().toISOString().split('T')[0],
-        estado: 'pendiente' as 'pendiente' | 'recibida' | 'cancelada',
+        proveedor_id: '' as string | number,
+        fecha: new Date().toISOString().substring(0, 10),
+        estado: 'pendiente',
         notas: '',
-        productos: [] as {
-            producto_id: string;
-            cantidad: number;
-            precio_unitario: number;
-        }[],
+        productos: [] as { producto_id: number | string; cantidad: number; precio_unitario: number }[],
     });
 
-    const [filtros, setFiltros] = useState({
-        busqueda: '',
-        proveedor_id: '',
-        estado: '',
-        fechaDesde: '',
-        fechaHasta: '',
-    });
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const query: any = {};
+            if (searchTerm) query.search = searchTerm;
+            if (estadoFilter !== 'all') query.estado = estadoFilter;
 
-    const comprasFiltradas = useMemo(() => {
-        return compras.data.filter((c) => {
-            if (filtros.busqueda) {
-                const busca = filtros.busqueda.toLowerCase();
-                if (
-                    !c.numero?.toLowerCase().includes(busca) &&
-                    !c.proveedor?.nombre?.toLowerCase().includes(busca) &&
-                    !c.notas?.toLowerCase().includes(busca)
-                ) {
-                    return false;
-                }
-            }
-            if (filtros.proveedor_id && c.proveedor_id.toString() !== filtros.proveedor_id)
-                return false;
-            if (filtros.estado && c.estado !== filtros.estado) return false;
-            if (filtros.fechaDesde && c.fecha < filtros.fechaDesde)
-                return false;
-            if (filtros.fechaHasta && c.fecha > filtros.fechaHasta)
-                return false;
-            return true;
-        });
-    }, [compras.data, filtros]);
+            router.get('/compras', query, {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            });
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm, estadoFilter]);
 
-    const limpiarFiltros = () => {
-        setFiltros({
-            busqueda: '',
-            proveedor_id: '',
-            estado: '',
-            fechaDesde: '',
-            fechaHasta: '',
-        });
+    const handleExport = (type: 'csv' | 'excel') => {
+        const baseUrl = type === 'csv' ? '/compras/export' : '/compras/export-excel';
+        const params = new URLSearchParams();
+        if (searchTerm) params.append('search', searchTerm);
+        if (estadoFilter !== 'all') params.append('estado', estadoFilter);
+        window.location.href = `${baseUrl}?${params.toString()}`;
     };
 
-    const calcularTotales = useMemo(() => {
-        const subtotal = data.productos.reduce((acc, p) => {
-            const producto = productos.find(
-                (prod) => prod.id === Number(p.producto_id),
-            );
-            const precio = producto?.precio_compra || p.precio_unitario || 0;
-            return acc + p.cantidad * precio;
-        }, 0);
-        const iva = Math.round(subtotal * 0.19);
-        const total = subtotal + iva;
-        return { subtotal, iva: Math.round(iva), total: Math.round(total) };
-    }, [data.productos, productos]);
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>, type: 'csv' | 'excel') => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append('archivo', file);
+            router.post('/compras/import', formData, {
+                onSuccess: () => {
+                    if (csvInputRef.current) csvInputRef.current.value = '';
+                    if (excelInputRef.current) excelInputRef.current.value = '';
+                    toast.success('Compras importadas');
+                },
+            });
+        }
+    };
 
     const addProducto = () => {
-        setData('productos', [
-            ...data.productos,
-            { producto_id: '', cantidad: 1, precio_unitario: 0 },
-        ]);
-    };
-
-    const updateProducto = (
-        index: number,
-        field: string,
-        value: string | number,
-    ) => {
-        const updated = [...data.productos];
-        (updated[index] as any)[field] = value;
-
-        if (field === 'producto_id') {
-            const producto = productos.find((p) => p.id === Number(value));
-            if (producto) {
-                updated[index].precio_unitario = producto.precio_compra;
-            }
-        }
-
-        setData('productos', updated);
+        setData('productos', [...data.productos, { producto_id: '', cantidad: 1, precio_unitario: 0 }]);
     };
 
     const removeProducto = (index: number) => {
-        setData(
-            'productos',
-            data.productos.filter((_, i) => i !== index),
-        );
+        const newProds = [...data.productos];
+        newProds.splice(index, 1);
+        setData('productos', newProds);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-
-        const { subtotal, iva, total } = calcularTotales;
-
-        transform((data) => ({
-            ...data,
-            proveedor_id: Number(data.proveedor_id),
-            subtotal,
-            iva,
-            total,
-            productos: data.productos.map((p: any) => ({
-                producto_id: Number(p.producto_id),
-                cantidad: p.cantidad,
-                precio_unitario: p.precio_unitario,
-            })),
-        }));
-
         if (editando) {
             put(`/compras/${editando.id}`, {
-                onSuccess: () => {
-                    setIsOpen(false);
-                    setEditando(null);
-                    reset();
-                },
+                onSuccess: () => { setIsOpen(false); setEditando(null); reset(); toast.success('Compra actualizada'); },
             });
         } else {
             post('/compras', {
-                onSuccess: () => {
-                    setIsOpen(false);
-                    reset();
-                },
+                onSuccess: () => { setIsOpen(false); reset(); toast.success('Compra registrada'); },
             });
         }
     };
 
-    const handleEdit = (compra: Compra) => {
-        setEditando(compra);
+    const handleEdit = (c: Compra) => {
+        setEditando(c);
         setData({
-            numero: compra.numero,
-            proveedor_id: compra.proveedor_id.toString(),
-            fecha: compra.fecha,
-            estado: compra.estado,
-            notas: compra.notas || '',
-            productos:
-                compra.detalleCompras?.map((d) => ({
-                    producto_id: d.producto_id.toString(),
-                    cantidad: d.cantidad,
-                    precio_unitario: d.precio_unitario,
-                })) || [],
+            numero: c.numero,
+            proveedor_id: c.proveedor_id,
+            fecha: c.fecha.substring(0, 10),
+            estado: c.estado,
+            notas: c.notas || '',
+            productos: c.detalle_compras?.map(d => ({
+                producto_id: d.producto_id,
+                cantidad: d.cantidad,
+                precio_unitario: d.precio_unitario
+            })) || [],
         });
         setIsOpen(true);
     };
 
     const handleDelete = (id: number) => {
-        if (confirm('¿Está seguro de eliminar esta compra?'))
-            destroy(`/compras/${id}`);
+        if (confirm('¿Desea eliminar esta orden de compra?')) {
+            destroy(`/compras/${id}`, {
+                onSuccess: () => toast.success('Compra eliminada'),
+            });
+        }
     };
 
-    const handleClose = () => {
-        setIsOpen(false);
-        setEditando(null);
-        reset();
-        setData('productos', []);
-    };
-
-    const getEstadoBadge = (estado: string) => {
-        const variants = {
-            pendiente: 'secondary',
-            recibida: 'default',
-            cancelada: 'destructive',
-        } as const;
-        return (
-            <Badge variant={variants[estado as keyof typeof variants]}>
-                {estado}
-            </Badge>
-        );
+    const getEstadoConfig = (val: string) => {
+        return ESTADOS.find(e => e.value === val) || { label: val, color: 'bg-gray-500/10 text-gray-600', icon: AlertCircle };
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Compras" />
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Compras</h1>
-                    <Button
-                        onClick={() => {
-                            setEditando(null);
-                            reset();
-                            setData('productos', []);
-                            setIsOpen(true);
-                        }}
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nueva Compra
-                    </Button>
+            <Head title="Gestión de Compras" />
+            <Toaster position="bottom-right" />
+            
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <ShoppingCart className="h-5 w-5 text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Procurement & Sourcing Hub</span>
+                        </div>
+                        <h1 className="text-3xl font-black tracking-tight text-foreground">Ordenes de Compra</h1>
+                        <p className="text-sm font-medium text-muted-foreground">
+                            Gestione sus adquisiciones, proveedores e ingresos de mercadería
+                        </p>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                        <input type="file" ref={csvInputRef} className="hidden" accept=".csv" onChange={(e) => handleImport(e, 'csv')} />
+                        <input type="file" ref={excelInputRef} className="hidden" accept=".xlsx,.xls" onChange={(e) => handleImport(e, 'excel')} />
+                        
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-9 px-3 gap-2 rounded-xl">
+                                    <Download className="h-4 w-4 text-primary" /> Herramientas
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl border-none shadow-2xl">
+                                <DropdownMenuItem onClick={() => csvInputRef.current?.click()} className="rounded-lg py-3">
+                                    <Upload className="mr-2 h-4 w-4 text-blue-500" /> Importar Compras
+                                </DropdownMenuItem>
+                                <hr className="my-2" />
+                                <DropdownMenuItem onClick={() => handleExport('csv')} className="rounded-lg py-3">
+                                    <Download className="mr-2 h-4 w-4 text-green-500" /> Exportar a CSV
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        
+                        <Button onClick={() => { setEditando(null); reset(); setIsOpen(true); }} className="h-9 px-5 bg-primary shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all font-bold rounded-full">
+                            <Plus className="mr-2 h-4 w-4" /> Generar Orden
+                        </Button>
+                    </div>
                 </div>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Listado de Compras</CardTitle>
-                        <CardDescription>
-                            Gestione las compras del sistema
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="mb-4 flex flex-wrap gap-2 rounded-lg bg-muted/30 p-3 text-sm">
-                            <div className="min-w-[200px] flex-1">
-                                <div className="relative">
-                                    <Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Buscar factura, proveedor o notas..."
-                                        value={filtros.busqueda}
-                                        onChange={(e) =>
-                                            setFiltros({
-                                                ...filtros,
-                                                busqueda: e.target.value,
-                                            })
-                                        }
-                                        className="h-9 pl-8"
-                                    />
-                                </div>
-                            </div>
-                            <select
-                                value={filtros.proveedor_id}
-                                onChange={(e) =>
-                                    setFiltros({
-                                        ...filtros,
-                                        proveedor_id: e.target.value,
-                                    })
-                                }
-                                className="flex h-9 rounded-md border bg-background px-3 py-1 min-w-[150px]"
-                            >
-                                <option value="">Todos los proveedores</option>
-                                {proveedors.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.nombre}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                value={filtros.estado}
-                                onChange={(e) =>
-                                    setFiltros({
-                                        ...filtros,
-                                        estado: e.target.value,
-                                    })
-                                }
-                                className="flex h-9 rounded-md border bg-background px-3 py-1"
-                            >
-                                <option value="">Todos los estados</option>
-                                <option value="pendiente">Pendiente</option>
-                                <option value="recibida">Recibida</option>
-                                <option value="cancelada">Cancelada</option>
-                            </select>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-9"
-                                onClick={limpiarFiltros}
-                            >
-                                <X className="mr-1 h-4 w-4" />
-                                Limpiar
+
+                <div className="grid gap-6">
+                    {/* Filters Bar */}
+                    <div className="flex flex-col p-4 gap-4 md:flex-row md:items-center bg-muted/40 rounded-3xl border border-muted/50">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar por número o proveedor..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="h-11 pl-12 border-none bg-background shadow-sm focus-visible:ring-primary/20 rounded-2xl"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+                                <SelectTrigger className="h-11 w-[180px] border-none bg-background shadow-sm rounded-2xl font-bold">
+                                    <SelectValue placeholder="Estado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los estados</SelectItem>
+                                    {ESTADOS.map((e) => (
+                                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button variant="outline" size="icon" className="h-11 w-11 border-none bg-background shadow-sm rounded-2xl text-muted-foreground" onClick={() => { setSearchTerm(''); setEstadoFilter('all'); }}>
+                                <X className="h-5 w-5" />
                             </Button>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b">
-                                        <th className="pb-3 text-left text-sm font-medium">
-                                            Factura
-                                        </th>
-                                        <th className="pb-3 text-left text-sm font-medium">
-                                            Proveedor
-                                        </th>
-                                        <th className="pb-3 text-left text-sm font-medium">
-                                            Fecha
-                                        </th>
-                                        <th className="pb-3 text-left text-sm font-medium">
-                                            Total
-                                        </th>
-                                        <th className="pb-3 text-left text-sm font-medium">
-                                            Estado
-                                        </th>
-                                        <th className="pb-3 text-left text-sm font-medium">
-                                            Acciones
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {comprasFiltradas.map((compra) => (
-                                        <tr
-                                            key={compra.id}
-                                            className="border-b"
-                                        >
-                                            <td className="py-3 font-medium">
-                                                {compra.numero}
-                                            </td>
-                                            <td className="py-3">
-                                                <div className="flex items-center gap-1">
-                                                    <span>{compra.proveedor?.nombre}</span>
-                                                    {compra.proveedor?.telefono && (
-                                                        <WhatsAppButton phone={compra.proveedor.telefono} />
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="py-3">
-                                                {formatDateCLP(compra.fecha)}
-                                            </td>
-                                            <td className="py-3 font-medium">
-                                                {formatCurrencyCLP(compra.total)}
-                                            </td>
-                                            <td className="py-3">
-                                                {getEstadoBadge(compra.estado)}
-                                            </td>
-                                            <td className="py-3">
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="icon"
-                                                        onClick={() =>
-                                                            handleEdit(compra)
-                                                        }
-                                                    >
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="icon"
-                                                        onClick={() =>
-                                                            handleDelete(
-                                                                compra.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </td>
+                    </div>
+
+                    <Card className="border-none shadow-xl shadow-foreground/5 overflow-hidden rounded-[32px]">
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="bg-muted/5 border-b text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                                            <th className="px-6 py-4 text-left">Número</th>
+                                            <th className="px-6 py-4 text-left">Proveedor</th>
+                                            <th className="px-6 py-4 text-center">Estado</th>
+                                            <th className="px-6 py-4 text-center">Fecha</th>
+                                            <th className="px-6 py-4 text-right">Total</th>
+                                            <th className="px-6 py-4 text-right">Acciones</th>
                                         </tr>
-                                    ))}
-                                    {compras.data.length === 0 && (
-                                        <tr>
-                                            <td
-                                                colSpan={6}
-                                                className="py-4 text-center"
-                                            >
-                                                No hay compras registradas
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                            <Pagination links={compras.links} meta={compras.meta || compras} />
+                                    </thead>
+                                    <tbody className="divide-y divide-muted/50 font-medium">
+                                        {compras.data.map((c) => {
+                                            const config = getEstadoConfig(c.estado);
+                                            return (
+                                                <tr key={c.id} className="group transition-colors hover:bg-muted/30">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="p-2 bg-background border rounded-xl shadow-sm text-primary group-hover:scale-110 transition-transform">
+                                                                <Receipt className="h-4 w-4" />
+                                                            </div>
+                                                            <span className="font-black text-foreground">{c.numero}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-foreground">{c.proveedor?.nombre || 'N/A'}</span>
+                                                            <span className="text-[10px] text-muted-foreground font-black uppercase">Vendor Account</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <Badge variant="outline" className={`${config.color} border-none text-[9px] font-black uppercase px-2.5 py-1 rounded-full`}>
+                                                            {config.label}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="text-xs font-bold">{formatDateCLP(c.fecha)}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <span className="font-black text-foreground">{formatCurrencyCLP(c.total)}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10 rounded-xl" onClick={() => handleEdit(c)}>
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => handleDelete(c.id)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="p-6 border-t border-muted/50 bg-muted/5">
+                                <Pagination links={compras.links} meta={compras.meta} />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                <DialogContent className="max-w-[95vw] md:max-w-4xl border-none shadow-2xl p-0 overflow-hidden rounded-[40px]">
+                    <DialogHeader className="bg-gradient-to-r from-primary/10 to-transparent p-8 pb-4 text-left">
+                        <div className="flex items-center gap-2 mb-1">
+                            <ShoppingCart className="h-5 w-5 text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Procurement Officer Panel</span>
                         </div>
-                    </CardContent>
-                </Card>
-                <Dialog
-                    open={isOpen}
-                    onOpenChange={(open) => !open && handleClose()}
-                >
-                    <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {editando ? 'Editar Compra' : 'Nueva Compra'}
-                            </DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={handleSubmit}>
-                            {Object.keys(errors).length > 0 && (
-                                <div className="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                                    <p className="font-semibold">
-                                        Por favor corrija los siguientes errores:
-                                    </p>
-                                    <ul className="list-inside list-disc">
-                                        {Object.values(errors).map((err, i) => (
-                                            <li key={i}>{typeof err === 'string' ? err : JSON.stringify(err)}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            <div className="grid gap-4 py-4">
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label>No. Factura</Label>
-                                        <Input
-                                            value={data.numero}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'numero',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            required
-                                        />
+                        <DialogTitle className="text-3xl font-black tracking-tight text-primary">
+                            {editando ? 'Editar Orden de Compra' : 'Nueva Orden de Compra'}
+                        </DialogTitle>
+                        <DialogDescription className="text-muted-foreground font-medium">Capture los detalles de adquisición y recepción de inventario.</DialogDescription>
+                    </DialogHeader>
+                    
+                    <form onSubmit={handleSubmit} className="p-8 pt-2 overflow-y-auto max-h-[80vh]">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 py-4">
+                            <div className="space-y-6">
+                                <h3 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                    <Receipt className="h-4 w-4" /> Encabezado de Orden
+                                </h3>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold uppercase text-muted-foreground">Número de Orden *</Label>
+                                            <Input value={data.numero} onChange={(e) => setData('numero', e.target.value)} required className="h-12 border-none bg-muted/30 font-bold rounded-2xl" placeholder="OC-0001" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs font-bold uppercase text-muted-foreground">Fecha Emisión</Label>
+                                            <Input type="date" value={data.fecha} onChange={(e) => setData('fecha', e.target.value)} required className="h-12 border-none bg-muted/30 font-bold rounded-2xl text-center" />
+                                        </div>
                                     </div>
-                                    <div className="grid gap-2">
-                                        <Label>Proveedor</Label>
-                                        <Select
-                                            value={data.proveedor_id}
-                                            onValueChange={(v) =>
-                                                setData('proveedor_id', v)
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccionar" />
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold uppercase text-muted-foreground">Proveedor Asociado *</Label>
+                                        <Select value={String(data.proveedor_id)} onValueChange={(v) => setData('proveedor_id', v)}>
+                                            <SelectTrigger className="h-12 border-none bg-muted/30 font-bold rounded-2xl">
+                                                <SelectValue placeholder="Seleccione proveedor..." />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {proveedors.map((p) => (
-                                                    <SelectItem
-                                                        key={p.id}
-                                                        value={p.id.toString()}
-                                                    >
-                                                        {p.nombre}
-                                                    </SelectItem>
+                                                    <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="grid gap-2">
-                                        <Label>Fecha</Label>
-                                        <Input
-                                            type="date"
-                                            value={data.fecha}
-                                            onChange={(e) =>
-                                                setData('fecha', e.target.value)
-                                            }
-                                            required
-                                        />
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-bold uppercase text-muted-foreground">Estado de Recepción</Label>
+                                        <Select value={data.estado} onValueChange={(v: any) => setData('estado', v)}>
+                                            <SelectTrigger className="h-12 border-none bg-muted/10 border-2 border-primary/20 font-bold rounded-2xl">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {ESTADOS.map((e) => (
+                                                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label>Estado</Label>
-                                    <Select
-                                        value={data.estado}
-                                        onValueChange={(v) =>
-                                            setData(
-                                                'estado',
-                                                v as
-                                                | 'pendiente'
-                                                | 'recibida'
-                                                | 'cancelada',
-                                            )
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="pendiente">
-                                                Pendiente
-                                            </SelectItem>
-                                            <SelectItem value="recibida">
-                                                Recibida
-                                            </SelectItem>
-                                            <SelectItem value="cancelada">
-                                                Cancelada
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="rounded-lg border p-4">
-                                    <div className="mb-4 flex items-center justify-between">
-                                        <Label className="text-base font-semibold">
-                                            Productos
-                                        </Label>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={addProducto}
-                                        >
-                                            <Plus className="mr-1 h-4 w-4" />
-                                            Agregar Producto
-                                        </Button>
-                                    </div>
-
-                                    {data.productos.length === 0 ? (
-                                        <p className="py-4 text-center text-sm text-gray-500">
-                                            No hay productos agregados. Haga
-                                            clic en "Agregar Producto"
-                                        </p>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {data.productos.map(
-                                                (producto, index) => {
-                                                    const prod = productos.find(
-                                                        (p) =>
-                                                            p.id ===
-                                                            Number(
-                                                                producto.producto_id,
-                                                            ),
-                                                    );
-                                                    const precio =
-                                                        producto.precio_unitario ||
-                                                        prod?.precio_compra ||
-                                                        0;
-                                                    const subtotalItem =
-                                                        producto.cantidad *
-                                                        precio;
-
-                                                    return (
-                                                        <div
-                                                            key={index}
-                                                            className="grid grid-cols-1 md:grid-cols-12 items-end gap-3 rounded-md border border-dashed p-3 md:border-0 md:p-0"
-                                                        >
-                                                            <div className="md:col-span-11 grid grid-cols-1 md:grid-cols-12 gap-3">
-                                                                <div className="md:col-span-6">
-                                                                    <Label className="md:text-xs">
-                                                                        Producto
-                                                                    </Label>
-                                                                    <Select
-                                                                        value={
-                                                                            producto.producto_id
-                                                                        }
-                                                                        onValueChange={(
-                                                                            v,
-                                                                        ) =>
-                                                                            updateProducto(
-                                                                                index,
-                                                                                'producto_id',
-                                                                                v,
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        <SelectTrigger>
-                                                                            <SelectValue placeholder="Seleccionar" />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            {productos.map(
-                                                                                (
-                                                                                    p,
-                                                                                ) => (
-                                                                                    <SelectItem
-                                                                                        key={
-                                                                                            p.id
-                                                                                        }
-                                                                                        value={p.id.toString()}
-                                                                                    >
-                                                                                        {
-                                                                                            p.nombre
-                                                                                        }{' '}
-                                                                                        ({p.codigo})
-                                                                                    </SelectItem>
-                                                                                ),
-                                                                            )}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                </div>
-                                                                <div className="grid grid-cols-3 gap-2 md:col-span-6">
-                                                                    <div>
-                                                                        <Label className="md:text-xs text-[10px]">
-                                                                            Cant.
-                                                                        </Label>
-                                                                        <Input
-                                                                            type="number"
-                                                                            min="1"
-                                                                            value={
-                                                                                producto.cantidad
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateProducto(
-                                                                                    index,
-                                                                                    'cantidad',
-                                                                                    parseInt(
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    ) ||
-                                                                                    1,
-                                                                                )
-                                                                            }
-                                                                        />
-                                                                    </div>
-                                                                    <div>
-                                                                        <Label className="md:text-xs text-[10px]">
-                                                                            Precio
-                                                                        </Label>
-                                                                        <Input
-                                                                            type="number"
-                                                                            min="0"
-                                                                            step="0.01"
-                                                                            value={
-                                                                                producto.precio_unitario
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
-                                                                                updateProducto(
-                                                                                    index,
-                                                                                    'precio_unitario',
-                                                                                    parseFloat(
-                                                                                        e
-                                                                                            .target
-                                                                                            .value,
-                                                                                    ) ||
-                                                                                    0,
-                                                                                )
-                                                                            }
-                                                                        />
-                                                                    </div>
-                                                                    <div>
-                                                                        <Label className="md:text-xs text-[10px]">
-                                                                            Subt.
-                                                                        </Label>
-                                                                        <Input
-                                                                            value={formatCurrencyCLP(subtotalItem)}
-                                                                            disabled
-                                                                            className="bg-gray-50"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex justify-end md:col-span-1">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="destructive"
-                                                                    size="icon"
-                                                                    onClick={() =>
-                                                                        removeProducto(
-                                                                            index,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                },
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="rounded-lg border bg-gray-50 p-4">
-                                    <div className="flex justify-between text-sm">
-                                        <span>Subtotal:</span>
-                                        <span className="font-medium">
-                                            {formatCurrencyCLP(calcularTotales.subtotal)}
-                                        </span>
-                                    </div>
-                                    <div className="mt-1 flex justify-between text-sm">
-                                        <span>IVA (19%):</span>
-                                        <span className="font-medium">
-                                            {formatCurrencyCLP(calcularTotales.iva)}
-                                        </span>
-                                    </div>
-                                    <div className="mt-2 flex justify-between border-t pt-2 text-base font-bold">
-                                        <span>Total:</span>
-                                        <span>
-                                            {formatCurrencyCLP(calcularTotales.total)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <Label>Notas</Label>
-                                    <Input
-                                        value={data.notas}
-                                        onChange={(e) =>
-                                            setData('notas', e.target.value)
-                                        }
-                                    />
                                 </div>
                             </div>
-                            <DialogFooter>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleClose}
-                                >
-                                    Cancelar
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={
-                                        data.productos.length === 0 ||
-                                        !data.proveedor_id
-                                    }
-                                >
-                                    <Check className="mr-2 h-4 w-4" />
-                                    Guardar
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-            </div>
+
+                            <div className="space-y-6">
+                                <h3 className="text-[11px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                    <Package className="h-4 w-4" /> Líneas de Compra
+                                </h3>
+                                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {data.productos.map((prod, idx) => (
+                                        <div key={idx} className="p-4 bg-muted/10 border border-muted/50 rounded-2xl space-y-3 relative group/prod">
+                                            <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 bg-destructive text-white rounded-full opacity-0 group-hover/prod:opacity-100 transition-opacity" onClick={() => removeProducto(idx)}>
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                            <Select value={String(prod.producto_id)} onValueChange={(v) => {
+                                                const newProds = [...data.productos];
+                                                newProds[idx].producto_id = v;
+                                                newProds[idx].precio_unitario = productos.find(p => String(p.id) === v)?.precio_venta || 0;
+                                                setData('productos', newProds);
+                                            }}>
+                                                <SelectTrigger className="h-10 border-none bg-background shadow-sm font-bold rounded-xl">
+                                                    <SelectValue placeholder="Producto..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {productos.map((p) => (
+                                                        <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[9px] font-black uppercase text-muted-foreground px-1">Cant.</Label>
+                                                    <Input type="number" value={prod.cantidad} onChange={(e) => {
+                                                        const newProds = [...data.productos];
+                                                        newProds[idx].cantidad = parseInt(e.target.value);
+                                                        setData('productos', newProds);
+                                                    }} className="h-10 border-none bg-background shadow-sm font-black rounded-xl text-center" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[9px] font-black uppercase text-muted-foreground px-1">P. Unitario</Label>
+                                                    <Input type="number" value={prod.precio_unitario} onChange={(e) => {
+                                                        const newProds = [...data.productos];
+                                                        newProds[idx].precio_unitario = parseFloat(e.target.value);
+                                                        setData('productos', newProds);
+                                                    }} className="h-10 border-none bg-background shadow-sm font-black rounded-xl text-right" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" className="w-full h-12 border-dashed border-2 text-primary font-black uppercase text-[10px] rounded-2xl hover:bg-primary/5 transition-all" onClick={addProducto}>
+                                        <Plus className="mr-2 h-4 w-4" /> Agregar Ítem
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 mt-6 pt-6 border-t">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">Observaciones de la Orden</Label>
+                            <textarea 
+                                value={data.notas} 
+                                onChange={(e) => setData('notas', e.target.value)} 
+                                className="flex min-h-[100px] w-full rounded-3xl border-none bg-muted/30 px-6 py-4 text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary/20 outline-none" 
+                                placeholder="Especifique términos especiales de entrega o recepción..."
+                            />
+                        </div>
+                        
+                        <DialogFooter className="gap-2 mt-8 pt-6 border-t uppercase font-black">
+                            <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} className="rounded-full px-8">Cancelar</Button>
+                            <Button type="submit" disabled={processing} className="rounded-full px-12 bg-primary shadow-lg shadow-primary/20 hover:bg-primary/90">
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> {editando ? 'Finalizar Edición' : 'Confirmar Adquisición'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

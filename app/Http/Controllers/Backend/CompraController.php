@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\ComprasExport;
 use App\Http\Controllers\Controller;
+use App\Imports\ComprasImport;
 use App\Models\Compra;
 use App\Models\DetalleCompra;
 use App\Models\Inventario;
@@ -13,13 +15,35 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CompraController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $ownerId = Auth::user()->getOwnerId();
-        $compras = Compra::with('proveedor', 'detalleCompras.producto')->where('owner_id', $ownerId)->orderBy('created_at', 'desc')->paginate(15);
+        $query = Compra::with('proveedor', 'detalleCompras.producto')
+            ->where('owner_id', $ownerId);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('numero', 'like', "%{$search}%")
+                    ->orWhereHas('proveedor', function ($pq) use ($search) {
+                        $pq->where('nombre', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
+
+        $compras = $query->orderBy('created_at', 'desc')
+            ->paginate(15)
+            ->withQueryString();
+
         $proveedors = Proveedor::where('activo', true)->where('owner_id', $ownerId)->get();
         $productos = Producto::where('activo', true)->where('owner_id', $ownerId)->get();
 
@@ -27,6 +51,7 @@ class CompraController extends Controller
             'compras' => $compras,
             'proveedors' => $proveedors,
             'productos' => $productos,
+            'filters' => $request->only(['search', 'estado']),
         ]);
     }
 
@@ -116,5 +141,85 @@ class CompraController extends Controller
         $compra->delete();
 
         return redirect()->route('compras.index');
+    }
+
+    public function exportCsv(Request $request): StreamedResponse
+    {
+        $ownerId = auth()->user()->getOwnerId();
+        $query = Compra::with('proveedor')->where('owner_id', $ownerId);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('numero', 'like', "%{$search}%")
+                    ->orWhereHas('proveedor', fn ($pq) => $pq->where('nombre', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
+
+        $compras = $query->orderBy('created_at', 'desc')->get();
+        $filename = 'compras_'.now()->format('Ymd_His').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ];
+
+        $callback = function () use ($compras) {
+            $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($file, ['ID', 'Numero', 'Proveedor', 'Fecha', 'Total', 'Estado', 'Notas'], ';');
+
+            foreach ($compras as $c) {
+                fputcsv($file, [
+                    $c->id,
+                    $c->numero,
+                    $c->proveedor?->nombre ?? 'N/A',
+                    $c->fecha,
+                    $c->total,
+                    $c->estado,
+                    $c->notas,
+                ], ';');
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $ownerId = auth()->user()->getOwnerId();
+        $query = Compra::with('proveedor')->where('owner_id', $ownerId);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('numero', 'like', "%{$search}%")
+                    ->orWhereHas('proveedor', fn ($pq) => $pq->where('nombre', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
+
+        return Excel::download(new ComprasExport($query->get()), 'compras_'.now()->format('Ymd_His').'.xlsx');
+    }
+
+    public function importCsv(Request $request): RedirectResponse
+    {
+        $request->validate(['archivo' => 'required|file|mimes:csv,txt,xlsx,xls']);
+        Excel::import(new ComprasImport, $request->file('archivo'));
+
+        return redirect()->back()->with('success', 'Compras importadas correctamente.');
+    }
+
+    public function importExcel(Request $request): RedirectResponse
+    {
+        return $this->importCsv($request);
     }
 }

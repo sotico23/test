@@ -12,10 +12,21 @@ class Lote extends Model
 
     protected $table = 'lotes';
 
-    protected $fillable = ['owner_id', 'numero_lote', 'producto_id', 'cantidad', 'fecha_produccion', 'fecha_vencimiento', 'estado', 'almacen_id'];
+    protected $fillable = [
+        'owner_id',
+        'numero_lote',
+        'producto',
+        'cantidad',
+        'fecha_vencimiento',
+        'estado',
+        'notas',
+    ];
 
     protected function casts(): array
     {
-        return ['cantidad' => 'integer', 'fecha_produccion' => 'date', 'fecha_vencimiento' => 'date'];
+        return [
+            'cantidad' => 'integer',
+            'fecha_vencimiento' => 'date',
+        ];
     }
 }

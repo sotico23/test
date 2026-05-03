@@ -15,9 +15,20 @@ import {
     CheckCircle2,
     AlertCircle,
     Info,
+    Download,
+    Upload,
+    FileSpreadsheet,
+    FileJson,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
-import Pagination from '@/components/ui/Pagination';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useState, useMemo, useRef } from 'react';
+import { router } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +47,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -148,6 +160,35 @@ export default function Index({
         busqueda: '',
         estado: '',
     });
+
+    const csvInputRef = useRef<HTMLInputElement>(null);
+    const excelInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImportCSV = () => {
+        csvInputRef.current?.click();
+    };
+
+    const handleImportExcel = () => {
+        excelInputRef.current?.click();
+    };
+
+    const handleFileChange = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        type: 'csv' | 'excel',
+    ) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        router.post('/entregas/importar', formData, {
+            forceFormData: true,
+            onSuccess: () => {
+                e.target.value = '';
+            },
+        });
+    };
 
     const entregasFiltradas = useMemo(() => {
         return (entregas.data || []).filter((e: Entrega) => {
@@ -341,9 +382,59 @@ export default function Index({
                                 Gestión de entregas
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nueva Entrega
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nueva Entrega
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-9 gap-2 rounded-xl border-muted-foreground/10 font-bold"
+                                    >
+                                        <Download className="h-4 w-4 text-primary" />
+                                        <span>Herramientas</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="w-48"
+                                >
+                                    <DropdownMenuItem onClick={handleImportCSV}>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Importar CSV
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={handleImportExcel}
+                                    >
+                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                        Importar Excel
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={() =>
+                                            router.get(
+                                                '/entregas/exportar?format=json',
+                                            )
+                                        }
+                                    >
+                                        <FileJson className="mr-2 h-4 w-4" />
+                                        Exportar JSON
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() =>
+                                            router.get(
+                                                '/entregas/exportar?format=excel',
+                                            )
+                                        }
+                                    >
+                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                        Exportar Excel
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -1125,6 +1216,21 @@ export default function Index({
                     )}
                 </DialogContent>
             </Dialog>
+
+            <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => handleFileChange(e, 'csv')}
+            />
+            <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => handleFileChange(e, 'excel')}
+            />
         </>
     );
 }

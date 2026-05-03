@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\FacturasExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Traits\FiltraPorCliente;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\FacturasImport;
 use App\Models\Almacen;
 use App\Models\Cliente;
 use App\Models\DetalleFactura;
@@ -12,17 +15,19 @@ use App\Models\Factura;
 use App\Models\Producto;
 use App\Models\Tesoreria;
 use App\Models\Venta;
+use App\Services\Sii\BarcodeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class FacturacionController extends Controller
 {
-    use FiltraPorCliente;
+    use FiltraPorCliente, HasBulkOperations;
 
     public function index(): Response
     {
@@ -52,9 +57,11 @@ class FacturacionController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $isManual = $request->input('is_manual_cliente', false);
+
         $validated = $request->validate([
             'numero' => 'required|string|max:20|unique:facturas,numero',
-            'cliente_id' => 'required|exists:clientes,id',
+            'cliente_id' => $isManual ? 'nullable' : 'required|exists:clientes,id',
             'fecha' => 'required|date',
             'fecha_vencimiento' => 'nullable|date',
             'tipo' => 'required|string|max:20|in:venta,compra,cotizacion,proforma',
@@ -68,7 +75,39 @@ class FacturacionController extends Controller
             'almacen_id' => 'required|exists:almacenes,id',
             'detalles.*.cantidad' => 'required|numeric|min:0.01',
             'detalles.*.precio_unitario' => 'required|numeric|min:0',
+
+            // Validación para cliente manual si aplica
+            'manual_rut' => $isManual ? 'required|string' : 'nullable',
+            'manual_razon_social' => $isManual ? 'required|string' : 'nullable',
+            'manual_giro' => $isManual ? 'required|string' : 'nullable',
+            'manual_direccion' => $isManual ? 'required|string' : 'nullable',
+            'manual_comuna' => $isManual ? 'required|string' : 'nullable',
+            'manual_ciudad' => $isManual ? 'nullable|string' : 'nullable',
         ]);
+
+        $clienteId = $validated['cliente_id'];
+
+        if ($isManual) {
+            $rut = $validated['manual_rut'];
+            $cliente = Cliente::where('rut', $rut)
+                ->where('owner_id', auth()->user()->getOwnerId())
+                ->first();
+
+            if (! $cliente) {
+                $cliente = Cliente::create([
+                    'owner_id' => auth()->user()->getOwnerId(),
+                    'user_id' => auth()->id(),
+                    'rut' => $rut,
+                    'nombre' => $validated['manual_razon_social'],
+                    'giro' => $validated['manual_giro'],
+                    'direccion' => $validated['manual_direccion'],
+                    'comuna' => $validated['manual_comuna'],
+                    'ciudad' => $validated['manual_ciudad'] ?? null,
+                    'activo' => true,
+                ]);
+            }
+            $clienteId = $cliente->id;
+        }
 
         $ivaPorcentaje = $validated['iva_porcentaje'] ?? 19;
         $ivaIncluido = $validated['iva_incluido'] ?? true;
@@ -103,7 +142,7 @@ class FacturacionController extends Controller
             'numero' => $validated['numero'],
             'owner_id' => auth()->user()->getOwnerId(),
             'user_id' => auth()->id(),
-            'cliente_id' => $validated['cliente_id'],
+            'cliente_id' => $clienteId,
             'fecha' => $validated['fecha'],
             'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? null,
             'tipo' => $validated['tipo'],
@@ -228,7 +267,7 @@ class FacturacionController extends Controller
 
                 $factura->refresh();
                 $facturaId = $factura->id;
-                \Log::info('facturaId antes de delete:', ['facturaId' => $facturaId, 'tipo' => gettype($facturaId)]);
+                Log::info('facturaId antes de delete:', ['facturaId' => $facturaId, 'tipo' => gettype($facturaId)]);
                 DetalleFactura::where('factura_id', $facturaId)->delete();
 
                 foreach ($validated['detalles'] as $idx => $detalle) {
@@ -255,7 +294,7 @@ class FacturacionController extends Controller
                         'impuesto' => (float) $itemIVA,
                         'total' => (float) $itemTotal,
                     ];
-                    \Log::info('Creando detalle '.$idx.':', $dataToCreate);
+                    Log::info('Creando detalle '.$idx.':', $dataToCreate);
                     DetalleFactura::create($dataToCreate);
                 }
 
@@ -323,12 +362,38 @@ class FacturacionController extends Controller
 
     public function downloadPdf(Factura $factura): SymfonyResponse
     {
-        $factura->load(['cliente', 'detalles.producto', 'emisor']);
+        $factura->load(['cliente', 'detalles.producto', 'emisor', 'dteDocumento']);
+
+        $barcodeSvg = null;
+        if ($factura->dteDocumento && $factura->dteDocumento->ted) {
+            try {
+                $barcodeService = app(BarcodeService::class);
+                $barcodeSvg = $barcodeService->generarPdf417($factura->dteDocumento->ted);
+            } catch (\Exception $e) {
+                Log::error('Error al generar barcode para PDF: '.$e->getMessage());
+            }
+        }
 
         $pdf = Pdf::loadView('pdf.billing_pdf', [
             'factura' => $factura,
+            'dte' => $factura->dteDocumento,
+            'barcodeSvg' => $barcodeSvg,
         ])->setPaper('a4');
 
-        return $pdf->download($factura->tipo.'-'.$factura->numero.'.pdf');
+        $filename = $factura->dteDocumento
+            ? "DTE-{$factura->dteDocumento->tipo_documento}-{$factura->dteDocumento->folio}.pdf"
+            : "{$factura->tipo}-{$factura->numero}.pdf";
+
+        return $pdf->download($filename);
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new FacturasExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new FacturasImport;
     }
 }

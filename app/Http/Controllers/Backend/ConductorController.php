@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\ConductoresExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\ConductoresImport;
 use App\Models\Conductor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,11 +14,31 @@ use Inertia\Response;
 
 class ConductorController extends Controller
 {
-    public function index(): Response
-    {
-        $conductores = Conductor::orderBy('nombre')->paginate(15);
+    use HasBulkOperations;
 
-        return Inertia::render('Backend/Conductores/Index', ['conductores' => $conductores]);
+    public function index(Request $request): Response
+    {
+        $query = Conductor::query();
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                    ->orWhere('rut', 'like', "%{$search}%")
+                    ->orWhere('licencia', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $query->where(fn ($q) => $q->where('estado', $request->input('estado')));
+        }
+
+        $conductores = $query->orderBy('nombre')->paginate(15)->withQueryString();
+
+        return Inertia::render('Backend/Conductores/Index', [
+            'conductores' => $conductores,
+            'filters' => $request->only(['search', 'estado']),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -33,9 +56,14 @@ class ConductorController extends Controller
             'estado' => 'required|string|max:50',
             'notas' => 'nullable|string',
         ]);
-        Conductor::create($validated);
 
-        return redirect()->route('conductores.index');
+        try {
+            Conductor::create($validated);
+
+            return redirect()->route('conductores.index')->with('success', 'Conductor registrado exitosamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al registrar el conductor: '.$e->getMessage());
+        }
     }
 
     public function update(Request $request, Conductor $conductore): RedirectResponse
@@ -56,15 +84,17 @@ class ConductorController extends Controller
 
         $validated = $request->validate($rules);
 
-        // Convert empty strings to null so blank fields don't overwrite existing data
         $toSave = array_map(fn ($v) => $v === '' ? null : $v, $validated);
-        // Remove null values so we only update fields that have real content
         $toSave = array_filter($toSave, fn ($v) => $v !== null);
 
-        // Always allow explicit null for fields sent with intent to clear
-        // (Only preserve non-empty values from the form)
         if (! empty($toSave)) {
-            $conductore->update($toSave);
+            try {
+                $conductore->update($toSave);
+
+                return redirect()->route('conductores.index')->with('success', 'Conductor actualizado exitosamente.');
+            } catch (\Exception $e) {
+                return redirect()->back()->with('error', 'Error al actualizar el conductor: '.$e->getMessage());
+            }
         }
 
         return redirect()->route('conductores.index');
@@ -72,9 +102,13 @@ class ConductorController extends Controller
 
     public function destroy(Conductor $conductore): RedirectResponse
     {
-        $conductore->delete();
+        try {
+            $conductore->delete();
 
-        return redirect()->route('conductores.index');
+            return redirect()->route('conductores.index')->with('success', 'Conductor eliminado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'No se pudo eliminar el conductor: '.$e->getMessage());
+        }
     }
 
     public function simularTracking(Conductor $conductor): RedirectResponse
@@ -100,5 +134,15 @@ class ConductorController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Ubicacion limpiada');
+    }
+
+    protected function getExportClass(array $filters): object
+    {
+        return new ConductoresExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new ConductoresImport;
     }
 }

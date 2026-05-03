@@ -1,7 +1,17 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, X, Eye } from 'lucide-react';
+import { Head, router, useForm } from '@inertiajs/react';
+import {
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    Eye,
+    Download,
+    Upload,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
+import { useRef } from 'react';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,9 +32,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import Pagination from '@/components/ui/Pagination';
 
 interface Empleado {
     id: number;
@@ -201,6 +211,50 @@ export default function Index({
         }
     };
 
+    const handleExportCsv = () => {
+        window.location.href = '/almacenes/export';
+    };
+
+    const handleExportExcel = () => {
+        window.location.href = '/almacenes/export-excel';
+    };
+
+    const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('archivo', file);
+
+        router.post('/almacenes/import', formData, {
+            onSuccess: () => {
+                alert('Importación CSV completada');
+            },
+            onError: (err) => {
+                console.error(err);
+                alert('Error al importar CSV: ' + Object.values(err)[0]);
+            },
+        });
+    };
+
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('archivo', file);
+
+        router.post('/almacenes/import-excel', formData, {
+            onSuccess: () => {
+                alert('Importación Excel completada');
+            },
+            onError: (err) => {
+                console.error(err);
+                alert('Error al importar Excel: ' + Object.values(err)[0]);
+            },
+        });
+    };
+
     return (
         <>
             <Head title="Almacenes" />
@@ -213,9 +267,40 @@ export default function Index({
                                 Gestión de almacenes
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                            <Button variant="outline" onClick={handleExportCsv}>
+                                Exportar CSV
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={handleExportExcel}
+                            >
+                                Exportar Excel
+                            </Button>
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={handleImportCsv}
+                                    className="absolute inset-0 cursor-pointer opacity-0"
+                                />
+                                <Button variant="outline">Importar CSV</Button>
+                            </div>
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept=".xlsx,.xls"
+                                    onChange={handleImportExcel}
+                                    className="absolute inset-0 cursor-pointer opacity-0"
+                                />
+                                <Button variant="outline">
+                                    Importar Excel
+                                </Button>
+                            </div>
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo
+                            </Button>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
@@ -473,7 +558,7 @@ export default function Index({
                                     onChange={(e) =>
                                         setData(
                                             'capacidad',
-                                            Number(e.target.value),
+                                            parseInt(e.target.value),
                                         )
                                     }
                                 />

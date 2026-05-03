@@ -16,8 +16,25 @@ import {
     Heart,
     ThumbsUp,
     X,
+    ChevronDown,
+    ChevronRight,
+    PieChart,
+    FileText,
+    Plus,
+    FileCode,
+    Settings2,
+    Globe,
+    AlertCircle,
+    ShieldCheck,
+    RefreshCw,
+    Package,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
     Sidebar,
     SidebarContent,
@@ -74,6 +91,9 @@ export function AppRightSidebar() {
     ];
     const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
     const [totalSinLeer, setTotalSinLeer] = useState(0);
+    const [siiMenuOpen, setSiiMenuOpen] = useState(false);
+    const [socialMenuOpen, setSocialMenuOpen] = useState(false);
+    const [marketplaceMenuOpen, setMarketplaceMenuOpen] = useState(false);
 
     useEffect(() => {
         fetchNotificaciones();
@@ -83,9 +103,9 @@ export function AppRightSidebar() {
         try {
             const res = await fetch('/mensajes', {
                 headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
             });
             const text = await res.text();
             try {
@@ -93,7 +113,10 @@ export function AppRightSidebar() {
                 setConversaciones(data.conversaciones?.slice(0, 5) || []);
                 setTotalSinLeer(data.total_sin_leer || 0);
             } catch (parseError) {
-                console.error('Error parsing JSON from /mensajes:', text.substring(0, 100));
+                console.error(
+                    'Error parsing JSON from /mensajes:',
+                    text.substring(0, 100),
+                );
             }
         } catch (e) {
             console.error(e);
@@ -127,87 +150,283 @@ export function AppRightSidebar() {
                             {auth.user.permissions?.includes(
                                 'gestionar perfil publico',
                             ) && (
-                                <div className="mt-3">
-                                    <Link
-                                        href={editPublicProfile()}
-                                        className="flex items-center gap-1 text-xs text-primary hover:underline"
-                                    >
-                                        <Store className="h-3 w-3" />
-                                        Configurar Tienda
-                                    </Link>
-                                </div>
-                            )}
+                                    <div className="mt-3">
+                                        <Link
+                                            href={editPublicProfile()}
+                                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                                        >
+                                            <Store className="h-3 w-3" />
+                                            Configurar Tienda
+                                        </Link>
+                                    </div>
+                                )}
                         </div>
                     </SidebarGroupContent>
                 </SidebarGroup>
 
                 <SidebarSeparator />
 
-                <SidebarGroup className="px-2 py-0">
-                    <SidebarGroupLabel>Perfil Social</SidebarGroupLabel>
-                    <SidebarMenu>
+                {auth.user.permissions?.includes('gestionar finanzas') && (
+                    <Collapsible
+                        className="px-2 mb-2"
+                        open={siiMenuOpen}
+                        onOpenChange={setSiiMenuOpen}
+                    >
+                        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-sidebar-accent">
+                            <span className="flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-primary" />
+                                Gestión SII (DTE)
+                            </span>
+                            {siiMenuOpen ? (
+                                <ChevronDown className="h-4 w-4" />
+                            ) : (
+                                <ChevronRight className="h-4 w-4" />
+                            )}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-1 pt-2">
+                            <SidebarMenuButton asChild tooltip={{ children: 'Panel General SII' }}>
+                                <Link href="/sii" prefetch>
+                                    <PieChart className="h-4 w-4" />
+                                    <span>Panel General DTE</span>
+                                </Link>
+                            </SidebarMenuButton>
+
+                            <SidebarMenuButton asChild tooltip={{ children: 'Documentos Emitidos' }}>
+                                <Link href="/sii/documentos" prefetch>
+                                    <FileText className="h-4 w-4" />
+                                    <span>Documentos Emitidos</span>
+                                </Link>
+                            </SidebarMenuButton>
+
+                            <SidebarMenuButton asChild tooltip={{ children: 'Cargar Folios (CAF)' }}>
+                                <Link href="/sii/caf/subir" prefetch>
+                                    <Plus className="h-4 w-4" />
+                                    <span>Subir Archivo CAF</span>
+                                </Link>
+                            </SidebarMenuButton>
+
+                            <div className="my-2 border-t border-zinc-100 dark:border-zinc-800" />
+
+                            <SidebarMenuButton asChild tooltip={{ children: 'Certificado Digital' }}>
+                                <Link href="/sii/configuracion/certificado" prefetch>
+                                    <Key className="h-4 w-4" />
+                                    <span>Certificado Digital</span>
+                                </Link>
+                            </SidebarMenuButton>
+
+                            <SidebarMenuButton asChild tooltip={{ children: 'Datos del Emisor' }}>
+                                <Link href="/sii/configuracion/emisor" prefetch>
+                                    <Settings2 className="h-4 w-4" />
+                                    <span>Datos del Emisor</span>
+                                </Link>
+                            </SidebarMenuButton>
+
+                            <SidebarMenuButton asChild tooltip={{ children: 'Stock de Folios' }}>
+                                <Link href="/sii/configuracion/folios" prefetch className="flex justify-between items-center w-full">
+                                    <div className="flex items-center gap-2">
+                                        <FileCode className="h-4 w-4" />
+                                        <span>Stock de Folios</span>
+                                    </div>
+                                    <AlertCircle className="h-3 w-3 text-rose-500 hidden" />
+                                </Link>
+                            </SidebarMenuButton>
+
+                            <SidebarMenuButton asChild tooltip={{ children: 'Ambiente de Trabajo' }}>
+                                <Link href="/sii/configuracion/ambiente" prefetch>
+                                    <Globe className="h-4 w-4" />
+                                    <span>Ambiente Trabajo</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </CollapsibleContent>
+                    </Collapsible>
+                )}
+
+                <Collapsible
+                    className="px-2 mb-2"
+                    open={socialMenuOpen}
+                    onOpenChange={setSocialMenuOpen}
+                >
+                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-sidebar-accent">
+                        <span className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            Perfil Social
+                        </span>
+                        {socialMenuOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4" />
+                        )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-1 pt-2">
                         {settingsNav.map((item) => (
-                            <SidebarMenuItem key={item.title}>
-                                <SidebarMenuButton
-                                    asChild
-                                    tooltip={{ children: item.title }}
-                                >
-                                    <Link href={item.href} prefetch>
-                                        <item.icon className="h-4 w-4" />
-                                        <span>{item.title}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
+                            <SidebarMenuButton
+                                key={item.title}
+                                asChild
+                                tooltip={{ children: item.title }}
+                            >
+                                <Link href={item.href} prefetch>
+                                    <item.icon className="h-4 w-4" />
+                                    <span>{item.title}</span>
+                                </Link>
+                            </SidebarMenuButton>
                         ))}
-                        <SidebarMenuItem key="global-marketplace">
-                            <SidebarMenuButton
-                                asChild
-                                tooltip={{ children: 'Ver Marketplace' }}
-                            >
-                                <Link href="/tienda" prefetch>
-                                    <Store className="h-4 w-4" />
-                                    <span>Ver Marketplace</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        <SidebarMenuItem key="community-publications">
-                            <SidebarMenuButton
-                                asChild
-                                tooltip={{
-                                    children: 'Publicaciones de la Comunidad',
-                                }}
-                            >
-                                <Link href="/comunidad" prefetch>
-                                    <Users className="h-4 w-4" />
-                                    <span>Publicaciones de la Comunidad</span>
-                                </Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
+
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{
+                                children: 'Publicaciones de la Comunidad',
+                            }}
+                        >
+                            <Link href="/comunidad" prefetch>
+                                <Users className="h-4 w-4" />
+                                <span>Publicaciones de la Comunidad</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </CollapsibleContent>
+                </Collapsible>
+
+                <Collapsible
+                    className="px-2 mb-2"
+                    open={siiMenuOpen}
+                    onOpenChange={setSiiMenuOpen}
+                >
+                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-sidebar-accent">
+                        <span className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-primary" />
+                            Gestión SII (DTE)
+                        </span>
+                        {siiMenuOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4" />
+                        )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-1 pt-2">
+                        <SidebarMenuButton asChild tooltip={{ children: 'Panel General SII' }}>
+                            <Link href="/sii" prefetch>
+                                <PieChart className="h-4 w-4" />
+                                <span>Panel General DTE</span>
+                            </Link>
+                        </SidebarMenuButton>
+
+                        <SidebarMenuButton asChild tooltip={{ children: 'Documentos Emitidos' }}>
+                            <Link href="/sii/documentos" prefetch>
+                                <FileText className="h-4 w-4" />
+                                <span>Documentos Emitidos</span>
+                            </Link>
+                        </SidebarMenuButton>
+
+                        <SidebarMenuButton asChild tooltip={{ children: 'Cargar Folios (CAF)' }}>
+                            <Link href="/sii/caf/subir" prefetch>
+                                <Plus className="h-4 w-4" />
+                                <span>Subir Archivo CAF</span>
+                            </Link>
+                        </SidebarMenuButton>
+
+                        <div className="my-2 border-t border-zinc-100 dark:border-zinc-800" />
+
+                        <SidebarMenuButton asChild tooltip={{ children: 'Certificado Digital' }}>
+                            <Link href="/sii/configuracion/certificado" prefetch>
+                                <Key className="h-4 w-4" />
+                                <span>Certificado Digital</span>
+                            </Link>
+                        </SidebarMenuButton>
+
+                        <SidebarMenuButton asChild tooltip={{ children: 'Datos del Emisor' }}>
+                            <Link href="/sii/configuracion/emisor" prefetch>
+                                <Settings2 className="h-4 w-4" />
+                                <span>Datos del Emisor</span>
+                            </Link>
+                        </SidebarMenuButton>
+
+                        <SidebarMenuButton asChild tooltip={{ children: 'Stock de Folios' }}>
+                            <Link href="/sii/configuracion/folios" prefetch className="flex justify-between items-center w-full">
+                                <div className="flex items-center gap-2">
+                                    <FileCode className="h-4 w-4" />
+                                    <span>Stock de Folios</span>
+                                </div>
+                                <AlertCircle className="h-3 w-3 text-rose-500 hidden" />
+                            </Link>
+                        </SidebarMenuButton>
+
+                        <SidebarMenuButton asChild tooltip={{ children: 'Ambiente de Trabajo' }}>
+                            <Link href="/sii/configuracion/ambiente" prefetch>
+                                <Globe className="h-4 w-4" />
+                                <span>Ambiente Trabajo</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </CollapsibleContent>
+                </Collapsible>
+
+
+                <Collapsible
+                    className="px-2"
+                    open={marketplaceMenuOpen}
+                    onOpenChange={setMarketplaceMenuOpen}
+                >
+                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm font-medium hover:bg-sidebar-accent">
+                        <span className="flex items-center gap-2">
+                            <CartIcon className="h-4 w-4" />
+                            Marketplace
+                        </span>
+                        {marketplaceMenuOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4" />
+                        )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-1 pt-2">
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Ver Marketplace' }}
+                        >
+                            <Link href="/tienda" prefetch>
+                                <Store className="h-4 w-4" />
+                                <span>Ver Marketplace</span>
+                            </Link>
+                        </SidebarMenuButton>
+
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Mis Pedidos' }}
+                        >
+                            <Link href="/mis-pedidos" prefetch>
+                                <Package className="h-4 w-4" />
+                                <span>Mis Pedidos</span>
+                            </Link>
+                        </SidebarMenuButton>
+
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Mis Ventas' }}
+                        >
+                            <Link href="/pedidos-recibidos" prefetch>
+                                <CartIcon className="h-4 w-4" />
+                                <span>Mis Ventas</span>
+                            </Link>
+                        </SidebarMenuButton>
 
                         {auth.user.public_profile?.slug &&
                             auth.user.public_profile.is_active && (
-                                <SidebarMenuItem key="public-profile">
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip={{
-                                            children: 'Ver mi Perfil Público',
-                                        }}
+                                <SidebarMenuButton
+                                    asChild
+                                    tooltip={{
+                                        children: 'Ver mi Perfil Público',
+                                    }}
+                                >
+                                    <Link
+                                        href={showMarketplace({
+                                            slug: auth.user.public_profile.slug,
+                                        })}
+                                        prefetch
                                     >
-                                        <Link
-                                            href={showMarketplace({
-                                                slug: auth.user.public_profile
-                                                    .slug,
-                                            })}
-                                            prefetch
-                                        >
-                                            <Store className="h-4 w-4" />
-                                            <span>Ver mi Perfil Público</span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
+                                        <Store className="h-4 w-4" />
+                                        <span>Ver mi Perfil Público</span>
+                                    </Link>
+                                </SidebarMenuButton>
                             )}
-                    </SidebarMenu>
-                </SidebarGroup>
+                    </CollapsibleContent>
+                </Collapsible>
 
                 {(auth.user.pending_orders || 0) > 0 && (
                     <>
@@ -252,77 +471,137 @@ export function AppRightSidebar() {
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                         <div className="space-y-2">
-                            {(!auth.user.recent_notifications || auth.user.recent_notifications.length === 0) ? (
+                            {!auth.user.recent_notifications ||
+                                auth.user.recent_notifications.length === 0 ? (
                                 <div className="py-4 text-center text-xs text-muted-foreground">
                                     No tienes notificaciones
                                 </div>
                             ) : (
                                 <>
-                                    {auth.user.recent_notifications.slice(0, 5).map((notification: any) => (
-                                        <div
-                                            key={notification.id}
-                                            className={cn(
-                                                "group rounded-lg border border-border/50 text-xs transition-colors hover:bg-sidebar-accent/50 relative overflow-hidden",
-                                                !notification.read_at && "bg-primary/5 border-primary/20"
-                                            )}
-                                        >
-                                            {/* Main notification link - absolute background */}
-                                            <Link 
-                                                href={notification.data.link || '/comunidad'}
-                                                className="absolute inset-0 z-0"
-                                            />
-                                            
-                                            {/* Foreground content with interaction areas */}
-                                            <div className="relative z-10 p-2 pointer-events-none flex items-start gap-2">
-                                                <div className="mt-0.5 shrink-0">
-                                                    {notification.data.type === 'like' && <ThumbsUp className="h-3 w-3 text-primary" />}
-                                                    {notification.data.type === 'heart' && <Heart className="h-3 w-3 text-rose-500 fill-rose-500" />}
-                                                    {!notification.data.type && <MessageSquare className="h-3 w-3 text-violet-500" />}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-[11px] leading-snug">
-                                                            {notification.data.user_id ? (
-                                                                <Link 
+                                    {auth.user.recent_notifications
+                                        .slice(0, 5)
+                                        .map((notification: any) => (
+                                            <div
+                                                key={notification.id}
+                                                className={cn(
+                                                    'group relative overflow-hidden rounded-lg border border-border/50 text-xs transition-colors hover:bg-sidebar-accent/50',
+                                                    !notification.read_at &&
+                                                    'border-primary/20 bg-primary/5',
+                                                )}
+                                            >
+                                                {/* Main notification link - absolute background */}
+                                                <Link
+                                                    href={
+                                                        notification.data
+                                                            .link ||
+                                                        '/comunidad'
+                                                    }
+                                                    className="absolute inset-0 z-0"
+                                                />
+
+                                                {/* Foreground content with interaction areas */}
+                                                <div className="pointer-events-none relative z-10 flex items-start gap-2 p-2">
+                                                    <div className="mt-0.5 shrink-0">
+                                                        {notification.data
+                                                            .type ===
+                                                            'like' && (
+                                                                <ThumbsUp className="h-3 w-3 text-primary" />
+                                                            )}
+                                                        {notification.data
+                                                            .type ===
+                                                            'heart' && (
+                                                                <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
+                                                            )}
+                                                        {!notification.data
+                                                            .type && (
+                                                                <MessageSquare className="h-3 w-3 text-violet-500" />
+                                                            )}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[11px] leading-snug">
+                                                            {notification.data
+                                                                .user_id ? (
+                                                                <Link
                                                                     href={`/perfil/${notification.data.user_id}`}
-                                                                    className="font-semibold hover:text-primary hover:underline pointer-events-auto"
-                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="pointer-events-auto font-semibold hover:text-primary hover:underline"
+                                                                    onClick={(
+                                                                        e,
+                                                                    ) =>
+                                                                        e.stopPropagation()
+                                                                    }
                                                                 >
-                                                                    {notification.data.user_name}
+                                                                    {
+                                                                        notification
+                                                                            .data
+                                                                            .user_name
+                                                                    }
                                                                 </Link>
                                                             ) : (
-                                                                <span className="font-semibold">{notification.data.user_name || 'Usuario'}</span>
-                                                        )}
-                                                        {" "}{(notification.data.message && notification.data.user_name) 
-                                                            ? (notification.data.message.split(notification.data.user_name)[1] || notification.data.message)
-                                                            : (notification.data.message || '')}
-                                                    </p>
-                                                    <span className="text-[9px] text-muted-foreground opacity-70">
-                                                        {formatFecha(notification.created_at)}
-                                                    </span>
+                                                                <span className="font-semibold">
+                                                                    {notification
+                                                                        .data
+                                                                        .user_name ||
+                                                                        'Usuario'}
+                                                                </span>
+                                                            )}{' '}
+                                                            {notification.data
+                                                                .message &&
+                                                                notification.data
+                                                                    .user_name
+                                                                ? notification.data.message.split(
+                                                                    notification
+                                                                        .data
+                                                                        .user_name,
+                                                                )[1] ||
+                                                                notification
+                                                                    .data
+                                                                    .message
+                                                                : notification
+                                                                    .data
+                                                                    .message ||
+                                                                ''}
+                                                        </p>
+                                                        <span className="text-[9px] text-muted-foreground opacity-70">
+                                                            {formatFecha(
+                                                                notification.created_at,
+                                                            )}
+                                                        </span>
+                                                    </div>
                                                 </div>
+
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        router.delete(
+                                                            `/notifications/${notification.id}`,
+                                                            {
+                                                                preserveScroll: true,
+                                                            },
+                                                        );
+                                                    }}
+                                                    className="absolute top-1 right-1 z-20 rounded-full p-1 text-muted-foreground opacity-0 transition-colors group-hover:opacity-100 hover:bg-red-100 hover:text-red-600"
+                                                    title="Eliminar notificación"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
                                             </div>
-                                            
+                                        ))}
+                                    {(auth.user.unread_notifications || 0) >
+                                        0 && (
                                             <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    router.delete(`/notifications/${notification.id}`, { preserveScroll: true });
-                                                }}
-                                                className="absolute top-1 right-1 z-20 p-1 rounded-full text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                                                title="Eliminar notificación"
+                                                onClick={() =>
+                                                    router.post(
+                                                        '/notifications/mark-as-read',
+                                                        {},
+                                                        { preserveScroll: true },
+                                                    )
+                                                }
+                                                className="mt-1 w-full text-center text-[10px] text-primary hover:underline"
                                             >
-                                                <X className="h-3 w-3" />
+                                                Marcar todas como leídas
                                             </button>
-                                        </div>
-                                    ))}
-                                    {(auth.user.unread_notifications || 0) > 0 && (
-                                        <button 
-                                            onClick={() => router.post('/notifications/mark-as-read', {}, { preserveScroll: true })}
-                                            className="w-full mt-1 text-[10px] text-primary hover:underline text-center"
-                                        >
-                                            Marcar todas como leídas
-                                        </button>
-                                    )}
+                                        )}
                                 </>
                             )}
                         </div>
@@ -364,7 +643,7 @@ export function AppRightSidebar() {
                                                         <span className="h-2 w-2 rounded-full bg-primary" />
                                                     )}
                                                 </div>
-                                                <p className="truncate text-[10px] text-muted-foreground leading-tight">
+                                                <p className="truncate text-[10px] leading-tight text-muted-foreground">
                                                     {conv.ultimo_mensaje}
                                                 </p>
                                             </div>

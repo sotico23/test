@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
+import { Pencil, Plus, Trash2, Search, X, CreditCard, AlertTriangle, KeyRound, Globe, Save, CheckCircle2, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,9 @@ const estados = ['activa', 'inactiva', 'expirada', 'revocada'];
 export default function Index({ apiKeys }: { apiKeys: ApiKey[] }) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<ApiKey | null>(null);
+    const [tbApiKey, setTbApiKey] = useState('***********************************');
+    const [tbCommerceCode, setTbCommerceCode] = useState('597055555532');
+    const [tbEnvironment, setTbEnvironment] = useState('integracion');
     const {
         data,
         setData,
@@ -323,6 +326,136 @@ export default function Index({ apiKeys }: { apiKeys: ApiKey[] }) {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Transbank Config Here */}
+                    <div className="mt-12 mb-4 flex items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30">
+                            <CreditCard className="h-8 w-8" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                                Transbank Webpay Plus
+                            </h2>
+                            <p className="font-medium text-slate-500 text-sm">
+                                Configura tus credenciales y entorno de pagos online.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm dark:border-amber-900/50 dark:bg-amber-900/10 flex items-start gap-4">
+                        <AlertTriangle className="h-6 w-6 text-amber-500 shrink-0 mt-1" />
+                        <div>
+                            <h4 className="text-lg font-black text-amber-800 dark:text-amber-500">
+                                Validación Técnica para Producción
+                            </h4>
+                            <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-400 leading-relaxed">
+                                Para pasar a <strong>Producción</strong>, debes completar el proceso de validación técnica de Transbank. 
+                                Una vez superadas las pruebas en el ambiente de Integración, Transbank te entregará el Código de Comercio 
+                                y la Llave Secreta definitivos. Asegúrate de no compartir estos datos con nadie.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-8 lg:grid-cols-3">
+                        <div className="lg:col-span-2 space-y-8">
+                            <div className="rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                                <div className="mb-6 flex items-center gap-3">
+                                    <KeyRound className="h-5 w-5 text-indigo-500" />
+                                    <h3 className="text-xl font-black tracking-tight uppercase">Credenciales de API</h3>
+                                </div>
+                                
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                            Entorno
+                                        </label>
+                                        <div className="flex bg-slate-50 p-1 rounded-2xl dark:bg-slate-800">
+                                            <button 
+                                                onClick={() => setTbEnvironment('integracion')}
+                                                className={`flex-1 rounded-xl py-3 text-sm font-black transition-all ${tbEnvironment === 'integracion' ? 'bg-white shadow-sm text-indigo-600 dark:bg-slate-700' : 'text-slate-500 hover:text-slate-700'}`}
+                                            >
+                                                Integración
+                                            </button>
+                                            <button 
+                                                onClick={() => setTbEnvironment('produccion')}
+                                                className={`flex-1 rounded-xl py-3 text-sm font-black transition-all ${tbEnvironment === 'produccion' ? 'bg-white shadow-sm text-indigo-600 dark:bg-slate-700' : 'text-slate-500 hover:text-slate-700'}`}
+                                            >
+                                                Producción
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block">Código de Comercio</label>
+                                        <input 
+                                            type="text" 
+                                            value={tbCommerceCode}
+                                            onChange={(e) => setTbCommerceCode(e.target.value)}
+                                            className="h-14 w-full rounded-2xl border-slate-200 bg-slate-50 px-4 font-mono text-sm tracking-widest text-slate-900 shadow-sm transition-all focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                                            placeholder="5970..." 
+                                        />
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                            ApiKey Secret (Llave Secreta)
+                                        </label>
+                                        <input 
+                                            type="password" 
+                                            value={tbApiKey}
+                                            onChange={(e) => setTbApiKey(e.target.value)}
+                                            className="h-14 w-full rounded-2xl border-slate-200 bg-slate-50 px-4 font-mono text-sm tracking-widest text-slate-900 shadow-sm transition-all focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+                                            placeholder="Ingresa tu ApiKey Secret" 
+                                        />
+                                        <p className="text-[10px] text-slate-400 font-bold tracking-tight mt-2">
+                                            Los caracteres se ocultan por seguridad. Si ya tienes una llave guardada y funciona, no necesitas cambiarla.
+                                        </p>
+                                    </div>
+
+                                    <Button className="h-14 w-full rounded-2xl font-black uppercase tracking-widest text-xs mt-4 hover:shadow-lg transition-all">
+                                        <Save className="mr-2 h-4 w-4" /> Guardar Credenciales
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-8">
+                            <div className="rounded-[2.5rem] border border-blue-100 bg-blue-50/50 p-8 shadow-sm dark:border-blue-900/30 dark:bg-slate-900">
+                                <div className="mb-6 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Globe className="h-5 w-5 text-blue-500" />
+                                        <h3 className="text-xl font-black tracking-tight uppercase">Webhooks</h3>
+                                    </div>
+                                    <Badge className="bg-emerald-500/10 text-emerald-600 border-none font-black text-[10px] uppercase tracking-widest">
+                                        Activo
+                                    </Badge>
+                                </div>
+
+                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                                    URL para informar los resultados de pago asíncronos. Fundamental para evitar pagos perdidos en caso de que el cliente cierre antes de regresar a la tienda.
+                                </p>
+
+                                <div className="space-y-4">
+                                    <div className="rounded-2xl bg-white p-4 border border-blue-100 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Endpoint de Confirmación</label>
+                                        <div className="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-xl dark:bg-slate-900">
+                                            <span className="text-xs font-mono text-slate-600 truncate flex-1">
+                                                https://tudominio.cl/api/webpay/webhook
+                                            </span>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-blue-600 hover:bg-blue-100">
+                                                <Copy className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 pt-2 text-sm text-emerald-600 dark:text-emerald-500 font-bold">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Último webhook recibido: Hoy, 15:42
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </AppLayout>
             <Dialog open={isOpen} onOpenChange={setIsOpen}>

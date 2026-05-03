@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\PublicProfile;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,7 +46,17 @@ class UsuarioRolController extends Controller
             'roles' => $roles,
             'permisos' => $permissions,
             'usuariosRoles' => $asignaciones,
+            'publicProfiles' => PublicProfile::with('user')->orderBy('title')->get(),
         ]);
+    }
+
+    public function toggleOfficial(PublicProfile $publicProfile): RedirectResponse
+    {
+        $publicProfile->update([
+            'is_official' => ! $publicProfile->is_official,
+        ]);
+
+        return back()->with('success', 'Estado de insignia actualizado.');
     }
 
     public function store(Request $request)

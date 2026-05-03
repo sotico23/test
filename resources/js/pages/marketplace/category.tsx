@@ -11,6 +11,8 @@ import {
     CreditCard,
     CheckCircle2,
     ArrowRight,
+    Clock,
+    Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -54,6 +56,8 @@ interface Producto {
     imagen: string | null;
     unidad_medida: string;
     categoria_id: number;
+    is_service: boolean;
+    duracion: number | null;
 }
 
 interface PaginationData<T> {
@@ -271,7 +275,7 @@ export default function MarketplaceCategory({ store, categoria, productos, rando
                                                     <img
                                                         src={`/storage/${producto.imagen}`}
                                                         alt={producto.nombre}
-                                                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                        className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
                                                     />
                                                 ) : (
                                                     <div className="flex h-full w-full items-center justify-center">
@@ -286,67 +290,79 @@ export default function MarketplaceCategory({ store, categoria, productos, rando
                                                 <p className="mt-2 text-sm text-slate-500 line-clamp-2 dark:text-slate-400">
                                                     {producto.descripcion || 'Sin descripción disponible.'}
                                                 </p>
-                                                <div className="mt-auto pt-4">
-                                                    <div className="flex items-baseline gap-1">
-                                                        <span className="text-2xl font-bold text-primary">
-                                                            ${Number(producto.precio_venta).toFixed(0)}
-                                                        </span>
-                                                        <span className="text-sm text-slate-500">
-                                                            / {producto.unidad_medida}
-                                                        </span>
-                                                    </div>
-                                                    <div className="mt-4 flex flex-col gap-2">
-                                                        {/* Selector de cantidad local */}
-                                                        <div className="flex items-center justify-between rounded-lg border border-slate-200 p-1 dark:border-slate-700">
-                                                            <button
-                                                                onClick={() => cambiarCantidadLocal(producto.id, -1)}
-                                                                className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                                                            >
-                                                                <Minus className="h-4 w-4" />
-                                                            </button>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={cantidadesAgregar[producto.id] || 1}
-                                                                onChange={(e) => setCantidadManualLocal(producto.id, parseInt(e.target.value) || 1)}
-                                                                className="h-8 w-12 border-none bg-transparent p-0 text-center text-sm font-semibold focus:ring-0 dark:text-white"
-                                                            />
-                                                            <button
-                                                                onClick={() => cambiarCantidadLocal(producto.id, 1)}
-                                                                className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                                                            >
-                                                                <Plus className="h-4 w-4" />
-                                                            </button>
+                                                    <div className="mt-auto pt-4">
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className="text-2xl font-bold text-primary">
+                                                                ${Number(producto.precio_venta).toFixed(0)}
+                                                            </span>
+                                                            <span className="text-sm text-slate-500">
+                                                                / {producto.is_service ? `${producto.duracion} min` : producto.unidad_medida}
+                                                            </span>
                                                         </div>
-
-                                                        <Button
-                                                            onClick={() => comprarAhora(producto.id)}
-                                                            className="w-full"
-                                                            variant="default"
-                                                        >
-                                                            <CreditCard className="mr-2 h-4 w-4" />
-                                                            Comprar ahora
-                                                        </Button>
-                                                        <Button
-                                                            onClick={() => agregarAlCarrito(producto.id)}
-                                                            variant="outline"
-                                                            className="w-full"
-                                                            disabled={productoAgregado === producto.id}
-                                                        >
-                                                            {productoAgregado === producto.id ? (
-                                                                <>
-                                                                    <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                                                                    Añadido
-                                                                </>
+                                                        <div className="mt-4 flex flex-col gap-2">
+                                                            {producto.is_service ? (
+                                                                <Link
+                                                                    href={`/booking/${store.slug}?service_id=${producto.id}`}
+                                                                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 px-3 text-sm font-medium transition-all bg-primary text-primary-foreground hover:bg-primary/90"
+                                                                >
+                                                                    <Clock className="h-4 w-4" />
+                                                                    Agendar Cita
+                                                                </Link>
                                                             ) : (
                                                                 <>
-                                                                    <ShoppingCart className="mr-2 h-4 w-4" />
-                                                                    Añadir al carrito
+                                                                    {/* Selector de cantidad local */}
+                                                                    <div className="flex items-center justify-between rounded-lg border border-slate-200 p-1 dark:border-slate-700">
+                                                                        <button
+                                                                            onClick={() => cambiarCantidadLocal(producto.id, -1)}
+                                                                            className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                                                                        >
+                                                                            <Minus className="h-4 w-4" />
+                                                                        </button>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            value={cantidadesAgregar[producto.id] || 1}
+                                                                            onChange={(e) => setCantidadManualLocal(producto.id, parseInt(e.target.value) || 1)}
+                                                                            className="h-8 w-12 border-none bg-transparent p-0 text-center text-sm font-semibold focus:ring-0 dark:text-white"
+                                                                        />
+                                                                        <button
+                                                                            onClick={() => cambiarCantidadLocal(producto.id, 1)}
+                                                                            className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                                                                        >
+                                                                            <Plus className="h-4 w-4" />
+                                                                        </button>
+                                                                    </div>
+
+                                                                    <Button
+                                                                        onClick={() => comprarAhora(producto.id)}
+                                                                        className="w-full"
+                                                                        variant="default"
+                                                                    >
+                                                                        <CreditCard className="mr-2 h-4 w-4" />
+                                                                        Comprar ahora
+                                                                    </Button>
+                                                                    <Button
+                                                                        onClick={() => agregarAlCarrito(producto.id)}
+                                                                        variant="outline"
+                                                                        className="w-full"
+                                                                        disabled={productoAgregado === producto.id}
+                                                                    >
+                                                                        {productoAgregado === producto.id ? (
+                                                                            <>
+                                                                                <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                                                                                Añadido
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <ShoppingCart className="mr-2 h-4 w-4" />
+                                                                                Añadir al carrito
+                                                                            </>
+                                                                        )}
+                                                                    </Button>
                                                                 </>
                                                             )}
-                                                        </Button>
+                                                        </div>
                                                     </div>
-                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -592,7 +608,28 @@ export default function MarketplaceCategory({ store, categoria, productos, rando
                                 placeholder="Alguna instrucción especial"
                             />
                         </div>
-                        <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
+                        <div className="grid gap-2 mt-2">
+                            <Label>Método de Pago</Label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setDatosCheckout({...datosCheckout, metodo_pago: 'efectivo'})}
+                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${datosCheckout.metodo_pago === 'efectivo' ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-400'}`}
+                                >
+                                    <Wallet className="h-5 w-5 mb-1" />
+                                    <span className="text-xs font-bold uppercase">Efectivo</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDatosCheckout({...datosCheckout, metodo_pago: 'webpay'})}
+                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${datosCheckout.metodo_pago === 'webpay' ? 'border-indigo-500 bg-indigo-50 text-indigo-600 shadow-sm' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-400'}`}
+                                >
+                                    <CreditCard className="h-5 w-5 mb-1" />
+                                    <span className="text-xs font-bold uppercase">Webpay Plus</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800 mt-2">
                             <div className="flex justify-between text-sm">
                                 <span>Subtotal:</span>
                                 <span>${totalCarrito.toFixed(0)}</span>
@@ -605,9 +642,9 @@ export default function MarketplaceCategory({ store, categoria, productos, rando
                         <Button
                             onClick={enviarCheckout}
                             disabled={procesando || !datosCheckout.nombre_cliente}
-                            className="w-full"
+                            className={`w-full transition-all ${datosCheckout.metodo_pago === 'webpay' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
                         >
-                            {procesando ? 'Procesando...' : 'Confirmar Pedido'}
+                            {procesando ? 'Procesando...' : (datosCheckout.metodo_pago === 'webpay' ? 'Pagar con Webpay' : 'Confirmar Pedido')}
                         </Button>
                     </div>
                 </DialogContent>

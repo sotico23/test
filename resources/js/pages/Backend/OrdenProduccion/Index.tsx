@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
 import Pagination from '@/components/ui/Pagination';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 interface Orden {
@@ -381,7 +381,7 @@ export default function Index({
                                         onChange={(e) =>
                                             setData(
                                                 'cantidad',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />
@@ -396,7 +396,7 @@ export default function Index({
                                         onChange={(e) =>
                                             setData(
                                                 'progreso',
-                                                Number(e.target.value),
+                                                parseInt(e.target.value),
                                             )
                                         }
                                     />

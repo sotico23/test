@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\NominasExport;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\HasBulkOperations;
+use App\Imports\NominasImport;
 use App\Models\Nomina;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,6 +14,18 @@ use Inertia\Response;
 
 class NominaController extends Controller
 {
+    use HasBulkOperations;
+
+    protected function getExportClass(array $filters): object
+    {
+        return new NominasExport($filters);
+    }
+
+    protected function getImportClass(): object
+    {
+        return new NominasImport;
+    }
+
     public function index(): Response
     {
         $nominas = Nomina::orderBy('periodo', 'desc')->paginate(15);
