@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToOwner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Campana extends Model
 {
-    use HasFactory;
+    use BelongsToOwner, HasFactory;
 
     protected $table = 'campanas';
 
     protected $fillable = [
+        'owner_id',
         'nombre',
         'descripcion',
         'tipo',

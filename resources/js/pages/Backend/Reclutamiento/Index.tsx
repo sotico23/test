@@ -2,6 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +24,6 @@ import { Label } from '@/components/ui/label';
 import Pagination from '@/components/ui/Pagination';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Reclutamiento {
     id: number;

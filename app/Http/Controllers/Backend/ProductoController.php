@@ -6,7 +6,9 @@ use App\Exports\ProductosExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Traits\HasBulkOperations;
 use App\Imports\ProductosImport;
+use App\Models\Almacen;
 use App\Models\Categoria;
+use App\Models\Inventario;
 use App\Models\Producto;
 use App\Models\PublicProfile;
 use Illuminate\Http\RedirectResponse;
@@ -65,9 +67,14 @@ class ProductoController extends Controller
             ->where('owner_id', $userId)
             ->get();
 
+        $almacenes = Almacen::where('activo', true)
+            ->where('owner_id', $userId)
+            ->get();
+
         return Inertia::render('Backend/Productos/Index', [
             'productos' => $productos,
             'categorias' => $categorias,
+            'almacenes' => $almacenes,
             'filters' => $request->only(['search', 'categoria_id', 'stock_bajo']),
         ]);
     }
@@ -91,6 +98,8 @@ class ProductoController extends Controller
             'medida_pesable' => 'boolean',
             'tipo_medida' => 'nullable|in:unidad,kilo,litro',
             'cantidad_medida' => 'nullable|numeric|min:0',
+            'contenido_por_unidad' => 'nullable|numeric|min:0',
+            'peso_base' => 'nullable|numeric|min:0',
             'imagen' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
             'imagen2' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
             'imagen3' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
@@ -112,6 +121,18 @@ class ProductoController extends Controller
 
         if (! isset($data['unidad_medida']) || empty($data['unidad_medida'])) {
             $data['unidad_medida'] = 'unidad';
+        }
+
+        if (! isset($data['medida_pesable'])) {
+            $data['medida_pesable'] = false;
+        }
+
+        if (! isset($data['tipo_medida']) || empty($data['tipo_medida'])) {
+            $data['tipo_medida'] = 'unidad';
+        }
+
+        if (! isset($data['cantidad_medida'])) {
+            $data['cantidad_medida'] = 0;
         }
 
         $stock = $validated['stock'];
@@ -161,6 +182,8 @@ class ProductoController extends Controller
             'medida_pesable' => 'nullable|boolean',
             'tipo_medida' => 'nullable|in:unidad,kilo,litro',
             'cantidad_medida' => 'nullable|numeric|min:0',
+            'contenido_por_unidad' => 'nullable|numeric|min:0',
+            'peso_base' => 'nullable|numeric|min:0',
             'imagen' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
             'imagen2' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
             'imagen3' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
@@ -172,70 +195,15 @@ class ProductoController extends Controller
 
         $publicProfile = PublicProfile::where('user_id', Auth::user()->getOwnerId())->first();
 
-        $updateData = [];
+        $updateData = array_intersect_key($validated, array_flip([
+            'codigo', 'nombre', 'descripcion', 'categoria_id', 'precio_compra',
+            'precio_venta', 'stock_minimo', 'activo', 'unidad_medida',
+            'envase_retornable', 'tipo_envase', 'medida_pesable',
+            'tipo_medida', 'cantidad_medida', 'mostrar_en_perfil',
+            'contenido_por_unidad', 'peso_base',
+        ]));
 
-        if ($request->filled('codigo')) {
-            $updateData['codigo'] = $validated['codigo'];
-        }
-        if ($request->filled('nombre')) {
-            $updateData['nombre'] = $validated['nombre'];
-        }
-        if ($request->filled('descripcion')) {
-            $updateData['descripcion'] = $validated['descripcion'];
-        }
-        if ($request->filled('categoria_id')) {
-            $updateData['categoria_id'] = $validated['categoria_id'];
-        }
-        if ($request->filled('precio_compra')) {
-            $updateData['precio_compra'] = $validated['precio_compra'];
-        }
-        if ($request->filled('precio_venta')) {
-            $updateData['precio_venta'] = $validated['precio_venta'];
-        }
-        if ($request->filled('stock_minimo')) {
-            $updateData['stock_minimo'] = $validated['stock_minimo'];
-        }
-        if ($request->filled('activo')) {
-            $updateData['activo'] = $validated['activo'];
-        }
-        if ($request->filled('unidad_medida')) {
-            $updateData['unidad_medida'] = $validated['unidad_medida'];
-        }
-        if ($request->filled('envase_retornable')) {
-            $updateData['envase_retornable'] = $validated['envase_retornable'];
-        }
-        if ($request->filled('tipo_envase')) {
-            $updateData['tipo_envase'] = $validated['tipo_envase'];
-        }
-        if ($request->filled('medida_pesable')) {
-            $updateData['medida_pesable'] = $validated['medida_pesable'];
-        }
-        if ($request->filled('tipo_medida')) {
-            $updateData['tipo_medida'] = $validated['tipo_medida'];
-        }
-        if ($request->filled('cantidad_medida')) {
-            $updateData['cantidad_medida'] = $validated['cantidad_medida'];
-        }
-        if ($request->filled('mostrar_en_perfil')) {
-            $updateData['mostrar_en_perfil'] = $validated['mostrar_en_perfil'];
-        }
-
-        $stock = $validated['stock'] ?? null;
-        $almacenId = $validated['almacen_id'] ?? null;
-
-        if ($request->filled('stock')) {
-            $updateData['_stock_update'] = $validated['stock'];
-        }
-        if ($request->filled('stock_minimo')) {
-            $updateData['_stock_minimo_update'] = $validated['stock_minimo'];
-        }
-        if ($request->filled('almacen_id')) {
-            $updateData['_almacen_id_update'] = $validated['almacen_id'];
-        }
-
-        if (! empty($updateData)) {
-            $updateData['public_profile_id'] = $publicProfile?->id;
-        }
+        $updateData['public_profile_id'] = $publicProfile?->id;
 
         for ($i = 1; $i <= 5; $i++) {
             $key = 'imagen'.($i === 1 ? '' : $i);
@@ -261,6 +229,7 @@ class ProductoController extends Controller
         }
 
         if ($request->filled('stock') || $request->filled('stock_minimo') || $request->filled('almacen_id')) {
+            /** @var Inventario|null $inventario */
             $inventario = $producto->inventarios()->first();
             $inventarioData = [];
             if ($request->filled('stock')) {

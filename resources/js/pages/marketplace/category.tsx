@@ -33,6 +33,7 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 import type { User } from '@/types';
 
 interface LocalUserType extends User {
@@ -85,14 +86,34 @@ interface Props {
     categoria: Categoria;
     productos: PaginationData<Producto>;
     randomProductos: Producto[];
+    paymentConfig?: {
+        is_active: boolean;
+        paypal_active: boolean;
+        mercadopago_active: boolean;
+    };
 }
 
-export default function MarketplaceCategory({ store, categoria, productos, randomProductos }: Props) {
+export default function MarketplaceCategory({ store, categoria, productos, randomProductos, paymentConfig }: Props) {
     const { auth, web_settings } = usePage<{ 
         auth: { user?: User },
         web_settings: any 
     }>().props;
-    const [carrito, setCarrito] = useState<{ [key: number]: number }>({});
+    // Carrito persistente en localStorage
+    const carritoKey = `carrito_${store.slug}`;
+    const [carrito, setCarritoState] = useState<{ [key: number]: number }>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(carritoKey);
+            return saved ? JSON.parse(saved) : {};
+        }
+        return {};
+    });
+    const setCarrito = (val: { [key: number]: number } | ((prev: { [key: number]: number }) => { [key: number]: number })) => {
+        setCarritoState((prev) => {
+            const next = typeof val === 'function' ? val(prev) : val;
+            localStorage.setItem(carritoKey, JSON.stringify(next));
+            return next;
+        });
+    };
     const [cantidadesAgregar, setCantidadesAgregar] = useState<{ [key: number]: number }>({});
     const [productoAgregado, setProductoAgregado] = useState<number | null>(null);
     const [carritoAbierto, setCarritoAbierto] = useState(false);
@@ -152,7 +173,8 @@ export default function MarketplaceCategory({ store, categoria, productos, rando
                 onSuccess: () => {
                     setProcesando(false);
                     setCheckoutAbierto(false);
-                    setCarrito({});
+                    setCarritoState({});
+                    localStorage.removeItem(carritoKey);
                     setCarritoAbierto(false);
                 },
                 onError: () => {
@@ -610,23 +632,48 @@ export default function MarketplaceCategory({ store, categoria, productos, rando
                         </div>
                         <div className="grid gap-2 mt-2">
                             <Label>Método de Pago</Label>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 <button
                                     type="button"
                                     onClick={() => setDatosCheckout({...datosCheckout, metodo_pago: 'efectivo'})}
                                     className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${datosCheckout.metodo_pago === 'efectivo' ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-400'}`}
                                 >
-                                    <Wallet className="h-5 w-5 mb-1" />
-                                    <span className="text-xs font-bold uppercase">Efectivo</span>
+                                    <Wallet className="h-4 w-4 mb-1" />
+                                    <span className="text-[10px] font-bold uppercase">Local</span>
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setDatosCheckout({...datosCheckout, metodo_pago: 'webpay'})}
-                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${datosCheckout.metodo_pago === 'webpay' ? 'border-indigo-500 bg-indigo-50 text-indigo-600 shadow-sm' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-400'}`}
-                                >
-                                    <CreditCard className="h-5 w-5 mb-1" />
-                                    <span className="text-xs font-bold uppercase">Webpay Plus</span>
-                                </button>
+                                
+                                {paymentConfig?.is_active && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setDatosCheckout({...datosCheckout, metodo_pago: 'webpay'})}
+                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${datosCheckout.metodo_pago === 'webpay' ? 'border-indigo-500 bg-indigo-50 text-indigo-600 shadow-sm' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-400'}`}
+                                    >
+                                        <CreditCard className="h-4 w-4 mb-1" />
+                                        <span className="text-[10px] font-bold uppercase">Webpay</span>
+                                    </button>
+                                )}
+
+                                {paymentConfig?.paypal_active && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setDatosCheckout({...datosCheckout, metodo_pago: 'paypal'})}
+                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${datosCheckout.metodo_pago === 'paypal' ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-400'}`}
+                                    >
+                                        <CreditCard className="h-4 w-4 mb-1" />
+                                        <span className="text-[10px] font-bold uppercase">PayPal</span>
+                                    </button>
+                                )}
+
+                                {paymentConfig?.mercadopago_active && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setDatosCheckout({...datosCheckout, metodo_pago: 'mercadopago'})}
+                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${datosCheckout.metodo_pago === 'mercadopago' ? 'border-sky-500 bg-sky-50 text-sky-600 shadow-sm' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-400'}`}
+                                    >
+                                        <CreditCard className="h-4 w-4 mb-1" />
+                                        <span className="text-[10px] font-bold uppercase">M. Pago</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
                         <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800 mt-2">
@@ -642,9 +689,17 @@ export default function MarketplaceCategory({ store, categoria, productos, rando
                         <Button
                             onClick={enviarCheckout}
                             disabled={procesando || !datosCheckout.nombre_cliente}
-                            className={`w-full transition-all ${datosCheckout.metodo_pago === 'webpay' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
+                            className={cn(
+                                "w-full transition-all",
+                                datosCheckout.metodo_pago === 'webpay' && "bg-indigo-600 hover:bg-indigo-700",
+                                datosCheckout.metodo_pago === 'paypal' && "bg-blue-600 hover:bg-blue-700",
+                                datosCheckout.metodo_pago === 'mercadopago' && "bg-sky-600 hover:bg-sky-700"
+                            )}
                         >
-                            {procesando ? 'Procesando...' : (datosCheckout.metodo_pago === 'webpay' ? 'Pagar con Webpay' : 'Confirmar Pedido')}
+                            {procesando ? 'Procesando...' : (
+                                datosCheckout.metodo_pago === 'efectivo' ? 'Confirmar Pedido' : 
+                                `Pagar con ${datosCheckout.metodo_pago.charAt(0).toUpperCase() + datosCheckout.metodo_pago.slice(1)}`
+                            )}
                         </Button>
                     </div>
                 </DialogContent>

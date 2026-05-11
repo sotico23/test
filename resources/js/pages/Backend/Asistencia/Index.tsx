@@ -1,6 +1,7 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -28,7 +29,6 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Empleado {
     id: number;

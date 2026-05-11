@@ -20,7 +20,7 @@ class CargaDiariaController extends Controller
     {
         $cargas = CargaDiaria::with(['vehiculo', 'conductor', 'productos.producto'])->orderBy('created_at', 'desc')->paginate(15);
         $vehiculos = Vehiculo::orderBy('marca')->get();
-        $conductores = Conductor::orderBy('nombre')->get();
+        $conductores = Conductor::orderBy('nombre')->get(['id', 'nombre']);
         $productos = Producto::orderBy('nombre')->get();
 
         return Inertia::render('Backend/CargaDiaria/Index', [

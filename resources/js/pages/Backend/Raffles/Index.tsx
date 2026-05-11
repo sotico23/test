@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { toast } from 'sonner';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,7 +60,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Raffle {
     id: number;

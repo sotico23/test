@@ -8,7 +8,9 @@ use App\Http\Controllers\Backend\DashboardController;
 use App\Http\Controllers\Backend\FollowerController;
 use App\Http\Controllers\Backend\GlobalSearchController;
 use App\Http\Controllers\Backend\MensajeController;
+use App\Http\Controllers\Backend\MercadoPagoConfigController;
 use App\Http\Controllers\Backend\OnboardingController;
+use App\Http\Controllers\Backend\PayPalConfigController;
 use App\Http\Controllers\Backend\PedidoRecibidoController;
 use App\Http\Controllers\Backend\PosController;
 use App\Http\Controllers\Backend\ProductoController;
@@ -21,6 +23,8 @@ use App\Http\Controllers\Backend\WebpayController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\MarketplaceController;
+use App\Http\Controllers\MercadoPagoController;
+use App\Http\Controllers\PayPalController;
 use App\Http\Controllers\PedidoController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -54,7 +58,7 @@ Route::middleware(['auth'])->group(function () {
             $notification->delete();
         }
 
-        return back();
+        return response()->json(['success' => true]);
     })->name('notifications.destroy');
 
     // Seguidores
@@ -132,6 +136,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('tareas/{tarea}', [TareaController::class, 'destroy'])->name('tareas.destroy');
 
     Route::get('pedidos-recibidos', [PedidoRecibidoController::class, 'index'])->name('pedidos-recibidos.index');
+    Route::get('pedidos-recibidos/export', [PedidoRecibidoController::class, 'export'])->name('pedidos-recibidos.export');
     Route::get('pedidos-recibidos/{pedido}', [PedidoRecibidoController::class, 'show'])->name('pedidos-recibidos.show');
 
     // Chat de Pedidos (Marketplace) - Vista
@@ -165,6 +170,26 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/webpay/config', [WebpayConfigController::class, 'index'])->name('webpay.config');
     Route::post('/webpay/config', [WebpayConfigController::class, 'update'])->name('webpay.config.update');
 
+    // Pagos PayPal CONFIG
+    Route::get('/paypal/config', [PayPalConfigController::class, 'index'])->name('paypal.config');
+    Route::post('/paypal/config', [PayPalConfigController::class, 'update'])->name('paypal.config.update');
+    Route::post('/paypal/test', [PayPalConfigController::class, 'testConnection'])->name('paypal.test');
+
+    Route::get('/paypal/pay/{pedidoId}', [PayPalController::class, 'pay'])->name('paypal.pay');
+    Route::get('/paypal/success/{pedidoId}', [PayPalController::class, 'success'])->name('paypal.success');
+    Route::get('/paypal/cancel/{pedidoId}', [PayPalController::class, 'cancel'])->name('paypal.cancel');
+
+    // Pagos MercadoPago CONFIG
+    Route::get('/mercadopago/config', [MercadoPagoConfigController::class, 'index'])->name('mercadopago.config');
+    Route::post('/mercadopago/config', [MercadoPagoConfigController::class, 'update'])->name('mercadopago.config.update');
+    Route::post('/mercadopago/test', [MercadoPagoConfigController::class, 'testConnection'])->name('mercadopago.test');
+
+    // Pagos MercadoPago CHECKOUT
+    Route::get('/mercadopago/pay/{pedidoId}', [MercadoPagoController::class, 'pay'])->name('mercadopago.pay');
+    Route::get('/mercadopago/success/{pedidoId}', [MercadoPagoController::class, 'success'])->name('mercadopago.success');
+    Route::get('/mercadopago/failure/{pedidoId}', [MercadoPagoController::class, 'failure'])->name('mercadopago.failure');
+    Route::get('/mercadopago/pending/{pedidoId}', [MercadoPagoController::class, 'pending'])->name('mercadopago.pending');
+
     // Transbank Checkout & Callbacks
     Route::post('/webpay/pay', [WebpayController::class, 'pay'])->name('webpay.pay');
     Route::get('/webpay/return', [WebpayController::class, 'callback'])->name('webpay.callback');
@@ -182,7 +207,7 @@ Route::get('/tienda/{slug}', [MarketplaceController::class, 'show'])->name('mark
 Route::post('/tienda/{slug}/react', [MarketplaceController::class, 'react'])->name('marketplace.react');
 Route::get('/tienda/{slug}/categoria/{categoria}', [MarketplaceController::class, 'category'])->name('marketplace.category');
 Route::post('/tienda/{slug}/checkout', [PedidoController::class, 'crear'])->name('tienda.checkout');
-Route::get('/tienda/{slug}/confirmacion/{pedido}', [PedidoController::class, 'confirmacion'])->name('tienda.confirmacion');
+Route::get('/tienda/{slug}/confirmacion/{pedidoId}', [PedidoController::class, 'confirmacion'])->name('tienda.confirmacion');
 Route::get('/tienda/{slug}/chat', [ChatController::class, 'start'])->name('chat.start')->middleware('auth');
 Route::get('/mis-pedidos', [PedidoController::class, 'misPedidos'])->name('pedidos.mios')->middleware('auth');
 Route::get('/pedidos/{pedido}', [PedidoController::class, 'verPedido'])->name('pedidos.ver')->middleware('auth');

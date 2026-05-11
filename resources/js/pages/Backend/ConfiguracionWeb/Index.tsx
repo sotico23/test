@@ -7,8 +7,11 @@ import {
     Plus,
     Trash2,
     GripVertical,
+    RefreshCw,
+    Check,
+    Users,
 } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { lazy, Suspense, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -24,6 +27,8 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+
+const EmailMarketingPage = lazy(() => import('./EmailMarketing'));
 
 interface Caracteristica {
     icono: string;
@@ -348,7 +353,17 @@ function ImageUploadField({
     );
 }
 
-export default function Index({ settings }: { settings: WebSetting }) {
+export default function Index({
+    settings,
+    templates,
+    logs = [],
+    onlineUsers = [],
+}: {
+    settings: WebSetting;
+    templates?: any[];
+    logs?: any[];
+    onlineUsers?: any[];
+}) {
     const { data, setData, post, processing } = useForm({
         _method: 'PUT',
         app_name: settings.app_name || '',
@@ -472,6 +487,8 @@ export default function Index({ settings }: { settings: WebSetting }) {
         { id: 'caracteristicas', label: 'Características', icon: '✨' },
         { id: 'planes', label: 'Planes', icon: '💰' },
         { id: 'cta', label: 'CTA Final', icon: '📢' },
+        { id: 'email-marketing', label: 'Email Marketing', icon: '📧' },
+        { id: 'logs', label: 'Logs', icon: '📋' },
     ];
 
     return (
@@ -1114,6 +1131,224 @@ export default function Index({ settings }: { settings: WebSetting }) {
                                     </div>
                                 </CardContent>
                             </Card>
+                        )}
+
+                        {activeSection === 'email-marketing' && (
+                            <Suspense
+                                fallback={
+                                    <Card>
+                                        <CardContent className="flex h-64 items-center justify-center">
+                                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                                        </CardContent>
+                                    </Card>
+                                }
+                            >
+                                <EmailMarketingPage templates={templates} />
+                            </Suspense>
+                        )}
+
+                        {activeSection === 'logs' && (
+                            <div className="grid gap-6 lg:grid-cols-4">
+                                <div className="lg:col-span-3">
+                                    <Card className="overflow-hidden border-border/50 shadow-sm">
+                                        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/50 to-muted/20 pb-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                                        <span className="text-lg">
+                                                            📋
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <CardTitle className="text-lg">
+                                                            Registro de Logs
+                                                        </CardTitle>
+                                                        <CardDescription>
+                                                            Últimos 100 eventos
+                                                            del sistema
+                                                        </CardDescription>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="gap-2"
+                                                    onClick={() =>
+                                                        window.location.reload()
+                                                    }
+                                                >
+                                                    <RefreshCw className="h-4 w-4" />
+                                                    Actualizar
+                                                </Button>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-0">
+                                            {!logs || logs.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center p-12 text-center">
+                                                    <div className="mb-4 rounded-full bg-green-100 p-4 dark:bg-green-900/30">
+                                                        <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+                                                    </div>
+                                                    <p className="mb-1 text-lg font-medium">
+                                                        Sin registros
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        No hay eventos en el log
+                                                        del sistema
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="max-h-[600px] overflow-y-auto">
+                                                    <div className="divide-y divide-border/30">
+                                                        {logs.map(
+                                                            (
+                                                                log: any,
+                                                                index: number,
+                                                            ) => (
+                                                                <div
+                                                                    key={index}
+                                                                    className="group p-4 transition-all hover:bg-muted/30"
+                                                                >
+                                                                    <div className="flex items-start justify-between gap-4">
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            <span
+                                                                                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold tracking-wider uppercase shadow-sm ${
+                                                                                    log.level ===
+                                                                                        'ERROR' ||
+                                                                                    log.level ===
+                                                                                        'EMERGENCY' ||
+                                                                                    log.level ===
+                                                                                        'CRITICAL' ||
+                                                                                    log.level ===
+                                                                                        'ALERT'
+                                                                                        ? 'border border-red-200 bg-red-100 text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                                                                        : log.level ===
+                                                                                                'WARNING' ||
+                                                                                            log.level ===
+                                                                                                'NOTICE'
+                                                                                          ? 'border border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                                                                          : log.level ===
+                                                                                              'DEBUG'
+                                                                                            ? 'border border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                                                                            : 'border border-blue-200 bg-blue-100 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                                                                }`}
+                                                                            >
+                                                                                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+                                                                                {
+                                                                                    log.level
+                                                                                }
+                                                                            </span>
+                                                                            <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                                                                {
+                                                                                    log.environment
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground/70">
+                                                                            <span className="hidden sm:inline">
+                                                                                <span className="mr-1">
+                                                                                    🕒
+                                                                                </span>
+                                                                                {
+                                                                                    log.date
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="mt-3 rounded-lg border-l-2 border-muted-foreground/20 bg-muted/30 p-3">
+                                                                        <p className="font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-foreground/80">
+                                                                            {
+                                                                                log.message
+                                                                            }
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                                <div className="lg:col-span-1">
+                                    <Card className="sticky top-6 overflow-hidden border-border/50 shadow-sm">
+                                        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/50 to-muted/20 pb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
+                                                    <span className="text-lg">
+                                                        👥
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-base">
+                                                        En Línea
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        {onlineUsers.length}{' '}
+                                                        usuario
+                                                        {onlineUsers.length !==
+                                                        1
+                                                            ? 's'
+                                                            : ''}{' '}
+                                                        activo
+                                                        {onlineUsers.length !==
+                                                        1
+                                                            ? 's'
+                                                            : ''}
+                                                    </CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-3">
+                                            {!onlineUsers ||
+                                            onlineUsers.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                                    <div className="mb-3 rounded-full bg-muted p-3">
+                                                        <Users className="h-5 w-5 text-muted-foreground" />
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Sin usuarios en línea
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {onlineUsers.map(
+                                                        (user: any) => (
+                                                            <div
+                                                                key={user.id}
+                                                                className="flex items-center gap-3 rounded-lg border bg-card p-2.5 transition-all hover:border-primary/20 hover:shadow-sm"
+                                                            >
+                                                                <div className="relative">
+                                                                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 text-sm font-bold text-primary">
+                                                                        {user.name
+                                                                            .charAt(
+                                                                                0,
+                                                                            )
+                                                                            .toUpperCase()}
+                                                                    </div>
+                                                                    <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 animate-pulse rounded-full border-2 border-card bg-green-500" />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="truncate text-sm font-medium">
+                                                                        {
+                                                                            user.name
+                                                                        }
+                                                                    </p>
+                                                                    <p className="truncate text-[10px] text-muted-foreground">
+                                                                        {
+                                                                            user.email
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </div>
                         )}
                     </form>
                 </div>

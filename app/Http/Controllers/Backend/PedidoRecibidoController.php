@@ -17,21 +17,39 @@ use Inertia\Response;
 
 class PedidoRecibidoController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        // Obtener pedidos dirigidos al usuario actual (el dueño del perfil público)
         $userId = Auth::id();
+        $query = Pedido::query()
+            ->with(['cliente', 'items', 'conversacion'])
+            ->where('user_id', $userId);
 
-        $pedidos = Pedido::query()
-            ->with(['cliente', 'items'])
-            ->where(function ($query) use ($userId) {
-                $query->where('user_id', $userId);
-            })
-            ->orderBy('created_at', 'desc')
-            ->get();
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('numero_pedido', 'like', "%{$search}%")
+                    ->orWhere('nombre_cliente', 'like', "%{$search}%")
+                    ->orWhereHas('cliente', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('estado') && $request->input('estado') !== 'all') {
+            $query->where('estado', $request->input('estado'));
+        }
+
+        if ($request->filled('fechaDesde')) {
+            $query->whereDate('created_at', '>=', $request->input('fechaDesde'));
+        }
+
+        if ($request->filled('fechaHasta')) {
+            $query->whereDate('created_at', '<=', $request->input('fechaHasta'));
+        }
+
+        $pedidos = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
 
         return Inertia::render('Backend/PedidosRecibidos/Index', [
             'pedidos' => $pedidos,
+            'filtros' => $request->only(['search', 'estado', 'fechaDesde', 'fechaHasta']),
         ]);
     }
 
@@ -49,6 +67,79 @@ class PedidoRecibidoController extends Controller
         ]);
     }
 
+    public function export(Request $request)
+    {
+        $userId = Auth::id();
+        $query = Pedido::query()
+            ->with(['cliente', 'items'])
+            ->where('user_id', $userId);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('numero_pedido', 'like', "%{$search}%")
+                    ->orWhere('nombre_cliente', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('estado') && $request->input('estado') !== 'all') {
+            $query->where('estado', $request->input('estado'));
+        }
+
+        $pedidos = $query->orderBy('created_at', 'desc')->get();
+
+        $format = $request->input('format', 'csv');
+
+        $filename = 'pedidos_recibidos_'.date('Y-m-d_His');
+
+        if ($format === 'excel') {
+            $headers = ['N° Pedido', 'Fecha', 'Cliente', 'Teléfono', 'Dirección', 'Total', 'Estado'];
+            $rows = $pedidos->map(function ($p) {
+                return [
+                    $p->numero_pedido,
+                    $p->created_at->format('Y-m-d H:i'),
+                    $p->nombre_cliente,
+                    $p->telefono_cliente ?? '',
+                    $p->direccion_cliente ?? '',
+                    $p->total,
+                    $p->estado,
+                ];
+            });
+
+            return response()->streamDownload(function () use ($headers, $rows) {
+                $handle = fopen('php://output', 'w');
+                fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+                fputcsv($handle, $headers, ';');
+                foreach ($rows as $row) {
+                    fputcsv($handle, $row, ';');
+                }
+                fclose($handle);
+            }, $filename.'.csv', ['Content-Type' => 'text/csv']);
+        }
+
+        $headers = ['N° Pedido', 'Fecha', 'Cliente', 'Teléfono', 'Dirección', 'Total', 'Estado'];
+        $rows = $pedidos->map(function ($p) {
+            return [
+                $p->numero_pedido,
+                $p->created_at->format('Y-m-d H:i'),
+                $p->nombre_cliente,
+                $p->telefono_cliente ?? '',
+                $p->direccion_cliente ?? '',
+                $p->total,
+                $p->estado,
+            ];
+        });
+
+        return response()->streamDownload(function () use ($headers, $rows) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $headers, ';');
+            foreach ($rows as $row) {
+                fputcsv($handle, $row, ';');
+            }
+            fclose($handle);
+        }, $filename.'.csv', ['Content-Type' => 'text/csv']);
+    }
+
     public function actualizarEstado(Request $request, Pedido $pedido): RedirectResponse
     {
         if ($pedido->user_id !== Auth::id()) {
@@ -59,7 +150,28 @@ class PedidoRecibidoController extends Controller
             'estado' => 'required|in:pendiente,confirmado,preparando,enviado,entregado,cancelado',
         ]);
 
+        $estadoAnterior = $pedido->estado;
         $pedido->update(['estado' => $validated['estado']]);
+
+        // Notificar al cliente sobre el cambio de estado
+        $cliente = User::find($pedido->cliente_id);
+        if ($cliente) {
+            $mensajeAdicional = match ($validated['estado']) {
+                'confirmado' => 'Tu pedido ha sido confirmado y está siendo preparado.',
+                'preparando' => 'Tu pedido está en preparación. Te avisaremos cuando esté listo para envío.',
+                'enviado' => 'Tu pedido ha sido enviado. Podrás rastrear tu entrega pronto.',
+                'entregado' => 'Tu pedido ha sido entregado. ¡Gracias por tu compra!',
+                'cancelado' => 'Tu pedido ha sido cancelado. Contacta al vendedor para más información.',
+                default => null,
+            };
+
+            $cliente->notify(new ActualizacionEstadoPedidoNotification(
+                $pedido,
+                $estadoAnterior,
+                $validated['estado'],
+                $mensajeAdicional
+            ));
+        }
 
         return redirect()->back();
     }

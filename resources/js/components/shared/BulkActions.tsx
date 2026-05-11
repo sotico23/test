@@ -1,4 +1,7 @@
+import { router } from '@inertiajs/react';
+import { Download, Upload, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
 import React, { useRef } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -6,9 +9,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Download, Upload, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
-import { router } from '@inertiajs/react';
-import { toast } from 'sonner';
 
 interface BulkActionsProps {
     baseUrl: string;

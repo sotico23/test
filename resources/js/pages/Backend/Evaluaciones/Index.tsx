@@ -2,6 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +23,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Evaluacion {
     id: number;

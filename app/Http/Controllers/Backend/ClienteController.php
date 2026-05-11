@@ -85,6 +85,7 @@ class ClienteController extends Controller
         if ($crearUsuario) {
             $request->validate([
                 'email' => 'unique:users,email',
+                'password' => ['required', 'string', 'min:8'],
             ]);
         }
 
@@ -97,7 +98,7 @@ class ClienteController extends Controller
                     'creator_id' => Auth::id(),
                     'name' => $validated['nombre'],
                     'email' => $validated['email'],
-                    'password' => Hash::make($request->input('password') ?: 'clientenuevo'),
+                    'password' => Hash::make($request->input('password')),
                     'rut' => $validated['rut'] ?? null,
                     'telefono' => $validated['telefono'] ?? null,
                     'direccion' => $validated['direccion'] ?? null,
@@ -133,13 +134,14 @@ class ClienteController extends Controller
         if ($crearUsuario && ! $usuarioExistente) {
             $request->validate([
                 'email' => 'unique:users,email',
+                'password' => ['required', 'string', 'min:8'],
             ]);
 
             $user = User::create([
                 'creator_id' => Auth::id(),
                 'name' => $validated['nombre'],
                 'email' => $validated['email'],
-                'password' => Hash::make($request->input('password') ?: 'clientenuevo'),
+                'password' => Hash::make($request->input('password')),
                 'rut' => $validated['rut'] ?? null,
                 'telefono' => $validated['telefono'] ?? null,
                 'direccion' => $validated['direccion'] ?? null,

@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
 import { CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
 
 export default function WebpayResult({ success, error, details }: { success: boolean, error?: string, details?: any }) {
     return (

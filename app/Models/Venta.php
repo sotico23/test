@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Venta extends Model
 {
@@ -30,6 +31,10 @@ class Venta extends Model
         'es_pos',
         'estado',
         'notas',
+        'incluye_iva',
+        'tipo_descuento',
+        'valor_descuento',
+        'monto_descuento',
     ];
 
     public function user(): BelongsTo
@@ -44,6 +49,9 @@ class Venta extends Model
             'subtotal' => 'decimal:2',
             'iva' => 'decimal:2',
             'total' => 'decimal:2',
+            'incluye_iva' => 'boolean',
+            'valor_descuento' => 'decimal:2',
+            'monto_descuento' => 'decimal:2',
         ];
     }
 
@@ -60,6 +68,11 @@ class Venta extends Model
     public function almacen(): BelongsTo
     {
         return $this->belongsTo(Almacen::class);
+    }
+
+    public function entrega(): HasOne
+    {
+        return $this->hasOne(Entrega::class);
     }
 
     protected function numeroFactura(): Attribute

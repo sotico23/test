@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +32,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BulkActions } from '@/components/shared/BulkActions';
 import Pagination from '@/components/ui/Pagination';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';

@@ -39,6 +39,7 @@ class User extends Authenticatable
         'fecha_nacimiento',
         'genero',
         'tipo_entidad',
+        'show_onboarding',
     ];
 
     protected static function boot(): void

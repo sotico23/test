@@ -1,4 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import {
     Pencil,
     Plus,
@@ -19,16 +20,12 @@ import {
     Upload,
     FileSpreadsheet,
     FileJson,
+    Scale,
+    Droplets,
+    Check,
+    Navigation,
 } from 'lucide-react';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useState, useMemo, useRef } from 'react';
-import { router } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,6 +42,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Pagination from '@/components/ui/Pagination';
@@ -58,6 +62,16 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
+interface EntregaItem {
+    id: number;
+    producto: { nombre: string; unidad_medida: string };
+    cantidad_pedida: number;
+    cantidad_entregada: number;
+    subtotal_metrica: number;
+    unidades_totales: number;
+    unidad_medida?: string;
+}
+
 interface Entrega {
     id: number;
     venta_id: number | null;
@@ -69,6 +83,10 @@ interface Entrega {
     estado: string;
     notas: string | null;
     productos_json: string | null;
+    items?: EntregaItem[];
+    conductor?: { nombre: string };
+    vehiculo?: { placa: string; marca: string };
+    created_at?: string;
 }
 
 interface Vehiculo {
@@ -106,7 +124,16 @@ interface Venta {
     numero: string;
     numero_factura?: string;
     cliente_id: number | null;
-    cliente?: { nombre: string; telefono?: string; direccion?: string };
+    cliente?: {
+        nombre: string;
+        telefono?: string;
+        direccion?: string;
+        comuna?: string;
+        ciudad?: string;
+        region?: string;
+        fecha?: string;
+    };
+    fecha?: string;
     estado: string;
     detalle_ventas: DetalleVenta[];
 }
@@ -122,12 +149,16 @@ export default function Index({
     conductores,
     clientes,
     ventas,
+    stats,
+    filters,
 }: {
     entregas: { data: Entrega[]; links: any[]; meta?: any; total: number };
     vehiculos: Vehiculo[];
     conductores: Conductor[];
     clientes: Cliente[];
     ventas: Venta[];
+    stats: { kg: number; litros: number; unidades: number };
+    filters: any;
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isVerOpen, setIsVerOpen] = useState(false);
@@ -220,13 +251,26 @@ export default function Index({
 
     const handleVentaChange = (ventaId: string) => {
         const venta = ventas.find((v) => v.id.toString() === ventaId);
-        setData('venta_id', ventaId);
 
-        // Auto-fill from venta
         if (venta) {
-            setData('cliente', venta.cliente?.nombre || '');
-            const fullAddress = venta.cliente?.direccion || '';
-            setData('direccion', fullAddress);
+            const fullAddress = [
+                venta.cliente?.direccion,
+                venta.cliente?.comuna,
+                venta.cliente?.ciudad,
+                venta.cliente?.region,
+            ]
+                .filter(Boolean)
+                .join(', ');
+
+            setData((prev) => ({
+                ...prev,
+                venta_id: ventaId,
+                cliente: venta.cliente?.nombre || '',
+                direccion: fullAddress || '',
+                fecha_entrega: venta.fecha
+                    ? venta.fecha.split('T')[0]
+                    : prev.fecha_entrega,
+            }));
 
             // Set productos seleccionados from venta detalle_ventas
             const productos: { [key: number]: number } = {};
@@ -235,6 +279,7 @@ export default function Index({
             });
             setProductosSeleccionados(productos);
         } else {
+            setData('venta_id', ventaId);
             setProductosSeleccionados({});
         }
     };
@@ -377,64 +422,77 @@ export default function Index({
                 <div className="flex flex-col gap-4 p-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold">Entregas</h1>
-                            <p className="text-muted-foreground">
-                                Gestión de entregas
+                            <h1 className="text-2xl font-black tracking-tight text-primary uppercase">
+                                Entregas
+                            </h1>
+                            <p className="text-sm font-medium text-muted-foreground">
+                                Monitoreo automático de métricas por despacho
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button onClick={handleNew}>
-                                <Plus className="mr-2 h-4 w-4" /> Nueva Entrega
+                            <Button
+                                onClick={handleNew}
+                                className="h-11 rounded-xl px-6 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+                            >
+                                <Truck className="mr-2 h-5 w-5" /> Nuevo
+                                Despacho
                             </Button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-9 gap-2 rounded-xl border-muted-foreground/10 font-bold"
-                                    >
-                                        <Download className="h-4 w-4 text-primary" />
-                                        <span>Herramientas</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    className="w-48"
-                                >
-                                    <DropdownMenuItem onClick={handleImportCSV}>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Importar CSV
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={handleImportExcel}
-                                    >
-                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                        Importar Excel
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            router.get(
-                                                '/entregas/exportar?format=json',
-                                            )
-                                        }
-                                    >
-                                        <FileJson className="mr-2 h-4 w-4" />
-                                        Exportar JSON
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            router.get(
-                                                '/entregas/exportar?format=excel',
-                                            )
-                                        }
-                                    >
-                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                        Exportar Excel
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <Card className="border-none bg-gradient-to-br from-blue-500/10 to-blue-500/5 shadow-none ring-1 ring-blue-500/20">
+                            <CardContent className="p-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500 text-white shadow-lg shadow-blue-500/20">
+                                        <Scale className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black tracking-widest text-blue-600/60 uppercase">
+                                            Total Kilos ⚖️
+                                        </p>
+                                        <h3 className="text-2xl font-black text-blue-700">
+                                            {stats.kg.toLocaleString()} kg
+                                        </h3>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-none bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 shadow-none ring-1 ring-cyan-500/20">
+                            <CardContent className="p-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500 text-white shadow-lg shadow-cyan-500/20">
+                                        <Droplets className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black tracking-widest text-cyan-600/60 uppercase">
+                                            Total Litros 💧
+                                        </p>
+                                        <h3 className="text-2xl font-black text-cyan-700">
+                                            {stats.litros.toLocaleString()} L
+                                        </h3>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-none bg-gradient-to-br from-orange-500/10 to-orange-500/5 shadow-none ring-1 ring-orange-500/20">
+                            <CardContent className="p-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/20">
+                                        <Package className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black tracking-widest text-orange-600/60 uppercase">
+                                            Total Unidades 📦
+                                        </p>
+                                        <h3 className="text-2xl font-black text-orange-700">
+                                            {stats.unidades.toLocaleString()}{' '}
+                                            unid
+                                        </h3>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
                     <Card>
                         <CardHeader>
@@ -461,6 +519,38 @@ export default function Index({
                                         />
                                     </div>
                                 </div>
+                                <Select
+                                    value={filters?.conductor_id || 'all'}
+                                    onValueChange={(val) => {
+                                        router.get(
+                                            '/entregas',
+                                            {
+                                                ...filters,
+                                                conductor_id:
+                                                    val === 'all' ? '' : val,
+                                            },
+                                            { preserveState: true },
+                                        );
+                                    }}
+                                >
+                                    <SelectTrigger className="h-9 w-full bg-background sm:w-[180px]">
+                                        <SelectValue placeholder="Conductor" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            Todos los Choferes
+                                        </SelectItem>
+                                        {conductores.map((c) => (
+                                            <SelectItem
+                                                key={c.id}
+                                                value={c.id.toString()}
+                                            >
+                                                {c.nombre}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
                                 <Select
                                     value={filtros.estado}
                                     onValueChange={(val) =>
@@ -950,22 +1040,22 @@ export default function Index({
 
             {/* View Modal */}
             <Dialog open={isVerOpen} onOpenChange={setIsVerOpen}>
-                <DialogContent className="max-w-[95vw] overflow-hidden rounded-3xl border-none bg-background p-0 shadow-2xl md:max-w-3xl">
+                <DialogContent className="max-h-[90vh] max-w-[95vw] overflow-y-auto rounded-3xl border-none bg-background p-0 shadow-2xl md:max-w-3xl">
                     {entregaSeleccionada && (
-                        <>
-                            <div className="relative">
+                        <div className="flex flex-col">
+                            <div className="relative shrink-0">
                                 <div className="pointer-events-none absolute top-0 left-0 h-32 w-full bg-gradient-to-br from-primary/20 via-primary/5 to-transparent" />
-                                <DialogHeader className="relative z-10 p-8 pb-4">
-                                    <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-                                        <div className="flex items-center gap-6">
-                                            <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-primary/10 bg-white text-primary shadow-xl">
-                                                <Truck className="h-10 w-10" />
+                                <DialogHeader className="relative z-10 p-6 pb-4 md:p-8">
+                                    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/10 bg-white text-primary shadow-xl md:h-20 md:w-20">
+                                                <Truck className="h-8 w-8 md:h-10 md:w-10" />
                                             </div>
                                             <div>
-                                                <div className="mb-1 flex items-center gap-3">
+                                                <div className="mb-1 flex flex-wrap items-center gap-2">
                                                     <Badge
                                                         variant="outline"
-                                                        className="border-primary/30 bg-white px-3 py-1 font-black text-primary"
+                                                        className="border-primary/30 bg-white px-2 py-0.5 text-xs font-black text-primary md:px-3 md:py-1"
                                                     >
                                                         PEDIDO #
                                                         {
@@ -976,7 +1066,7 @@ export default function Index({
                                                         entregaSeleccionada.estado,
                                                     )}
                                                 </div>
-                                                <DialogTitle className="text-4xl leading-tight font-black tracking-tighter text-foreground">
+                                                <DialogTitle className="text-2xl font-black tracking-tight text-foreground md:text-3xl lg:text-4xl">
                                                     Detalles de Entrega
                                                 </DialogTitle>
                                             </div>
@@ -985,140 +1075,233 @@ export default function Index({
                                 </DialogHeader>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-8 p-8 pt-4 md:grid-cols-3">
-                                <div className="space-y-8 md:col-span-2">
+                            <div className="grid grid-cols-1 gap-6 overflow-y-auto px-6 pb-6 md:grid-cols-3 md:gap-8 md:px-8">
+                                <div className="space-y-6 md:col-span-2">
                                     <section>
-                                        <h3 className="mb-4 flex items-center gap-2 text-[10px] font-black tracking-[0.2em] text-primary/70 uppercase">
+                                        <h3 className="mb-3 flex items-center gap-2 text-xs font-black tracking-widest text-primary/70 uppercase md:text-[10px]">
                                             <MapPin className="h-3 w-3" />{' '}
                                             Información de Destino
                                         </h3>
-                                        <div className="space-y-4 rounded-3xl border border-border/50 bg-muted/30 p-6">
-                                            <div className="flex items-start gap-4">
-                                                <div className="rounded-2xl bg-white p-3 text-primary shadow-sm">
-                                                    <User className="h-5 w-5" />
+                                        <div className="space-y-3 rounded-2xl border border-border/50 bg-muted/30 p-4 md:space-y-4 md:rounded-3xl md:p-6">
+                                            <div className="flex items-start gap-3 md:gap-4">
+                                                <div className="rounded-xl bg-white p-2 text-primary shadow-sm">
+                                                    <User className="h-4 w-4 md:h-5 md:w-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="mb-1 text-xs leading-none font-black text-muted-foreground uppercase">
-                                                        Cliente / Destinatario
+                                                    <p className="text-[10px] font-black text-muted-foreground uppercase md:text-[9px]">
+                                                        Destinatario
                                                     </p>
-                                                    <p className="text-lg leading-snug font-bold text-foreground">
+                                                    <p className="text-sm font-bold md:text-base">
                                                         {entregaSeleccionada.cliente ||
-                                                            'Consumidor Final'}
+                                                            'Cliente no registrado'}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-start gap-4 border-t border-border/50 pt-4">
-                                                <div className="rounded-2xl bg-white p-3 text-primary shadow-sm">
-                                                    <MapPin className="h-5 w-5" />
+                                            {entregaSeleccionada.direccion && (
+                                                <div className="flex items-start gap-3 md:gap-4">
+                                                    <div className="rounded-xl bg-white p-2 text-primary shadow-sm">
+                                                        <Navigation className="h-4 w-4 md:h-5 md:w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-muted-foreground uppercase md:text-[9px]">
+                                                            Dirección
+                                                        </p>
+                                                        <p className="text-sm leading-relaxed font-medium">
+                                                            {
+                                                                entregaSeleccionada.direccion
+                                                            }
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="mb-1 text-xs leading-none font-black text-muted-foreground uppercase">
-                                                        Dirección de Despacho
-                                                    </p>
-                                                    <p className="text-sm leading-relaxed font-bold text-foreground">
-                                                        {entregaSeleccionada.direccion ||
-                                                            'No especificada'}
-                                                    </p>
+                                            )}
+                                            {entregaSeleccionada.notas && (
+                                                <div className="flex items-start gap-3 md:gap-4">
+                                                    <div className="rounded-xl bg-white p-2 text-primary shadow-sm">
+                                                        <Info className="h-4 w-4 md:h-5 md:w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-muted-foreground uppercase md:text-[9px]">
+                                                            Notas
+                                                        </p>
+                                                        <p className="text-sm leading-relaxed font-medium">
+                                                            {
+                                                                entregaSeleccionada.notas
+                                                            }
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
+                                            {!entregaSeleccionada.notas &&
+                                                !entregaSeleccionada.direccion && (
+                                                    <p className="rounded-xl bg-white p-4 text-center text-xs text-muted-foreground italic">
+                                                        No se han registrado
+                                                        instrucciones especiales
+                                                        para este despacho.
+                                                    </p>
+                                                )}
                                         </div>
                                     </section>
 
-                                    <section>
-                                        <h3 className="mb-4 flex items-center gap-2 text-[10px] font-black tracking-[0.2em] text-primary/70 uppercase">
-                                            <Info className="h-3 w-3" /> Notas
-                                            Operativas
-                                        </h3>
-                                        <div className="flex min-h-[100px] items-start gap-4 rounded-3xl border-2 border-dashed border-border bg-muted/10 p-6 text-muted-foreground italic">
-                                            {entregaSeleccionada.notas ||
-                                                'No se han registrado instrucciones especiales para este despacho.'}
-                                        </div>
-                                    </section>
-
-                                    {entregaSeleccionada.productos_json && (
+                                    {entregaSeleccionada.items &&
+                                    entregaSeleccionada.items.length > 0 ? (
                                         <section>
-                                            <h3 className="mb-4 flex items-center gap-2 text-[10px] font-black tracking-[0.2em] text-primary/70 uppercase">
-                                                <Package className="h-3 w-3" />{' '}
-                                                Productos a Entregar
+                                            <h3 className="mb-3 flex items-center gap-2 text-xs font-black tracking-widest text-primary/70 uppercase md:text-[10px]">
+                                                <Scale className="h-3 w-3" />{' '}
+                                                Hoja de Carga (Métricas)
                                             </h3>
-                                            <div className="space-y-2 rounded-3xl border border-primary/10 bg-primary/[0.03] p-4">
-                                                {(() => {
-                                                    try {
-                                                        const items =
-                                                            JSON.parse(
-                                                                entregaSeleccionada.productos_json,
-                                                            );
-                                                        return items.map(
-                                                            (
-                                                                item: any,
-                                                                idx: number,
-                                                            ) => (
-                                                                <div
-                                                                    key={idx}
-                                                                    className="flex items-center justify-between border-b border-border/30 pb-2 last:border-0"
-                                                                >
-                                                                    <div>
-                                                                        <p className="text-xs font-bold">
-                                                                            {
-                                                                                item.nombre_producto
-                                                                            }
-                                                                        </p>
-                                                                        <p className="text-[10px] text-muted-foreground">
-                                                                            $
-                                                                            {(
-                                                                                item.precio_unitario ||
-                                                                                0
-                                                                            ).toLocaleString(
-                                                                                'es-CL',
-                                                                            )}{' '}
-                                                                            c/u
-                                                                        </p>
-                                                                    </div>
-                                                                    <div className="text-right">
-                                                                        <p className="text-sm font-black">
-                                                                            x
-                                                                            {
-                                                                                item.cantidad
-                                                                            }
-                                                                        </p>
-                                                                        <p className="text-[10px] text-muted-foreground">
-                                                                            $
-                                                                            {(
-                                                                                (item.precio_unitario ||
-                                                                                    0) *
-                                                                                item.cantidad
-                                                                            ).toLocaleString(
-                                                                                'es-CL',
-                                                                            )}
-                                                                        </p>
-                                                                    </div>
+                                            <div className="space-y-3">
+                                                {entregaSeleccionada.items.map(
+                                                    (item) => (
+                                                        <div
+                                                            key={item.id}
+                                                            className="rounded-xl border border-border/50 bg-white p-3 shadow-sm transition-all hover:border-primary/20 md:rounded-2xl md:p-4"
+                                                        >
+                                                            <div className="mb-2 flex flex-col gap-2 md:mb-3 md:flex-row md:items-center md:justify-between">
+                                                                <div>
+                                                                    <p className="text-sm font-bold text-foreground md:text-base">
+                                                                        {item
+                                                                            .producto
+                                                                            ?.nombre ||
+                                                                            'Producto Desconocido'}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-muted-foreground uppercase md:text-xs">
+                                                                        Cant.
+                                                                        Pedida:{' '}
+                                                                        {
+                                                                            item.cantidad_pedida
+                                                                        }{' '}
+                                                                        |
+                                                                        Entregada:{' '}
+                                                                        {
+                                                                            item.cantidad_entregada
+                                                                        }
+                                                                    </p>
                                                                 </div>
-                                                            ),
-                                                        );
-                                                    } catch {
-                                                        return null;
-                                                    }
-                                                })()}
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="bg-primary/5 text-[9px] font-black text-primary uppercase md:text-xs"
+                                                                >
+                                                                    {item
+                                                                        .producto
+                                                                        ?.unidad_medida ||
+                                                                        item.unidad_medida ||
+                                                                        'Unid'}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                <div className={`flex flex-col items-center justify-center rounded-lg p-2 text-center ring-1 md:rounded-xl md:p-2 ${item.unidad_medida === 'kg' ? 'bg-blue-500/5 ring-blue-500/10' : 'bg-cyan-500/5 ring-cyan-500/10'}`}>
+                                                                    {item.unidad_medida === 'kg' ? (
+                                                                        <Scale className="mb-0.5 h-2.5 w-2.5 text-blue-500 md:h-3 md:w-3" />
+                                                                    ) : (
+                                                                        <Droplets className="mb-0.5 h-2.5 w-2.5 text-cyan-500 md:h-3 md:w-3" />
+                                                                    )}
+                                                                    <p className={`text-[8px] font-black uppercase md:text-[8px] ${item.unidad_medida === 'kg' ? 'text-blue-600/60' : 'text-cyan-600/60'}`}>
+                                                                        {item.unidad_medida?.toUpperCase() === 'KG' ? 'Kilos' : 'Litros'}
+                                                                    </p>
+                                                                    <p className={`text-xs font-black md:text-sm ${item.unidad_medida === 'kg' ? 'text-blue-700' : 'text-cyan-700'}`}>
+                                                                        {Number(
+                                                                            item.subtotal_metrica,
+                                                                        ).toFixed(
+                                                                            1,
+                                                                        )}
+                                                                        {item.unidad_medida?.toUpperCase() === 'KG' ? 'kg' : 'L'}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="flex flex-col items-center justify-center rounded-lg bg-orange-500/5 p-2 text-center ring-1 ring-orange-500/10 md:rounded-xl md:p-2">
+                                                                    <Package className="mb-0.5 h-2.5 w-2.5 text-orange-500 md:h-3 md:w-3" />
+                                                                    <p className="text-[8px] font-black text-orange-600/60 uppercase md:text-[8px]">
+                                                                        Unid
+                                                                    </p>
+                                                                    <p className="text-xs font-black text-orange-700 md:text-sm">
+                                                                        {
+                                                                            item.unidades_totales
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ),
+                                                )}
                                             </div>
                                         </section>
+                                    ) : (
+                                        entregaSeleccionada.productos_json && (
+                                            <section>
+                                                <h3 className="mb-3 flex items-center gap-2 text-xs font-black tracking-widest text-primary/70 uppercase md:text-[10px]">
+                                                    <Package className="h-3 w-3" />{' '}
+                                                    Productos a Entregar
+                                                </h3>
+                                                <div className="space-y-2 rounded-2xl border border-primary/10 bg-primary/[0.03] p-4 md:rounded-3xl md:p-6">
+                                                    {(() => {
+                                                        try {
+                                                            const items =
+                                                                JSON.parse(
+                                                                    entregaSeleccionada.productos_json,
+                                                                );
+                                                            return items.map(
+                                                                (
+                                                                    item: any,
+                                                                    idx: number,
+                                                                ) => (
+                                                                    <div
+                                                                        key={
+                                                                            idx
+                                                                        }
+                                                                        className="flex items-center justify-between border-b border-border/30 pb-2 last:border-0 last:pb-0"
+                                                                    >
+                                                                        <div>
+                                                                            <p className="text-xs font-bold md:text-sm">
+                                                                                {
+                                                                                    item.nombre_producto
+                                                                                }
+                                                                            </p>
+                                                                            <p className="text-[10px] text-muted-foreground md:text-xs">
+                                                                                $
+                                                                                {(
+                                                                                    item.precio_unitario ||
+                                                                                    0
+                                                                                ).toLocaleString(
+                                                                                    'es-CL',
+                                                                                )}{' '}
+                                                                                c/u
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                            <p className="text-sm font-black md:text-base">
+                                                                                x
+                                                                                {
+                                                                                    item.cantidad
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                ),
+                                                            );
+                                                        } catch {
+                                                            return null;
+                                                        }
+                                                    })()}
+                                                </div>
+                                            </section>
+                                        )
                                     )}
                                 </div>
 
-                                <div className="space-y-8">
+                                <div className="space-y-6">
                                     <section>
-                                        <h3 className="mb-4 text-[10px] font-black tracking-[0.2em] text-primary/70 uppercase">
+                                        <h3 className="mb-3 text-xs font-black tracking-widest text-primary/70 uppercase md:text-[10px]">
                                             Logística
                                         </h3>
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-4 rounded-3xl border border-primary/10 bg-primary/[0.03] p-5">
-                                                <div className="rounded-xl border border-primary/5 bg-white p-2 shadow-sm">
-                                                    <Calendar className="h-4 w-4 text-primary" />
+                                        <div className="space-y-3 md:space-y-4">
+                                            <div className="flex items-center gap-3 rounded-xl border border-primary/10 bg-primary/[0.03] p-3 md:rounded-3xl md:p-5">
+                                                <div className="rounded-lg border border-primary/5 bg-white p-1.5 shadow-sm md:rounded-xl md:p-2">
+                                                    <Calendar className="h-3.5 w-3.5 text-primary md:h-4 md:w-4" />
                                                 </div>
                                                 <div>
-                                                    <p className="mb-1 text-[9px] leading-none font-black text-primary/60 uppercase">
+                                                    <p className="mb-0.5 text-[9px] leading-none font-black text-primary/60 uppercase md:text-[9px]">
                                                         Fecha
                                                     </p>
-                                                    <p className="text-xs leading-none font-black">
+                                                    <p className="text-xs leading-none font-black md:text-sm">
                                                         {entregaSeleccionada.fecha_entrega
                                                             ? entregaSeleccionada.fecha_entrega.split(
                                                                   'T',
@@ -1127,15 +1310,15 @@ export default function Index({
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4 rounded-3xl border border-primary/10 bg-primary/[0.03] p-5">
-                                                <div className="rounded-xl border border-primary/5 bg-white p-2 shadow-sm">
-                                                    <Truck className="h-4 w-4 text-primary" />
+                                            <div className="flex items-center gap-3 rounded-xl border border-primary/10 bg-primary/[0.03] p-3 md:rounded-3xl md:p-5">
+                                                <div className="rounded-lg border border-primary/5 bg-white p-1.5 shadow-sm md:rounded-xl md:p-2">
+                                                    <Truck className="h-3.5 w-3.5 text-primary md:h-4 md:w-4" />
                                                 </div>
-                                                <div>
-                                                    <p className="mb-1 text-[9px] leading-none font-black text-primary/60 uppercase">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="mb-0.5 text-[9px] leading-none font-black text-primary/60 uppercase md:text-[9px]">
                                                         Vehículo
                                                     </p>
-                                                    <p className="text-xs leading-none font-black">
+                                                    <p className="truncate text-xs leading-none font-black md:text-sm">
                                                         {vehiculos.find(
                                                             (v) =>
                                                                 v.id.toString() ===
@@ -1145,15 +1328,15 @@ export default function Index({
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4 rounded-3xl border border-primary/10 bg-primary/[0.03] p-5">
-                                                <div className="rounded-xl border border-primary/5 bg-white p-2 shadow-sm">
-                                                    <User className="h-4 w-4 text-primary" />
+                                            <div className="flex items-center gap-3 rounded-xl border border-primary/10 bg-primary/[0.03] p-3 md:rounded-3xl md:p-5">
+                                                <div className="rounded-lg border border-primary/5 bg-white p-1.5 shadow-sm md:rounded-xl md:p-2">
+                                                    <User className="h-3.5 w-3.5 text-primary md:h-4 md:w-4" />
                                                 </div>
-                                                <div>
-                                                    <p className="mb-1 text-[9px] leading-none font-black text-primary/60 uppercase">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="mb-0.5 text-[9px] leading-none font-black text-primary/60 uppercase md:text-[9px]">
                                                         Conductor
                                                     </p>
-                                                    <p className="w-32 truncate text-xs leading-none font-black">
+                                                    <p className="truncate text-xs leading-none font-black md:text-sm">
                                                         {conductores.find(
                                                             (c) =>
                                                                 c.id.toString() ===
@@ -1167,52 +1350,74 @@ export default function Index({
                                     </section>
 
                                     <section>
-                                        <h3 className="mb-4 text-[10px] font-black tracking-[0.2em] text-primary/70 uppercase">
+                                        <h3 className="mb-3 text-xs font-black tracking-widest text-primary/70 uppercase md:text-[10px]">
                                             Línea de Vida
                                         </h3>
-                                        <div className="relative space-y-6 pl-6 before:absolute before:top-2 before:bottom-2 before:left-2 before:w-[2px] before:rounded-full before:bg-muted">
+                                        <div className="relative space-y-4 pl-5 before:absolute before:top-2 before:bottom-2 before:left-1.5 before:w-[2px] before:rounded-full before:bg-muted md:pl-6">
                                             <div className="group relative flex items-center gap-3">
-                                                <div className="absolute -left-6 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 shadow-sm ring-4 ring-white transition-transform group-hover:scale-125">
-                                                    <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+                                                <div className="absolute -left-5 z-10 flex h-3 w-3 items-center justify-center rounded-full bg-green-500 shadow-sm ring-2 ring-white transition-transform group-hover:scale-125 md:-left-6 md:h-4 md:w-4">
+                                                    <Check className="h-1.5 w-1.5 text-white md:h-2 md:w-2" />
                                                 </div>
-                                                <p className="text-[10px] font-bold text-muted-foreground">
-                                                    Pedido Procesado
-                                                </p>
+                                                <div className="rounded-xl border border-green-500/10 bg-green-50/50 p-2 md:rounded-2xl md:p-3">
+                                                    <p className="text-[10px] font-black text-green-600 uppercase md:text-xs">
+                                                        Creado
+                                                    </p>
+                                                    <p className="text-[9px] text-muted-foreground md:text-[10px]">
+                                                        {new Date(
+                                                            entregaSeleccionada.created_at ||
+                                                                '',
+                                                        ).toLocaleDateString(
+                                                            'es-CL',
+                                                        )}
+                                                    </p>
+                                                </div>
                                             </div>
                                             <div className="group relative flex items-center gap-3">
                                                 <div
-                                                    className={`absolute -left-6 h-4 w-4 rounded-full ${['en_ruta', 'entregado'].includes(entregaSeleccionada.estado) ? 'bg-blue-500' : 'bg-muted'} z-10 flex items-center justify-center shadow-sm ring-4 ring-white transition-transform group-hover:scale-125`}
+                                                    className={`absolute -left-5 z-10 flex h-3 w-3 items-center justify-center rounded-full shadow-sm ring-2 ring-white transition-transform group-hover:scale-125 md:-left-6 md:h-4 md:w-4 ${['en_ruta', 'entregado'].includes(entregaSeleccionada.estado) ? 'bg-blue-500' : 'bg-muted'}`}
+                                                ></div>
+                                                <div
+                                                    className={`rounded-xl border p-2 md:rounded-2xl md:p-3 ${['en_ruta', 'entregado'].includes(entregaSeleccionada.estado) ? 'border-blue-500/10 bg-blue-50/50' : 'border-border/50 bg-muted/30'}`}
                                                 >
-                                                    <Truck className="h-2.5 w-2.5 text-white" />
+                                                    <p
+                                                        className={`text-[10px] font-black uppercase md:text-xs ${['en_ruta', 'entregado'].includes(entregaSeleccionada.estado) ? 'text-blue-600' : 'text-muted-foreground'}`}
+                                                    >
+                                                        En Tránsito
+                                                    </p>
                                                 </div>
-                                                <p className="text-[10px] font-bold text-muted-foreground">
-                                                    Despacho en Tránsito
-                                                </p>
                                             </div>
                                             <div className="group relative flex items-center gap-3">
                                                 <div
-                                                    className={`absolute -left-6 h-4 w-4 rounded-full ${entregaSeleccionada.estado === 'entregado' ? 'bg-green-500' : 'bg-muted'} z-10 flex items-center justify-center shadow-sm ring-4 ring-white transition-transform group-hover:scale-125`}
+                                                    className={`absolute -left-5 z-10 flex h-3 w-3 items-center justify-center rounded-full shadow-sm ring-2 ring-white transition-transform group-hover:scale-125 md:-left-6 md:h-4 md:w-4 ${entregaSeleccionada.estado === 'entregado' ? 'bg-green-500' : 'bg-muted'}`}
                                                 >
-                                                    <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+                                                    {entregaSeleccionada.estado ===
+                                                        'entregado' && (
+                                                        <Check className="h-1.5 w-1.5 text-white md:h-2 md:w-2" />
+                                                    )}
                                                 </div>
-                                                <p className="text-[10px] font-bold text-muted-foreground">
-                                                    Entrega Realizada
-                                                </p>
+                                                <div
+                                                    className={`rounded-xl border p-2 md:rounded-2xl md:p-3 ${entregaSeleccionada.estado === 'entregado' ? 'border-green-500/10 bg-green-50/50' : 'border-border/50 bg-muted/30'}`}
+                                                >
+                                                    <p
+                                                        className={`text-[10px] font-black uppercase md:text-xs ${entregaSeleccionada.estado === 'entregado' ? 'text-green-600' : 'text-muted-foreground'}`}
+                                                    >
+                                                        Entregado
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </section>
+
+                                    <Button
+                                        type="button"
+                                        onClick={() => setIsVerOpen(false)}
+                                        className="h-12 w-full rounded-2xl bg-foreground px-8 text-base font-black tracking-tight text-background shadow-xl shadow-foreground/10 transition-all hover:bg-foreground/90 active:scale-95 md:rounded-[20px] md:px-12 md:text-lg"
+                                    >
+                                        Cerrar
+                                    </Button>
                                 </div>
                             </div>
-
-                            <DialogFooter className="border-t border-border/50 bg-muted/5 p-8 pt-4">
-                                <Button
-                                    onClick={() => setIsVerOpen(false)}
-                                    className="h-12 w-full rounded-[20px] bg-foreground px-12 text-lg font-black tracking-tighter text-background shadow-xl shadow-foreground/10 transition-all hover:bg-foreground/90 active:scale-95"
-                                >
-                                    Cerrar Seguimiento
-                                </Button>
-                            </DialogFooter>
-                        </>
+                        </div>
                     )}
                 </DialogContent>
             </Dialog>

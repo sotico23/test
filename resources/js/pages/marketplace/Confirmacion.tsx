@@ -35,9 +35,27 @@ interface Tienda {
     slug: string;
 }
 
+interface Vendedor {
+    name: string;
+    telefono?: string;
+}
+
 interface Props {
     pedido: Pedido;
     tienda: Tienda;
+    conversacion?: Conversacion;
+    vendedor?: Vendedor;
+}
+
+interface Conversacion {
+    id: number;
+    titulo: string;
+}
+
+interface Props {
+    pedido: Pedido;
+    tienda: Tienda;
+    conversacion?: Conversacion;
 }
 
 const estadoSteps = [
@@ -48,7 +66,12 @@ const estadoSteps = [
     { key: 'entregado', label: 'Entregado', icon: CheckCircle2 },
 ];
 
-export default function Confirmacion({ pedido, tienda }: Props) {
+export default function Confirmacion({
+    pedido,
+    tienda,
+    conversacion,
+    vendedor,
+}: Props) {
     const currentStepIndex = estadoSteps.findIndex(
         (s) => s.key === pedido.estado,
     );
@@ -164,7 +187,7 @@ export default function Confirmacion({ pedido, tienda }: Props) {
                     </div>
                 </div>
 
-                <div className="mt-6 flex gap-4">
+                <div className="mt-6 flex flex-wrap gap-4">
                     <Link
                         href={`/tienda/${tienda.slug}`}
                         className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -178,6 +201,25 @@ export default function Confirmacion({ pedido, tienda }: Props) {
                     >
                         Ver mis pedidos
                     </Link>
+                    {conversacion && (
+                        <Link
+                            href={`/conversaciones-pedidos/${conversacion.id}/chat`}
+                            className="flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600"
+                        >
+                            <MessageCircle className="h-4 w-4" />
+                            Chat
+                        </Link>
+                    )}
+                    {vendedor?.telefono && (
+                        <a
+                            href={`https://wa.me/${vendedor.telefono.replace(/[^0-9]/g, '')}?text=Hola%20${encodeURIComponent(vendedor.name)},%20mi%20pedido%20%23${pedido.numero_pedido}%20está%20en%20estado:%20${pedido.estado}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                        >
+                            <MessageCircle className="h-3 w-3" />
+                        </a>
+                    )}
                 </div>
             </div>
         </AppLayout>

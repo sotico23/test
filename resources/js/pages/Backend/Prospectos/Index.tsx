@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +45,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -55,7 +57,6 @@ import { Toaster } from '@/components/ui/sonner';
 import { WhatsAppButton } from '@/components/whatsapp-button';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
-import Pagination from '@/components/ui/Pagination';
 import type { BreadcrumbItem } from '@/types';
 
 interface Prospecto {
@@ -138,7 +139,6 @@ const PRIORIDADES = [
     },
 ];
 
-import { BulkActions } from '@/components/shared/BulkActions';
 
 export default function Index({
     prospectos,
@@ -514,7 +514,7 @@ export default function Index({
                     </div>
 
                     {vistaKanban ? (
-                        <div className="grid grid-cols-1 gap-4 overflow-x-auto pb-4 md:grid-cols-5">
+                        <div className="flex gap-5 overflow-x-auto pb-6 items-start min-h-[65vh]">
                             {ESTADOS.map((est) => {
                                 const prospEnEst =
                                     (groupedProspectos as any)[est.value] || [];
@@ -527,7 +527,7 @@ export default function Index({
                                 return (
                                     <div
                                         key={est.value}
-                                        className="flex min-w-[280px] flex-col gap-4"
+                                        className="flex w-[320px] shrink-0 flex-col gap-4"
                                         onDragOver={handleDragOver}
                                         onDrop={(e) => handleDrop(e, est.value)}
                                     >

@@ -16,9 +16,39 @@ class UsuarioRolController extends Controller
 {
     public function index(): Response
     {
+        /** @var User $user */
+        $user = auth()->user();
+
+        // Jerarquía de roles (4 = más alto, 1 = más bajo)
+        $hierarchy = [
+            'Super Admin' => 4,
+            'Administrador' => 3,
+            'Empleado' => 2,
+            'Cliente' => 1,
+        ];
+
+        // Nivel del usuario actual
+        $userLevel = $user->roles->map(fn ($r) => $hierarchy[$r->name] ?? 0)->max();
+
+        // Obtenemos todos, luego filtramos
         $usuarios = User::with('roles', 'permissions')->orderBy('name')->get();
         $roles = Role::with('permissions')->orderBy('name')->get();
         $permissions = Permission::orderBy('name')->get();
+
+        // Si no es Super Admin, filtramos para que no vea niveles superiores
+        if ($userLevel < 4) {
+            // Solo roles de nuestro nivel o inferior
+            $roles = $roles->filter(function ($role) use ($hierarchy, $userLevel) {
+                return ($hierarchy[$role->name] ?? 0) <= $userLevel;
+            })->values();
+
+            // Solo usuarios que no tengan un rol superior al nuestro
+            $usuarios = $usuarios->filter(function ($u) use ($hierarchy, $userLevel) {
+                $uLevel = $u->roles->map(fn ($r) => $hierarchy[$r->name] ?? 0)->max();
+
+                return $uLevel <= $userLevel;
+            })->values();
+        }
 
         // Map assignments for the frontend table
         $asignaciones = $usuarios->flatMap(function ($user) {

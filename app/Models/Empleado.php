@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class Empleado extends Model
 {
@@ -19,12 +20,25 @@ class Empleado extends Model
         'almacen_id',
         'nombre',
         'apellido',
+        'rut',
+        'fecha_nacimiento',
+        'nacionalidad',
+        'estado_civil',
+        'comuna',
         'email',
         'telefono',
         'cargo',
         'departamento',
         'fecha_contratacion',
+        'tipo_contrato',
         'salario',
+        'sueldo_liquido_pactado',
+        'afp',
+        'sistema_salud',
+        'isapre_nombre',
+        'banco_nombre',
+        'banco_tipo_cuenta',
+        'banco_numero_cuenta',
         'estado',
         'direccion',
         'notas',
@@ -34,7 +48,9 @@ class Empleado extends Model
     {
         return [
             'fecha_contratacion' => 'date',
+            'fecha_nacimiento' => 'date',
             'salario' => 'decimal:2',
+            'sueldo_liquido_pactado' => 'decimal:2',
         ];
     }
 
@@ -75,6 +91,9 @@ class Empleado extends Model
 
     public function getAntiguedadAniosAttribute(): int
     {
-        return (int) $this->fecha_contratacion?->diffInYears(now()) ?? 0;
+        /** @var Carbon|null $fecha */
+        $fecha = $this->fecha_contratacion;
+
+        return (int) ($fecha?->diffInYears(now()) ?? 0);
     }
 }

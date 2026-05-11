@@ -51,6 +51,9 @@ class VentaController extends Controller
             'fecha' => 'required|date',
             'estado' => 'required|in:pendiente,pagada,cancelada',
             'notas' => 'nullable|string',
+            'incluye_iva' => 'nullable|boolean',
+            'tipo_descuento' => 'nullable|in:monto,porcentaje',
+            'valor_descuento' => 'nullable|numeric|min:0',
             'productos' => 'required|array|min:1',
             'productos.*.producto_id' => 'required|exists:productos,id',
             'productos.*.cantidad' => 'required|integer|min:1',
@@ -61,8 +64,21 @@ class VentaController extends Controller
         foreach ($validated['productos'] as $item) {
             $subtotal += round($item['cantidad'] * $item['precio_unitario']);
         }
-        $iva = round($subtotal * 0.19);
-        $total = $subtotal + $iva;
+
+        $tipoDescuento = $validated['tipo_descuento'] ?? 'monto';
+        $valorDescuento = $validated['valor_descuento'] ?? 0;
+        $montoDescuento = 0;
+
+        if ($tipoDescuento === 'porcentaje') {
+            $montoDescuento = round($subtotal * ($valorDescuento / 100));
+        } else {
+            $montoDescuento = round($valorDescuento);
+        }
+
+        $baseImponible = max(0, $subtotal - $montoDescuento);
+        $incluyeIva = $validated['incluye_iva'] ?? true;
+        $iva = $incluyeIva ? round($baseImponible * 0.19) : 0;
+        $total = $baseImponible + $iva;
 
         $venta = Venta::create([
             'numero' => $validated['numero_factura'],
@@ -71,6 +87,10 @@ class VentaController extends Controller
             'subtotal' => (int) $subtotal,
             'iva' => (int) $iva,
             'total' => (int) $total,
+            'monto_descuento' => (int) $montoDescuento,
+            'valor_descuento' => $valorDescuento,
+            'tipo_descuento' => $tipoDescuento,
+            'incluye_iva' => $incluyeIva,
             'estado' => $validated['estado'],
             'notas' => $validated['notas'] ?? null,
         ]);
@@ -102,6 +122,9 @@ class VentaController extends Controller
             'fecha' => 'nullable|date',
             'estado' => 'nullable|in:pendiente,pagada,cancelada',
             'notas' => 'nullable|string',
+            'incluye_iva' => 'nullable|boolean',
+            'tipo_descuento' => 'nullable|in:monto,porcentaje',
+            'valor_descuento' => 'nullable|numeric|min:0',
             'productos' => 'nullable|array|min:1',
             'productos.*.producto_id' => 'nullable|exists:productos,id',
             'productos.*.cantidad' => 'nullable|integer|min:1',
@@ -111,21 +134,41 @@ class VentaController extends Controller
         $estadoAnterior = $venta->estado;
 
         $subtotal = 0;
-        foreach ($validated['productos'] as $item) {
-            $subtotal += round($item['cantidad'] * $item['precio_unitario']);
+        $items = $validated['productos'] ?? $venta->detalleVentas;
+        foreach ($items as $item) {
+            $cantidad = isset($item['cantidad']) ? $item['cantidad'] : $item->cantidad;
+            $precio = isset($item['precio_unitario']) ? $item['precio_unitario'] : $item->precio_unitario;
+            $subtotal += round($cantidad * $precio);
         }
-        $iva = round($subtotal * 0.19);
-        $total = $subtotal + $iva;
+
+        $tipoDescuento = $validated['tipo_descuento'] ?? $venta->tipo_descuento;
+        $valorDescuento = $validated['valor_descuento'] ?? $venta->valor_descuento;
+        $montoDescuento = 0;
+
+        if ($tipoDescuento === 'porcentaje') {
+            $montoDescuento = round($subtotal * ($valorDescuento / 100));
+        } else {
+            $montoDescuento = round($valorDescuento);
+        }
+
+        $baseImponible = max(0, $subtotal - $montoDescuento);
+        $incluyeIva = $validated['incluye_iva'] ?? $venta->incluye_iva;
+        $iva = $incluyeIva ? round($baseImponible * 0.19) : 0;
+        $total = $baseImponible + $iva;
 
         $venta->update([
-            'numero' => $validated['numero_factura'],
-            'cliente_id' => $validated['cliente_id'],
-            'fecha' => $validated['fecha'],
+            'numero' => $validated['numero_factura'] ?? $venta->numero,
+            'cliente_id' => $validated['cliente_id'] ?? $venta->cliente_id,
+            'fecha' => $validated['fecha'] ?? $venta->fecha,
             'subtotal' => (int) $subtotal,
             'iva' => (int) $iva,
             'total' => (int) $total,
-            'estado' => $validated['estado'],
-            'notas' => $validated['notas'] ?? null,
+            'monto_descuento' => (int) $montoDescuento,
+            'valor_descuento' => $valorDescuento,
+            'tipo_descuento' => $tipoDescuento,
+            'incluye_iva' => (bool) $incluyeIva,
+            'estado' => $validated['estado'] ?? $venta->estado,
+            'notas' => $validated['notas'] ?? $venta->notas,
         ]);
 
         if ($estadoAnterior !== 'pagada' && $venta->estado === 'pagada') {

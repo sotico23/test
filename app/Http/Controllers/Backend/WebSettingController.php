@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\MailTemplate;
+use App\Models\User;
 use App\Models\WebSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -93,7 +97,91 @@ class WebSettingController extends Controller
             ],
         ];
 
-        return Inertia::render('Backend/ConfiguracionWeb/Index', array_merge(['settings' => $settings], $defaults));
+        // Leer y parsear últimos logs de laravel.log
+        $logPath = storage_path('logs/laravel.log');
+        $parsedLogs = [];
+        if (file_exists($logPath)) {
+            $lines = file($logPath);
+            if ($lines !== false) {
+                $recentLines = array_slice($lines, -5000);
+                $logContent = implode('', $recentLines);
+
+                preg_match_all('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] ([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+): (.*?)(?=\n\[\d{4}-\d{2}-\d{2}|\z)/ms', $logContent, $matches, PREG_SET_ORDER);
+
+                $matches = array_reverse($matches);
+                $recentMatches = array_slice($matches, 0, 100);
+
+                foreach ($recentMatches as $match) {
+                    $parsedLogs[] = [
+                        'date' => $match[1],
+                        'environment' => $match[2],
+                        'level' => $match[3],
+                        'message' => trim($match[4]),
+                    ];
+                }
+            }
+        }
+
+        // Consultar usuarios en línea
+        $latestSessions = DB::table('sessions')
+            ->whereNotNull('user_id')
+            ->where('last_activity', '>=', now()->subMinutes(15)->getTimestamp())
+            ->pluck('user_id')
+            ->unique();
+
+        $onlineUsers = User::whereIn('id', $latestSessions)
+            ->select('id', 'name', 'email')
+            ->get();
+
+        // Obtener plantillas de email de sistema
+        $ownerId = Auth::user()->getOwnerId();
+        $templates = MailTemplate::where('owner_id', $ownerId)
+            ->where('type', 'system')
+            ->orderBy('name')
+            ->get();
+
+        $availableSlugs = MailTemplate::getAvailableSlugs();
+        $templatesBySlug = $templates->keyBy('slug');
+
+        $templatesWithDefaults = collect($availableSlugs)->map(function ($name, $slug) use ($templatesBySlug) {
+            $template = $templatesBySlug[$slug] ?? null;
+
+            return [
+                'id' => $template?->id,
+                'slug' => $slug,
+                'name' => $name,
+                'subject' => $template?->subject ?? '',
+                'content' => $template?->content ?? '',
+                'is_active' => $template?->is_active ?? true,
+                'is_default' => true,
+                'type' => 'system',
+            ];
+        });
+
+        $customTemplates = $templates->filter(function ($template) use ($availableSlugs) {
+            return ! array_key_exists($template->slug, $availableSlugs);
+        })->map(function ($template) {
+            return [
+                'id' => $template->id,
+                'slug' => $template->slug,
+                'name' => $template->name,
+                'subject' => $template->subject,
+                'content' => $template->content,
+                'is_active' => $template->is_active,
+                'is_default' => false,
+                'type' => 'system',
+            ];
+        });
+
+        $allTemplates = $templatesWithDefaults->merge($customTemplates)->values();
+
+        return Inertia::render('Backend/ConfiguracionWeb/Index', array_merge([
+            'settings' => $settings,
+            'logs' => $parsedLogs,
+            'onlineUsers' => $onlineUsers,
+            'templates' => $allTemplates,
+            'type' => 'system',
+        ], $defaults));
     }
 
     public function update(Request $request, WebSetting $configuracion_web): RedirectResponse

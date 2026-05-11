@@ -12,6 +12,7 @@ import {
     HelpCircle,
 } from 'lucide-react';
 import { useState, useRef, useMemo, useEffect } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,7 +49,6 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
-import { BulkActions } from '@/components/shared/BulkActions';
 
 function ActiveDropdown({
     activo,

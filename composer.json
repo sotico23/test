@@ -20,6 +20,7 @@
         "livewire/livewire": "*",
         "maatwebsite/excel": "^3.1",
         "picqer/php-barcode-generator": "^3.2",
+        "resend/resend-laravel": "^1.4",
         "spatie/laravel-permission": "^7.2",
         "tecnickcom/tc-lib-barcode": "^2.4",
         "transbank/transbank-sdk": "^5.1"

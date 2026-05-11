@@ -1,14 +1,13 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import {
-    Pencil,
-    Plus,
-    Trash2,
-    Search,
-    X,
-    Eye,
-    Download,
-    Upload,
-} from 'lucide-react';
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { FileSpreadsheet, FileJson, Download, Upload } from 'lucide-react';
+import { Pencil, Plus, Trash2, Search, X, Eye } from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
 import { useRef } from 'react';
@@ -268,38 +267,71 @@ export default function Index({
                             </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                            <Button variant="outline" onClick={handleExportCsv}>
-                                Exportar CSV
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={handleExportExcel}
-                            >
-                                Exportar Excel
-                            </Button>
-                            <div className="relative">
-                                <input
-                                    type="file"
-                                    accept=".csv"
-                                    onChange={handleImportCsv}
-                                    className="absolute inset-0 cursor-pointer opacity-0"
-                                />
-                                <Button variant="outline">Importar CSV</Button>
-                            </div>
-                            <div className="relative">
-                                <input
-                                    type="file"
-                                    accept=".xlsx,.xls"
-                                    onChange={handleImportExcel}
-                                    className="absolute inset-0 cursor-pointer opacity-0"
-                                />
-                                <Button variant="outline">
-                                    Importar Excel
+                            <div className="flex items-center gap-2">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-9 gap-2 rounded-xl border-muted-foreground/10 font-bold"
+                                        >
+                                            <Download className="h-4 w-4 text-primary" />
+                                            <span>Herramientas</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                        align="end"
+                                        className="w-48"
+                                    >
+                                        <DropdownMenuItem>
+                                            <label className="flex cursor-pointer items-center">
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Importar CSV
+                                                <input
+                                                    type="file"
+                                                    accept=".csv"
+                                                    onChange={handleImportCsv}
+                                                    className="absolute inset-0 cursor-pointer opacity-0"
+                                                />
+                                            </label>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem>
+                                            <label className="flex cursor-pointer items-center">
+                                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                                Importar Excel
+                                                <input
+                                                    type="file"
+                                                    accept=".xlsx,.xls"
+                                                    onChange={handleImportExcel}
+                                                    className="absolute inset-0 cursor-pointer opacity-0"
+                                                />
+                                            </label>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                (window.location.href =
+                                                    '/almacenes/export')
+                                            }
+                                        >
+                                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                            Exportar CSV
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                (window.location.href =
+                                                    '/almacenes/export-excel')
+                                            }
+                                        >
+                                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                            Exportar Excel
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <Button onClick={handleNew}>
+                                    <Plus className="mr-2 h-4 w-4" /> Nuevo
                                 </Button>
                             </div>
-                            <Button onClick={handleNew}>
-                                <Plus className="mr-2 h-4 w-4" /> Nuevo
-                            </Button>
                         </div>
                     </div>
                     <Card>

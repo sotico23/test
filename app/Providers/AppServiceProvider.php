@@ -3,10 +3,15 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -31,6 +36,18 @@ class AppServiceProvider extends ServiceProvider
 
         $this->configureRateLimiting();
 
+        Event::listen(function (Login $event) {
+            Log::info("AUDIT - El usuario {$event->user->email} ha iniciado sesión.");
+        });
+
+        Event::listen(function (Logout $event) {
+            $email = $event->user ? $event->user->email : 'Desconocido';
+            Log::info("AUDIT - El usuario {$email} ha cerrado sesión.");
+        });
+
+        Event::listen(function (Registered $event) {
+            Log::info("AUDIT - Nuevo usuario registrado: {$event->user->email}.");
+        });
     }
 
     /**

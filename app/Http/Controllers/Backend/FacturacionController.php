@@ -191,7 +191,7 @@ class FacturacionController extends Controller
 
     public function update(Request $request, int $id): RedirectResponse
     {
-        $factura = Factura::withoutGlobalScopes()->findOrFail($id);
+        $factura = Factura::findOrFail($id);
 
         $validated = $request->validate([
             'numero' => 'required|string|unique:facturas,numero,'.$factura->id,

@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Scopes\OwnerScope;
 use App\Traits\BelongsToOwner;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 class Pedido extends Model
 {
@@ -29,6 +31,9 @@ class Pedido extends Model
         'metodo_pago',
         'fecha_confirmacion',
         'fecha_entrega',
+        'payment_id',
+        'payment_status',
+        'payment_data',
     ];
 
     protected function casts(): array
@@ -40,12 +45,17 @@ class Pedido extends Model
             'total' => 'decimal:2',
             'fecha_confirmacion' => 'datetime',
             'fecha_entrega' => 'datetime',
+            'payment_data' => 'array',
         ];
     }
 
     public static function generarNumeroPedido(): string
     {
-        return 'PED-'.date('Ymd').'-'.str_pad(self::max('id') + 1, 5, '0', STR_PAD_LEFT);
+        do {
+            $numero = 'PED-'.date('Ymd').'-'.Str::random(5);
+        } while (self::withoutGlobalScope(OwnerScope::class)->where('numero_pedido', $numero)->exists());
+
+        return strtoupper($numero);
     }
 
     public function user(): BelongsTo

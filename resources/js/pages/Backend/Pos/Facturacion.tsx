@@ -22,6 +22,13 @@ import {
     CardDescription,
 } from '@/components/ui/card';
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
     Table,
     TableBody,
     TableCell,
@@ -29,13 +36,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table-pos';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP } from '@/lib/utils';
 

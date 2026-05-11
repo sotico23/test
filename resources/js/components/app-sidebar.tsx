@@ -18,6 +18,7 @@ import {
     GraduationCap,
     Gift,
     CreditCard,
+    Megaphone,
 } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import {
@@ -48,7 +49,6 @@ const adminNavItems = (isSuperAdmin: boolean): NavItem[] => [
                 title: 'Usuarios y Roles',
                 href: buildRouteUrl('/usuarios-roles'),
             },
-            { title: 'API Keys', href: buildRouteUrl('/api-keys') },
             ...(isSuperAdmin
                 ? [
                       {
@@ -137,8 +137,22 @@ const mainNavItems: NavItem[] = [
         href: '#pagos-online',
         icon: CreditCard,
         items: [
-            { title: 'Configuración Webpay', href: buildRouteUrl('/webpay/config') },
-            { title: 'Movimientos', href: buildRouteUrl('/webpay/movimientos') },
+            {
+                title: 'Configuración Webpay',
+                href: buildRouteUrl('/webpay/config'),
+            },
+            {
+                title: 'Configuración PayPal',
+                href: buildRouteUrl('/paypal/config'),
+            },
+            {
+                title: 'Configuración MercadoPago',
+                href: buildRouteUrl('/mercadopago/config'),
+            },
+            {
+                title: 'Movimientos',
+                href: buildRouteUrl('/webpay/movimientos'),
+            },
         ],
     },
     {
@@ -178,7 +192,10 @@ const mainNavItems: NavItem[] = [
             { title: 'Vehículos', href: buildRouteUrl('/vehiculos') },
             { title: 'Conductores', href: buildRouteUrl('/conductores') },
             { title: 'Entregas', href: buildRouteUrl('/entregas') },
-            { title: 'Cargas Diarias / Rutas', href: buildRouteUrl('/cargas-diarias') },
+            {
+                title: 'Cargas Diarias / Rutas',
+                href: buildRouteUrl('/cargas-diarias'),
+            },
             {
                 title: 'Grupos de Trabajo',
                 href: buildRouteUrl('/grupos-trabajo'),
@@ -237,6 +254,23 @@ const mainNavItems: NavItem[] = [
             {
                 title: 'Progreso y Notas',
                 href: buildRouteUrl('/alumno/progreso'),
+            },
+        ],
+    },
+    {
+        title: 'Marketing',
+        group: 'MARKETING',
+        href: '#marketing',
+        icon: Megaphone,
+        items: [
+            { title: 'Campañas', href: buildRouteUrl('/campanas') },
+            {
+                title: 'Email Marketing',
+                href: buildRouteUrl('/mail-templates'),
+            },
+            {
+                title: 'Config. Correo',
+                href: buildRouteUrl('/marketing/email-config'),
             },
         ],
     },

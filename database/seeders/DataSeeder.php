@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Almacen;
-use App\Models\ApiKey;
 use App\Models\Asiento;
 use App\Models\Asistencia;
 use App\Models\Bom;
@@ -97,7 +96,6 @@ class DataSeeder extends Seeder
         $this->createConductores();
         $this->createEntregas();
         $this->createPromociones();
-        $this->createApiKeys();
         $this->createIncidents();
         $this->createMovimientos();
         $this->createBoms();
@@ -429,12 +427,6 @@ class DataSeeder extends Seeder
     {
         $this->command->info('Creating Promociones...');
         Promocion::factory()->count(50)->create();
-    }
-
-    private function createApiKeys(): void
-    {
-        $this->command->info('Creating ApiKeys...');
-        ApiKey::factory()->count(50)->create();
     }
 
     private function createPublicProfiles(): void

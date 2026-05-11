@@ -31,8 +31,23 @@ class Entrega extends Model
         return ['fecha_entrega' => 'date'];
     }
 
+    public function items()
+    {
+        return $this->hasMany(EntregaItem::class);
+    }
+
     public function venta()
     {
         return $this->belongsTo(Venta::class);
+    }
+
+    public function conductor()
+    {
+        return $this->belongsTo(Conductor::class);
+    }
+
+    public function vehiculo()
+    {
+        return $this->belongsTo(Vehiculo::class);
     }
 }

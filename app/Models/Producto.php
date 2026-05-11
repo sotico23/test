@@ -41,6 +41,9 @@ class Producto extends Model
         'is_service',
         'duracion',
         'course_id',
+        'peso_por_unidad',
+        'contenido_por_unidad',
+        'peso_base',
     ];
 
     protected function casts(): array
@@ -54,6 +57,9 @@ class Producto extends Model
             'cantidad_medida' => 'decimal:2',
             'mostrar_en_perfil' => 'boolean',
             'is_service' => 'boolean',
+            'peso_por_unidad' => 'decimal:2',
+            'contenido_por_unidad' => 'decimal:2',
+            'peso_base' => 'decimal:2',
         ];
     }
 

@@ -24,6 +24,7 @@ import {
     Clock,
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,8 +42,15 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -50,15 +58,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
-import Pagination from '@/components/ui/Pagination';
 import type { BreadcrumbItem } from '@/types';
 
 interface Cliente {
@@ -123,7 +124,6 @@ const ETAPAS = [
     },
 ];
 
-import { BulkActions } from '@/components/shared/BulkActions';
 
 export default function Index({
     oportunidades,
@@ -419,7 +419,7 @@ export default function Index({
                     </div>
 
                     {vistaKanban ? (
-                        <div className="grid grid-cols-1 gap-4 overflow-x-auto pb-4 md:grid-cols-3 lg:grid-cols-6">
+                        <div className="flex gap-5 overflow-x-auto pb-6 items-start min-h-[65vh]">
                             {ETAPAS.map((etapa) => {
                                 const opsEnEtapa =
                                     groupedOportunidades[etapa.value] || [];
@@ -438,7 +438,7 @@ export default function Index({
                                 return (
                                     <div
                                         key={etapa.value}
-                                        className="flex min-w-[280px] flex-col gap-4"
+                                        className="flex w-[320px] shrink-0 flex-col gap-4"
                                         onDragOver={handleDragOver}
                                         onDrop={(e) =>
                                             handleDrop(e, etapa.value)

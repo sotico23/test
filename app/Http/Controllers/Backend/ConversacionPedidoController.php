@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Conversacion;
 use App\Models\MensajeConversacion;
+use App\Models\User;
+use App\Notifications\NuevoMensajeChatPedidoNotification;
 use App\Scopes\OwnerScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,8 +23,11 @@ class ConversacionPedidoController extends Controller
         }
 
         $conversacion->load([
-            'pedido',
+            'pedido' => function ($query) {
+                $query->withoutGlobalScope(OwnerScope::class);
+            },
             'comprador:id,name',
+            'vendedor:id,name',
             'publicProfile' => function ($query) {
                 $query->withoutGlobalScope(OwnerScope::class);
             },
@@ -30,6 +35,14 @@ class ConversacionPedidoController extends Controller
                 $query->with('sender:id,name,profile_photo_path')->orderBy('created_at', 'asc');
             },
         ]);
+
+        if (! $conversacion->pedido) {
+            abort(404, 'Pedido no encontrado');
+        }
+
+        $otroUsuario = Auth::id() === $conversacion->comprador_id
+            ? $conversacion->vendedor
+            : $conversacion->comprador;
 
         return Inertia::render('marketplace/ChatPedido', [
             'conversacion' => [
@@ -50,6 +63,10 @@ class ConversacionPedidoController extends Controller
                     'slug' => $conversacion->publicProfile->slug,
                     'user_id' => $conversacion->publicProfile->user_id,
                 ],
+                'otro_usuario' => $otroUsuario ? [
+                    'id' => $otroUsuario->id,
+                    'name' => $otroUsuario->name,
+                ] : null,
             ],
             'mensajes' => $conversacion->mensajes->map(function ($msg) {
                 $data = [
@@ -141,6 +158,17 @@ class ConversacionPedidoController extends Controller
         ]);
 
         $mensaje->load('sender:id,name,profile_photo_path');
+
+        // Notificar al receptor del mensaje
+        $receptor = User::find($receiverId);
+        if ($receptor) {
+            try {
+                $conversacion->load('pedido');
+                $receptor->notify(new NuevoMensajeChatPedidoNotification($conversacion, $mensaje));
+            } catch (\Exception $e) {
+                \Log::error('Error enviando notificación: '.$e->getMessage());
+            }
+        }
 
         if ($mensaje->file_path) {
             $mensaje->file_url = asset('storage/'.$mensaje->file_path);

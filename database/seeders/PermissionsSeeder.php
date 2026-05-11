@@ -98,6 +98,40 @@ class PermissionsSeeder extends Seeder
             'gestionar facturacion pos',
             'gestionar promociones pos',
 
+            // Call Center
+            'acceso call center',
+            'gestionar llamadas',
+            'gestionar contactos',
+
+            // LMS
+            'acceso lms',
+            'gestionar cursos',
+            'gestionar lecciones',
+            'gestionar alumnos',
+
+            // SII (Facturación Electrónica Chile)
+            'acceso sii',
+            'gestionar dte',
+            'configurar sii',
+
+            // Rifas
+            'acceso rifas',
+            'gestionar rifas',
+            'gestionar sorteos',
+
+            // Uptime
+            'acceso uptime',
+            'gestionar monitores',
+            'gestionar alertas uptime',
+
+            // Pasarelas de Pago
+            'gestionar pagos online',
+
+            // Citas y Reservas
+            'acceso citas',
+            'gestionar citas',
+            'gestionar servicios',
+
             // Cliente Marketplace
             'hacer pedidos',
             'ver sus pedidos',

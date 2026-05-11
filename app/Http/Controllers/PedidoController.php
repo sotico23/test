@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Asiento;
-use App\Models\Cliente;
 use App\Models\Conversacion;
-use App\Models\DetalleVenta;
 use App\Models\Pedido;
 use App\Models\PedidoItem;
 use App\Models\Producto;
 use App\Models\PublicProfile;
-use App\Models\Tesoreria;
-use App\Models\Venta;
+use App\Models\User;
+use App\Notifications\NuevoPedidoNotification;
+use App\Notifications\PedidoCreadoCompradorNotification;
 use App\Scopes\OwnerScope;
+use App\Traits\ErpSyncTrait;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +20,8 @@ use Inertia\Response;
 
 class PedidoController extends Controller
 {
+    use ErpSyncTrait;
+
     public function crear(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -39,6 +40,7 @@ class PedidoController extends Controller
 
         $pedido = Pedido::create([
             'user_id' => $publicProfile->user_id,
+            'owner_id' => $publicProfile->owner_id,
             'public_profile_id' => $validated['public_profile_id'],
             'cliente_id' => Auth::id(),
             'numero_pedido' => Pedido::generarNumeroPedido(),
@@ -78,136 +80,60 @@ class PedidoController extends Controller
             'total' => $total,
         ]);
 
-        // --- ERP SYNC: Create Cliente and create Venta with Financials ---
-        $vendedorId = $publicProfile->user_id;
-        $vendedorOwnerId = $publicProfile->owner_id;
-        $compradorLogueado = Auth::user();
-
-        // Find or create Cliente for the Seller
-        // We use the email provided in the auth or a fallback if it's a guest purchase
-        $clienteErp = Cliente::withoutGlobalScope(OwnerScope::class)->updateOrCreate(
-            ['email' => $compradorLogueado?->email ?? 'guest_'.time().'@marketplace.com', 'user_id' => $vendedorId],
-            [
-                'nombre' => $validated['nombre_cliente'],
-                'telefono' => $validated['telefono_cliente'] ?? $compradorLogueado?->phone ?? '',
-                'direccion' => $validated['direccion_cliente'] ?? '',
-                'activo' => true,
-                'owner_id' => $vendedorOwnerId,
-            ]
-        );
-
-        // Map marketplace payment method to ERP enum: efectivo, tarjeta, transferencia, otro
-        $metodoPagoErp = match (strtolower($validated['metodo_pago'] ?? '')) {
-            'efectivo' => 'efectivo',
-            'tarjeta', 'debito', 'credito' => 'tarjeta',
-            'transferencia' => 'transferencia',
-            default => 'otro'
-        };
-
-        // Create Venta record in ERP as 'pagada'
-        $venta = Venta::withoutGlobalScope(OwnerScope::class)->create([
-            'numero_factura' => str_replace('PED-', 'VMT-', $pedido->numero_pedido),
-            'cliente_id' => $clienteErp->id,
-            'user_id' => $vendedorId,
-            'owner_id' => $vendedorOwnerId,
-            'fecha' => now(),
-            'subtotal' => $subtotal,
-            'iva' => $impuesto,
-            'total' => $total,
-            'metodo_pago' => $metodoPagoErp,
-            'estado' => 'pagada',
-            'notas' => "Originado desde Pedido Marketplace #{$pedido->numero_pedido}. ".($validated['notas'] ?? ''),
-        ]);
-
-        // Sync items to DetalleVenta
-        foreach ($pedido->items as $item) {
-            DetalleVenta::create([
-                'venta_id' => $venta->id,
-                'producto_id' => $item->producto_id,
-                'cantidad' => $item->cantidad,
-                'precio_unitario' => $item->precio_unitario,
-                'subtotal' => $item->subtotal,
-            ]);
-        }
-
-        // --- FINANZAS SYNC: Tesorería y Contabilidad ---
-
-        // 1. Registro en Tesorería (Flujo de Caja)
-        Tesoreria::withoutGlobalScope(OwnerScope::class)->create([
-            'tipo' => 'ingreso',
-            'monto' => $total,
-            'cuenta' => 'Caja/Banco',
-            'descripcion' => "Venta Marketplace - Pedido #{$pedido->numero_pedido}",
-            'fecha' => now(),
-            'referencia' => $venta->numero_factura,
-            'owner_id' => $vendedorOwnerId,
-        ]);
-
-        // 2. Registro Contable (Asiento Diario)
-        $asiento = Asiento::withoutGlobalScope(OwnerScope::class)->create([
-            'user_id' => $vendedorId,
-            'owner_id' => $vendedorOwnerId,
-            'fecha' => now(),
-            'numero' => 'AS-VMT-'.time(),
-            'descripcion' => "Registro de venta marketplace #{$pedido->numero_pedido}",
-            'tipo' => 'venta',
-            'total_debe' => $total,
-            'total_haber' => $total,
-            'estado' => true,
-        ]);
-
-        // Detalle 1: Ingreso a Caja/Banco (Debe)
-        $asiento->detalles()->create([
-            'cuenta' => 'Caja/Banco',
-            'cuenta_codigo' => '1.1.01',
-            'descripcion' => 'Ingreso por venta marketplace',
-            'debe' => $total,
-            'haber' => 0,
-            'owner_id' => $vendedorOwnerId,
-        ]);
-
-        // Detalle 2: Ingreso por Ventas (Haber - Subtotal)
-        $asiento->detalles()->create([
-            'cuenta' => 'Ventas Marketplace',
-            'cuenta_codigo' => '4.1.01',
-            'descripcion' => 'Venta de productos',
-            'debe' => 0,
-            'haber' => $subtotal,
-            'owner_id' => $vendedorOwnerId,
-        ]);
-
-        // Detalle 3: IVA por Pagar (Haber - Impuesto)
-        if ($impuesto > 0) {
-            $asiento->detalles()->create([
-                'cuenta' => 'IVA Débito Fiscal',
-                'cuenta_codigo' => '2.1.03',
-                'descripcion' => 'Impuesto sobre ventas',
-                'debe' => 0,
-                'haber' => $impuesto,
-                'owner_id' => $vendedorOwnerId,
-            ]);
-        }
-        // --- END ERP SYNC ---
-
+        // Always create the conversation before any payment redirect
         Conversacion::create([
             'pedido_id' => $pedido->id,
             'public_profile_id' => $validated['public_profile_id'],
-            'comprador_id' => Auth::id(), // Allow null for guests
-            'vendedor_id' => $vendedorId,
+            'comprador_id' => Auth::id(),
+            'vendedor_id' => $publicProfile->user_id,
             'titulo' => "Pedido #{$pedido->numero_pedido}",
         ]);
 
+        // Notificar al vendedor que tiene un nuevo pedido
+        $vendedor = User::find($publicProfile->user_id);
+        if ($vendedor) {
+            $vendedor->notify(new NuevoPedidoNotification($pedido));
+        }
+
+        // Notificar al comprador del estado de su pedido
+        $comprador = User::find(Auth::id());
+        if ($comprador) {
+            $comprador->notify(new PedidoCreadoCompradorNotification($pedido));
+        }
+
+        // --- MANEJO DE PAGOS ---
+        $metodoPago = strtolower($validated['metodo_pago'] ?? 'efectivo');
+
+        if ($metodoPago === 'paypal') {
+            return redirect()->route('paypal.pay', ['pedidoId' => $pedido->id]);
+        }
+
+        if ($metodoPago === 'mercadopago') {
+            return redirect()->route('mercadopago.pay', ['pedidoId' => $pedido->id]);
+        }
+
+        if ($metodoPago === 'webpay') {
+            return redirect()->route('webpay.pay', ['pedido' => $pedido->id]);
+        }
+
+        // Si es efectivo o local, sincronizar ahora mismo y confirmar
+        if ($metodoPago === 'efectivo' || empty($metodoPago)) {
+            $this->syncPedidoToErp($pedido);
+            $pedido->update(['estado' => 'confirmado', 'payment_status' => 'local']);
+        }
+
         return redirect()->route('tienda.confirmacion', [
             'slug' => $publicProfile->slug,
-            'pedido' => $pedido->id,
+            'pedidoId' => $pedido->id,
         ]);
     }
 
     public function confirmacion(string $slug, int $pedidoId): Response
     {
-        $pedido = Pedido::with(['items', 'publicProfile' => function ($query) {
-            $query->withoutGlobalScope(OwnerScope::class);
-        }])
+        $pedido = Pedido::withoutGlobalScope(OwnerScope::class)
+            ->with(['items', 'publicProfile' => function ($query) {
+                $query->withoutGlobalScope(OwnerScope::class);
+            }, 'conversacion', 'user'])
             ->where('id', $pedidoId)
             ->where('cliente_id', Auth::id())
             ->firstOrFail();
@@ -215,6 +141,11 @@ class PedidoController extends Controller
         return Inertia::render('marketplace/Confirmacion', [
             'pedido' => $pedido,
             'tienda' => $pedido->publicProfile,
+            'conversacion' => $pedido->conversacion,
+            'vendedor' => [
+                'name' => $pedido->user->name,
+                'telefono' => $pedido->user->telefono,
+            ],
         ]);
     }
 

@@ -37,6 +37,7 @@ class HandleInertiaRequests extends Middleware
                 'profile_photo_url' => $user->profilePhotoUrl(),
                 'cover_photo_url' => $user->coverPhotoUrl(),
                 'public_profile' => $user->publicProfile,
+                'show_onboarding' => $user->show_onboarding,
                 'roles' => $user->getRoleNames()->toArray(),
                 'permissions' => $user->getAllPermissions()->pluck('name')->toArray(),
                 'unread_messages' => $unreadMessages,

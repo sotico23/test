@@ -19,13 +19,6 @@ import {
     FileSpreadsheet,
     FileJson,
 } from 'lucide-react';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { FormInput } from '@/components/form-input';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +37,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Pagination from '@/components/ui/Pagination';
@@ -115,8 +115,18 @@ function StatusDropdown({
     );
 }
 
+interface Empleado {
+    id: number;
+    nombre: string;
+    apellido: string;
+    rut: string | null;
+    email: string | null;
+    telefono: string | null;
+}
+
 interface Conductor {
     id: number;
+    empleado_id: number | null;
     nombre: string;
     rut: string | null;
     licencia: string | null;
@@ -140,9 +150,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Index({
     conductores,
+    empleados = [],
     filters = {},
 }: {
     conductores: { data: Conductor[]; links: any[]; meta?: any; total: number };
+    empleados: Empleado[];
     filters?: { search?: string; estado?: string };
 }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -160,6 +172,7 @@ export default function Index({
         errors,
         clearErrors,
     } = useForm({
+        empleado_id: null as number | null,
         nombre: '',
         rut: '',
         licencia: '',
@@ -231,6 +244,25 @@ export default function Index({
         }
     };
 
+    const handleEmpleadoChange = (val: string) => {
+        const empId = val === 'none' ? null : parseInt(val);
+        setData('empleado_id', empId);
+
+        if (empId) {
+            const emp = empleados.find((e) => e.id === empId);
+            if (emp) {
+                setData((prev) => ({
+                    ...prev,
+                    empleado_id: empId,
+                    nombre: `${emp.nombre} ${emp.apellido}`,
+                    rut: emp.rut || prev.rut,
+                    email: emp.email || prev.email,
+                    telefono: emp.telefono || prev.telefono,
+                }));
+            }
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (editando)
@@ -255,6 +287,7 @@ export default function Index({
         setEditando(c);
         clearErrors();
         setData({
+            empleado_id: c.empleado_id || null,
             nombre: c.nombre,
             rut: c.rut || '',
             licencia: c.licencia || '',
@@ -270,6 +303,7 @@ export default function Index({
         reset();
         clearErrors();
         setData({
+            empleado_id: null,
             nombre: '',
             rut: '',
             licencia: '',
@@ -586,6 +620,34 @@ export default function Index({
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="p-6 pt-0">
                         <div className="grid gap-6 py-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                    Vincular con Empleado (Opcional)
+                                </Label>
+                                <Select
+                                    value={data.empleado_id?.toString() || 'none'}
+                                    onValueChange={handleEmpleadoChange}
+                                >
+                                    <SelectTrigger className="h-11 border-none bg-muted/30 focus-visible:ring-primary/30">
+                                        <SelectValue placeholder="Seleccionar un empleado..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">
+                                            Ninguno (Crear independiente)
+                                        </SelectItem>
+                                        {empleados.map((emp) => (
+                                            <SelectItem
+                                                key={emp.id}
+                                                value={emp.id.toString()}
+                                            >
+                                                {emp.nombre} {emp.apellido} (
+                                                {emp.rut || 'Sin RUT'})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <FormInput
                                     label="Nombre Completo *"

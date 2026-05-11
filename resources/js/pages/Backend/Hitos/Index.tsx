@@ -9,6 +9,7 @@ import {
     Upload,
 } from 'lucide-react';
 import { useState, useMemo, useRef } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +19,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { BulkActions } from '@/components/shared/BulkActions';
 import {
     Dialog,
     DialogContent,

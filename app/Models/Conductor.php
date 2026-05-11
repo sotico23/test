@@ -12,7 +12,7 @@ class Conductor extends Model
 
     protected $table = 'conductores';
 
-    protected $fillable = ['owner_id', 'nombre', 'rut', 'licencia', 'fecha_vencimiento_licencia', 'telefono', 'email', 'estado', 'notas', 'lat', 'lng', 'ultima_actualizacion'];
+    protected $fillable = ['owner_id', 'empleado_id', 'nombre', 'rut', 'licencia', 'fecha_vencimiento_licencia', 'telefono', 'email', 'estado', 'notas', 'lat', 'lng', 'ultima_actualizacion'];
 
     protected $appends = ['estadisticas_ventas'];
 
@@ -21,6 +21,11 @@ class Conductor extends Model
         return [
             'fecha_vencimiento_licencia' => 'datetime',
         ];
+    }
+
+    public function empleado()
+    {
+        return $this->belongsTo(Empleado::class);
     }
 
     public function cargasDiarias()

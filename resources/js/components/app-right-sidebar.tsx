@@ -28,6 +28,9 @@ import {
     ShieldCheck,
     RefreshCw,
     Package,
+    ShoppingBag,
+    MessageCircle,
+    Trash2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
@@ -95,6 +98,61 @@ export function AppRightSidebar() {
     const [socialMenuOpen, setSocialMenuOpen] = useState(false);
     const [marketplaceMenuOpen, setMarketplaceMenuOpen] = useState(false);
 
+    // Auto-borrar notificaciones después de 5 minutos
+    useEffect(() => {
+        const autoDeleteTimeout = setTimeout(
+            () => {
+                const markAllAsRead = async () => {
+                    try {
+                        const csrfToken =
+                            document.head
+                                .querySelector('meta[name="csrf-token"]')
+                                ?.getAttribute('content') || '';
+                        await fetch('/notifications/mark-as-read', {
+                            method: 'POST',
+                            headers: { 'X-CSRF-TOKEN': csrfToken },
+                        });
+                    } catch (e) {
+                        console.error('Error auto marking as read:', e);
+                    }
+                };
+                markAllAsRead();
+            },
+            5 * 60 * 1000,
+        ); // 5 minutos
+
+        return () => clearTimeout(autoDeleteTimeout);
+    }, []);
+
+    const eliminarNotificacion = async (notificationId: string) => {
+        try {
+            const csrfToken =
+                document.head
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute('content') || '';
+            const resp = await fetch(`/notifications/${notificationId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    Accept: 'application/json',
+                },
+            });
+            if (resp.ok) {
+                fetchNotificaciones();
+            } else {
+                console.error(
+                    'Error deleting:',
+                    resp.status,
+                    await resp.text(),
+                );
+                alert('Error al eliminar notificación: ' + resp.status);
+            }
+        } catch (e) {
+            console.error('Error eliminando notificacion:', e);
+            alert('Error de conexión');
+        }
+    };
+
     useEffect(() => {
         fetchNotificaciones();
     }, []);
@@ -142,7 +200,7 @@ export function AppRightSidebar() {
     return (
         <Sidebar side="right" variant="inset">
             <SidebarContent className="gap-4">
-                <SidebarGroup className="px-2 py-0">
+                <SidebarGroup className="tour-profile px-2 py-0">
                     <SidebarGroupLabel>Usuario</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <div className="rounded-lg bg-sidebar-accent/50 p-3">
@@ -150,16 +208,16 @@ export function AppRightSidebar() {
                             {auth.user.permissions?.includes(
                                 'gestionar perfil publico',
                             ) && (
-                                    <div className="mt-3">
-                                        <Link
-                                            href={editPublicProfile()}
-                                            className="flex items-center gap-1 text-xs text-primary hover:underline"
-                                        >
-                                            <Store className="h-3 w-3" />
-                                            Configurar Tienda
-                                        </Link>
-                                    </div>
-                                )}
+                                <div className="mt-3">
+                                    <Link
+                                        href={editPublicProfile()}
+                                        className="flex items-center gap-1 text-xs text-primary hover:underline"
+                                    >
+                                        <Store className="h-3 w-3" />
+                                        Configurar Tienda
+                                    </Link>
+                                </div>
+                            )}
                         </div>
                     </SidebarGroupContent>
                 </SidebarGroup>
@@ -168,7 +226,7 @@ export function AppRightSidebar() {
 
                 {auth.user.permissions?.includes('gestionar finanzas') && (
                     <Collapsible
-                        className="px-2 mb-2"
+                        className="mb-2 px-2"
                         open={siiMenuOpen}
                         onOpenChange={setSiiMenuOpen}
                     >
@@ -184,21 +242,30 @@ export function AppRightSidebar() {
                             )}
                         </CollapsibleTrigger>
                         <CollapsibleContent className="space-y-1 pt-2">
-                            <SidebarMenuButton asChild tooltip={{ children: 'Panel General SII' }}>
+                            <SidebarMenuButton
+                                asChild
+                                tooltip={{ children: 'Panel General SII' }}
+                            >
                                 <Link href="/sii" prefetch>
                                     <PieChart className="h-4 w-4" />
                                     <span>Panel General DTE</span>
                                 </Link>
                             </SidebarMenuButton>
 
-                            <SidebarMenuButton asChild tooltip={{ children: 'Documentos Emitidos' }}>
+                            <SidebarMenuButton
+                                asChild
+                                tooltip={{ children: 'Documentos Emitidos' }}
+                            >
                                 <Link href="/sii/documentos" prefetch>
                                     <FileText className="h-4 w-4" />
                                     <span>Documentos Emitidos</span>
                                 </Link>
                             </SidebarMenuButton>
 
-                            <SidebarMenuButton asChild tooltip={{ children: 'Cargar Folios (CAF)' }}>
+                            <SidebarMenuButton
+                                asChild
+                                tooltip={{ children: 'Cargar Folios (CAF)' }}
+                            >
                                 <Link href="/sii/caf/subir" prefetch>
                                     <Plus className="h-4 w-4" />
                                     <span>Subir Archivo CAF</span>
@@ -207,32 +274,54 @@ export function AppRightSidebar() {
 
                             <div className="my-2 border-t border-zinc-100 dark:border-zinc-800" />
 
-                            <SidebarMenuButton asChild tooltip={{ children: 'Certificado Digital' }}>
-                                <Link href="/sii/configuracion/certificado" prefetch>
+                            <SidebarMenuButton
+                                asChild
+                                tooltip={{ children: 'Certificado Digital' }}
+                            >
+                                <Link
+                                    href="/sii/configuracion/certificado"
+                                    prefetch
+                                >
                                     <Key className="h-4 w-4" />
                                     <span>Certificado Digital</span>
                                 </Link>
                             </SidebarMenuButton>
 
-                            <SidebarMenuButton asChild tooltip={{ children: 'Datos del Emisor' }}>
+                            <SidebarMenuButton
+                                asChild
+                                tooltip={{ children: 'Datos del Emisor' }}
+                            >
                                 <Link href="/sii/configuracion/emisor" prefetch>
                                     <Settings2 className="h-4 w-4" />
                                     <span>Datos del Emisor</span>
                                 </Link>
                             </SidebarMenuButton>
 
-                            <SidebarMenuButton asChild tooltip={{ children: 'Stock de Folios' }}>
-                                <Link href="/sii/configuracion/folios" prefetch className="flex justify-between items-center w-full">
+                            <SidebarMenuButton
+                                asChild
+                                tooltip={{ children: 'Stock de Folios' }}
+                            >
+                                <Link
+                                    href="/sii/configuracion/folios"
+                                    prefetch
+                                    className="flex w-full items-center justify-between"
+                                >
                                     <div className="flex items-center gap-2">
                                         <FileCode className="h-4 w-4" />
                                         <span>Stock de Folios</span>
                                     </div>
-                                    <AlertCircle className="h-3 w-3 text-rose-500 hidden" />
+                                    <AlertCircle className="hidden h-3 w-3 text-rose-500" />
                                 </Link>
                             </SidebarMenuButton>
 
-                            <SidebarMenuButton asChild tooltip={{ children: 'Ambiente de Trabajo' }}>
-                                <Link href="/sii/configuracion/ambiente" prefetch>
+                            <SidebarMenuButton
+                                asChild
+                                tooltip={{ children: 'Ambiente de Trabajo' }}
+                            >
+                                <Link
+                                    href="/sii/configuracion/ambiente"
+                                    prefetch
+                                >
                                     <Globe className="h-4 w-4" />
                                     <span>Ambiente Trabajo</span>
                                 </Link>
@@ -242,7 +331,7 @@ export function AppRightSidebar() {
                 )}
 
                 <Collapsible
-                    className="px-2 mb-2"
+                    className="mb-2 px-2"
                     open={socialMenuOpen}
                     onOpenChange={setSocialMenuOpen}
                 >
@@ -286,7 +375,7 @@ export function AppRightSidebar() {
                 </Collapsible>
 
                 <Collapsible
-                    className="px-2 mb-2"
+                    className="mb-2 px-2"
                     open={siiMenuOpen}
                     onOpenChange={setSiiMenuOpen}
                 >
@@ -302,21 +391,30 @@ export function AppRightSidebar() {
                         )}
                     </CollapsibleTrigger>
                     <CollapsibleContent className="space-y-1 pt-2">
-                        <SidebarMenuButton asChild tooltip={{ children: 'Panel General SII' }}>
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Panel General SII' }}
+                        >
                             <Link href="/sii" prefetch>
                                 <PieChart className="h-4 w-4" />
                                 <span>Panel General DTE</span>
                             </Link>
                         </SidebarMenuButton>
 
-                        <SidebarMenuButton asChild tooltip={{ children: 'Documentos Emitidos' }}>
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Documentos Emitidos' }}
+                        >
                             <Link href="/sii/documentos" prefetch>
                                 <FileText className="h-4 w-4" />
                                 <span>Documentos Emitidos</span>
                             </Link>
                         </SidebarMenuButton>
 
-                        <SidebarMenuButton asChild tooltip={{ children: 'Cargar Folios (CAF)' }}>
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Cargar Folios (CAF)' }}
+                        >
                             <Link href="/sii/caf/subir" prefetch>
                                 <Plus className="h-4 w-4" />
                                 <span>Subir Archivo CAF</span>
@@ -325,31 +423,50 @@ export function AppRightSidebar() {
 
                         <div className="my-2 border-t border-zinc-100 dark:border-zinc-800" />
 
-                        <SidebarMenuButton asChild tooltip={{ children: 'Certificado Digital' }}>
-                            <Link href="/sii/configuracion/certificado" prefetch>
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Certificado Digital' }}
+                        >
+                            <Link
+                                href="/sii/configuracion/certificado"
+                                prefetch
+                            >
                                 <Key className="h-4 w-4" />
                                 <span>Certificado Digital</span>
                             </Link>
                         </SidebarMenuButton>
 
-                        <SidebarMenuButton asChild tooltip={{ children: 'Datos del Emisor' }}>
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Datos del Emisor' }}
+                        >
                             <Link href="/sii/configuracion/emisor" prefetch>
                                 <Settings2 className="h-4 w-4" />
                                 <span>Datos del Emisor</span>
                             </Link>
                         </SidebarMenuButton>
 
-                        <SidebarMenuButton asChild tooltip={{ children: 'Stock de Folios' }}>
-                            <Link href="/sii/configuracion/folios" prefetch className="flex justify-between items-center w-full">
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Stock de Folios' }}
+                        >
+                            <Link
+                                href="/sii/configuracion/folios"
+                                prefetch
+                                className="flex w-full items-center justify-between"
+                            >
                                 <div className="flex items-center gap-2">
                                     <FileCode className="h-4 w-4" />
                                     <span>Stock de Folios</span>
                                 </div>
-                                <AlertCircle className="h-3 w-3 text-rose-500 hidden" />
+                                <AlertCircle className="hidden h-3 w-3 text-rose-500" />
                             </Link>
                         </SidebarMenuButton>
 
-                        <SidebarMenuButton asChild tooltip={{ children: 'Ambiente de Trabajo' }}>
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Ambiente de Trabajo' }}
+                        >
                             <Link href="/sii/configuracion/ambiente" prefetch>
                                 <Globe className="h-4 w-4" />
                                 <span>Ambiente Trabajo</span>
@@ -358,9 +475,8 @@ export function AppRightSidebar() {
                     </CollapsibleContent>
                 </Collapsible>
 
-
                 <Collapsible
-                    className="px-2"
+                    className="tour-marketplace px-2"
                     open={marketplaceMenuOpen}
                     onOpenChange={setMarketplaceMenuOpen}
                 >
@@ -440,16 +556,209 @@ export function AppRightSidebar() {
                                 </span>
                             </SidebarGroupLabel>
                             <SidebarGroupContent>
-                                <Link
-                                    href="/pedidos-recibidos"
-                                    className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:bg-amber-900/10 dark:text-amber-400"
-                                >
-                                    <CartIcon className="h-4 w-4" />
-                                    <span>
-                                        Tienes {auth.user.pending_orders}{' '}
-                                        pedidos nuevos en espera
-                                    </span>
-                                </Link>
+                                <div className="space-y-2">
+                                    <Link
+                                        href="/pedidos-recibidos"
+                                        className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:bg-amber-900/10 dark:text-amber-400"
+                                    >
+                                        <CartIcon className="h-4 w-4" />
+                                        <span>
+                                            Tienes {auth.user.pending_orders}{' '}
+                                            pedidos nuevos en espera
+                                        </span>
+                                    </Link>
+
+                                    {/* Notificaciones de Pedidos */}
+                                    {(() => {
+                                        const orderNotifs = (
+                                            auth.user.recent_notifications || []
+                                        ).filter((n: any) => {
+                                            const data =
+                                                typeof n.data === 'string'
+                                                    ? JSON.parse(n.data)
+                                                    : n.data || {};
+                                            return (
+                                                data.tipo === 'nuevo_pedido' ||
+                                                data.tipo ===
+                                                    'actualizacion_pedido'
+                                            );
+                                        });
+
+                                        if (orderNotifs.length === 0) {
+                                            return null;
+                                        }
+
+                                        return orderNotifs
+                                            .slice(0, 3)
+                                            .map((notification: any) => {
+                                                const data =
+                                                    typeof notification.data ===
+                                                    'string'
+                                                        ? JSON.parse(
+                                                              notification.data,
+                                                          )
+                                                        : notification.data ||
+                                                          {};
+                                                return (
+                                                    <Link
+                                                        key={notification.id}
+                                                        href={
+                                                            data.pedido_id
+                                                                ? `/pedidos/${data.pedido_id}`
+                                                                : '/pedidos-recibidos'
+                                                        }
+                                                        className={cn(
+                                                            'group relative block overflow-hidden rounded-lg border border-border/50 p-2 text-xs transition-colors hover:bg-sidebar-accent/50',
+                                                            !notification.read_at &&
+                                                                'border-primary/20 bg-primary/5',
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            {data.tipo ===
+                                                            'nuevo_pedido' ? (
+                                                                <Package className="h-3 w-3 text-amber-500" />
+                                                            ) : (
+                                                                <RefreshCw className="h-3 w-3 text-blue-500" />
+                                                            )}
+                                                            <span className="truncate font-medium">
+                                                                {data.titulo ||
+                                                                    'Actualización de pedido'}
+                                                            </span>
+                                                            <button
+                                                                onClick={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    eliminarNotificacion(
+                                                                        notification.id,
+                                                                    );
+                                                                }}
+                                                                className="ml-auto text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                        <p className="mt-1 line-clamp-2 text-muted-foreground">
+                                                            {data.mensaje || ''}
+                                                        </p>
+                                                    </Link>
+                                                );
+                                            });
+                                    })()}
+                                </div>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
+
+                        {/* Mensajes del Chat */}
+                        <SidebarGroup className="px-2 py-0">
+                            <SidebarGroupLabel className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <MessageSquare className="mr-2 inline h-4 w-4" />
+                                    Mensajes del Chat
+                                </div>
+                                {(() => {
+                                    const chatNotifs = (
+                                        auth.user.recent_notifications || []
+                                    ).filter((n: any) => {
+                                        const data =
+                                            typeof n.data === 'string'
+                                                ? JSON.parse(n.data)
+                                                : n.data || {};
+                                        return (
+                                            data.tipo === 'mensaje_chat_pedido'
+                                        );
+                                    });
+                                    const unreadCount = chatNotifs.filter(
+                                        (n: any) => !n.read_at,
+                                    ).length;
+                                    return (
+                                        unreadCount > 0 && (
+                                            <span className="rounded-full bg-green-500 px-2 py-0.5 text-[10px] text-white">
+                                                {unreadCount}
+                                            </span>
+                                        )
+                                    );
+                                })()}
+                            </SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <div className="space-y-2">
+                                    {(() => {
+                                        const chatNotifs = (
+                                            auth.user.recent_notifications || []
+                                        ).filter((n: any) => {
+                                            const data =
+                                                typeof n.data === 'string'
+                                                    ? JSON.parse(n.data)
+                                                    : n.data || {};
+                                            return (
+                                                data.tipo ===
+                                                'mensaje_chat_pedido'
+                                            );
+                                        });
+
+                                        if (chatNotifs.length === 0) {
+                                            return (
+                                                <div className="py-2 text-center text-xs text-muted-foreground">
+                                                    No hay mensajes nuevos
+                                                </div>
+                                            );
+                                        }
+
+                                        return chatNotifs
+                                            .slice(0, 5)
+                                            .map((notification: any) => {
+                                                const data =
+                                                    typeof notification.data ===
+                                                    'string'
+                                                        ? JSON.parse(
+                                                              notification.data,
+                                                          )
+                                                        : notification.data ||
+                                                          {};
+                                                return (
+                                                    <Link
+                                                        key={notification.id}
+                                                        href={
+                                                            data.conversacion_id
+                                                                ? `/conversaciones-pedidos/${data.conversacion_id}/chat`
+                                                                : '/mis-pedidos'
+                                                        }
+                                                        className={cn(
+                                                            'group relative block overflow-hidden rounded-lg border border-border/50 p-2 text-xs transition-colors hover:bg-sidebar-accent/50',
+                                                            !notification.read_at &&
+                                                                'border-green-500/20 bg-green-500/5',
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <MessageCircle className="h-3 w-3 text-green-500" />
+                                                            <span className="truncate font-medium">
+                                                                {data.titulo ||
+                                                                    'Nuevo mensaje'}
+                                                            </span>
+                                                            <button
+                                                                onClick={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    eliminarNotificacion(
+                                                                        notification.id,
+                                                                    );
+                                                                }}
+                                                                className="ml-auto text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                        <p className="mt-1 line-clamp-2 text-muted-foreground">
+                                                            {data.mensaje || ''}
+                                                        </p>
+                                                    </Link>
+                                                );
+                                            });
+                                    })()}
+                                </div>
                             </SidebarGroupContent>
                         </SidebarGroup>
                     </>
@@ -463,138 +772,172 @@ export function AppRightSidebar() {
                             <Bell className="mr-2 inline h-4 w-4" />
                             Notificaciones sociales
                         </div>
-                        {(auth.user.unread_notifications || 0) > 0 && (
-                            <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] text-white">
-                                {auth.user.unread_notifications}
-                            </span>
-                        )}
+                        {(() => {
+                            const socialNotifs = (
+                                auth.user.recent_notifications || []
+                            ).filter((n: any) => {
+                                const data =
+                                    typeof n.data === 'string'
+                                        ? JSON.parse(n.data)
+                                        : n.data || {};
+                                return (
+                                    data.tipo !== 'nuevo_pedido' &&
+                                    data.tipo !== 'actualizacion_pedido' &&
+                                    data.tipo !== 'mensaje_chat_pedido'
+                                );
+                            });
+                            const unreadCount = socialNotifs.filter(
+                                (n: any) => !n.read_at,
+                            ).length;
+                            return (
+                                unreadCount > 0 && (
+                                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] text-white">
+                                        {unreadCount}
+                                    </span>
+                                )
+                            );
+                        })()}
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                         <div className="space-y-2">
-                            {!auth.user.recent_notifications ||
-                                auth.user.recent_notifications.length === 0 ? (
-                                <div className="py-4 text-center text-xs text-muted-foreground">
-                                    No tienes notificaciones
-                                </div>
-                            ) : (
-                                <>
-                                    {auth.user.recent_notifications
-                                        .slice(0, 5)
-                                        .map((notification: any) => (
-                                            <div
-                                                key={notification.id}
-                                                className={cn(
-                                                    'group relative overflow-hidden rounded-lg border border-border/50 text-xs transition-colors hover:bg-sidebar-accent/50',
-                                                    !notification.read_at &&
-                                                    'border-primary/20 bg-primary/5',
-                                                )}
-                                            >
-                                                {/* Main notification link - absolute background */}
-                                                <Link
-                                                    href={
-                                                        notification.data
-                                                            .link ||
-                                                        '/comunidad'
-                                                    }
-                                                    className="absolute inset-0 z-0"
-                                                />
+                            {(() => {
+                                const socialNotifs = (
+                                    auth.user.recent_notifications || []
+                                ).filter((n: any) => {
+                                    const data =
+                                        typeof n.data === 'string'
+                                            ? JSON.parse(n.data)
+                                            : n.data || {};
+                                    return (
+                                        data.tipo !== 'nuevo_pedido' &&
+                                        data.tipo !== 'actualizacion_pedido' &&
+                                        data.tipo !== 'mensaje_chat_pedido'
+                                    );
+                                });
 
-                                                {/* Foreground content with interaction areas */}
-                                                <div className="pointer-events-none relative z-10 flex items-start gap-2 p-2">
-                                                    <div className="mt-0.5 shrink-0">
-                                                        {notification.data
-                                                            .type ===
-                                                            'like' && (
-                                                                <ThumbsUp className="h-3 w-3 text-primary" />
-                                                            )}
-                                                        {notification.data
-                                                            .type ===
-                                                            'heart' && (
-                                                                <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
-                                                            )}
-                                                        {!notification.data
-                                                            .type && (
-                                                                <MessageSquare className="h-3 w-3 text-violet-500" />
-                                                            )}
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="text-[11px] leading-snug">
-                                                            {notification.data
-                                                                .user_id ? (
-                                                                <Link
-                                                                    href={`/perfil/${notification.data.user_id}`}
-                                                                    className="pointer-events-auto font-semibold hover:text-primary hover:underline"
-                                                                    onClick={(
-                                                                        e,
-                                                                    ) =>
-                                                                        e.stopPropagation()
-                                                                    }
-                                                                >
-                                                                    {
-                                                                        notification
-                                                                            .data
-                                                                            .user_name
-                                                                    }
-                                                                </Link>
-                                                            ) : (
-                                                                <span className="font-semibold">
-                                                                    {notification
-                                                                        .data
-                                                                        .user_name ||
-                                                                        'Usuario'}
+                                if (socialNotifs.length === 0) {
+                                    return (
+                                        <div className="py-4 text-center text-xs text-muted-foreground">
+                                            No tienes notificaciones
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <>
+                                        {socialNotifs
+                                            .slice(0, 5)
+                                            .map((notification: any) => {
+                                                const data =
+                                                    typeof notification.data ===
+                                                    'string'
+                                                        ? JSON.parse(
+                                                              notification.data,
+                                                          )
+                                                        : notification.data ||
+                                                          {};
+
+                                                return (
+                                                    <div
+                                                        key={notification.id}
+                                                        className={cn(
+                                                            'group relative overflow-hidden rounded-lg border border-border/50 text-xs transition-colors hover:bg-sidebar-accent/50',
+                                                            !notification.read_at &&
+                                                                'border-primary/20 bg-primary/5',
+                                                        )}
+                                                    >
+                                                        {/* Main notification link - absolute background */}
+                                                        <Link
+                                                            href={
+                                                                data.link ||
+                                                                '/comunidad'
+                                                            }
+                                                            className="absolute inset-0 z-0"
+                                                        />
+
+                                                        {/* Foreground content with interaction areas */}
+                                                        <div className="pointer-events-none relative z-10 flex items-start gap-2 p-2">
+                                                            <div className="mt-0.5 shrink-0">
+                                                                {data.type ===
+                                                                    'like' && (
+                                                                    <ThumbsUp className="h-3 w-3 text-primary" />
+                                                                )}
+                                                                {data.type ===
+                                                                    'heart' && (
+                                                                    <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
+                                                                )}
+                                                                {!data.type && (
+                                                                    <MessageSquare className="h-3 w-3 text-violet-500" />
+                                                                )}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-[11px] leading-snug">
+                                                                    {data.user_id ? (
+                                                                        <Link
+                                                                            href={`/perfil/${data.user_id}`}
+                                                                            className="pointer-events-auto font-semibold hover:text-primary hover:underline"
+                                                                            onClick={(
+                                                                                e,
+                                                                            ) =>
+                                                                                e.stopPropagation()
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                data.user_name
+                                                                            }
+                                                                        </Link>
+                                                                    ) : (
+                                                                        <span className="font-semibold">
+                                                                            {data.user_name ||
+                                                                                'Usuario'}
+                                                                        </span>
+                                                                    )}{' '}
+                                                                    {data.message &&
+                                                                    data.user_name
+                                                                        ? data.message.split(
+                                                                              data.user_name,
+                                                                          )[1] ||
+                                                                          data.message
+                                                                        : data.message ||
+                                                                          ''}
+                                                                </p>
+                                                                <span className="text-[9px] text-muted-foreground opacity-70">
+                                                                    {formatFecha(
+                                                                        notification.created_at,
+                                                                    )}
                                                                 </span>
-                                                            )}{' '}
-                                                            {notification.data
-                                                                .message &&
-                                                                notification.data
-                                                                    .user_name
-                                                                ? notification.data.message.split(
-                                                                    notification
-                                                                        .data
-                                                                        .user_name,
-                                                                )[1] ||
-                                                                notification
-                                                                    .data
-                                                                    .message
-                                                                : notification
-                                                                    .data
-                                                                    .message ||
-                                                                ''}
-                                                        </p>
-                                                        <span className="text-[9px] text-muted-foreground opacity-70">
-                                                            {formatFecha(
-                                                                notification.created_at,
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                                            </div>
+                                                        </div>
 
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        router.delete(
-                                                            `/notifications/${notification.id}`,
-                                                            {
-                                                                preserveScroll: true,
-                                                            },
-                                                        );
-                                                    }}
-                                                    className="absolute top-1 right-1 z-20 rounded-full p-1 text-muted-foreground opacity-0 transition-colors group-hover:opacity-100 hover:bg-red-100 hover:text-red-600"
-                                                    title="Eliminar notificación"
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    {(auth.user.unread_notifications || 0) >
-                                        0 && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                router.delete(
+                                                                    `/notifications/${notification.id}`,
+                                                                    {
+                                                                        preserveScroll: true,
+                                                                    },
+                                                                );
+                                                            }}
+                                                            className="absolute top-1 right-1 z-20 rounded-full p-1 text-muted-foreground opacity-0 transition-colors group-hover:opacity-100 hover:bg-red-100 hover:text-red-600"
+                                                            title="Eliminar notificación"
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        {(auth.user.unread_notifications || 0) >
+                                            0 && (
                                             <button
                                                 onClick={() =>
                                                     router.post(
                                                         '/notifications/mark-as-read',
                                                         {},
-                                                        { preserveScroll: true },
+                                                        {
+                                                            preserveScroll: true,
+                                                        },
                                                     )
                                                 }
                                                 className="mt-1 w-full text-center text-[10px] text-primary hover:underline"
@@ -602,8 +945,9 @@ export function AppRightSidebar() {
                                                 Marcar todas como leídas
                                             </button>
                                         )}
-                                </>
-                            )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </SidebarGroupContent>
                 </SidebarGroup>

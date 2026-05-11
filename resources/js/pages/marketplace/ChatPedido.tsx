@@ -43,6 +43,7 @@ interface Conversacion {
     comprador: { id: number; name: string };
     publicProfile: { id: number; title: string; slug: string; user_id: number };
     mensajes: Message[];
+    otro_usuario?: { id: number; name: string };
 }
 
 interface Props {
@@ -140,15 +141,18 @@ export default function ChatPedido({
                 formData.append('archivo', selectedFile);
             }
 
+            const csrfToken =
+                document.head
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute('content') || '';
+
             const resp = await fetch(
                 `/conversaciones-pedidos/${conversacion.id}/mensajes`,
                 {
                     method: 'POST',
                     headers: {
-                        'X-CSRF-TOKEN':
-                            document.head
-                                .querySelector('meta[name="csrf-token"]')
-                                ?.getAttribute('content') || '',
+                        'X-CSRF-TOKEN': csrfToken,
+                        Accept: 'application/json',
                     },
                     body: formData,
                 },
@@ -160,9 +164,14 @@ export default function ChatPedido({
                 reset();
                 clearFile();
                 scrollToBottom();
+            } else {
+                const errorText = await resp.text();
+                console.error('Error response:', resp.status, errorText);
+                alert('Error al enviar mensaje: ' + resp.status);
             }
         } catch (error) {
-            console.error(error);
+            console.error('Error:', error);
+            alert('Error de conexión al enviar mensaje');
         }
     };
 

@@ -27,6 +27,7 @@ import {
     Layers
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,8 +45,15 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -53,18 +61,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Toaster } from '@/components/ui/sonner';
 import AppLayout from '@/layouts/app-layout';
 import { formatDateCLP } from '@/lib/utils';
-import Pagination from '@/components/ui/Pagination';
 import type { BreadcrumbItem } from '@/types';
-import { toast } from 'sonner';
-import { Toaster } from '@/components/ui/sonner';
 
 interface Lote {
     id: number;

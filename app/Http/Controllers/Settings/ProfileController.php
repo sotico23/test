@@ -236,4 +236,13 @@ class ProfileController extends Controller
 
         return redirect('/');
     }
+
+    public function disableOnboarding(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $user->show_onboarding = false;
+        $user->save();
+
+        return back()->with('success', 'Onboarding disabled');
+    }
 }

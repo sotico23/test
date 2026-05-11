@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Traits\HasBulkOperations;
 use App\Imports\ConductoresImport;
 use App\Models\Conductor;
+use App\Models\Empleado;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -37,6 +38,7 @@ class ConductorController extends Controller
 
         return Inertia::render('Backend/Conductores/Index', [
             'conductores' => $conductores,
+            'empleados' => Empleado::orderBy('nombre')->get(['id', 'nombre', 'apellido', 'rut', 'email', 'telefono']),
             'filters' => $request->only(['search', 'estado']),
         ]);
     }
@@ -48,6 +50,7 @@ class ConductorController extends Controller
         }
 
         $validated = $request->validate([
+            'empleado_id' => 'nullable|exists:empleados,id',
             'nombre' => 'required|string|max:255',
             'rut' => 'nullable|string|max:20|unique:conductores,rut',
             'licencia' => 'nullable|string|max:50',
@@ -73,6 +76,7 @@ class ConductorController extends Controller
         }
 
         $rules = [
+            'empleado_id' => 'sometimes|nullable|exists:empleados,id',
             'nombre' => 'sometimes|string|max:255',
             'rut' => 'sometimes|nullable|string|max:20|unique:conductores,rut,'.$conductore->id,
             'licencia' => 'sometimes|nullable|string|max:50',

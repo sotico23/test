@@ -1,11 +1,11 @@
 import { Head, useForm } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { FormInput } from '@/components/form-input';
-import { Switch } from '@/components/ui/switch';
 import { CreditCard, Save, Info, ExternalLink, ShieldCheck, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormInput } from '@/components/form-input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import AppLayout from '@/layouts/app-layout';
 
 export default function WebpayConfig({ config }: { config: any }) {
     const { data, setData, post, processing, errors } = useForm({

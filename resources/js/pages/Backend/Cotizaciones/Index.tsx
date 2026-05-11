@@ -24,6 +24,7 @@ import {
     MoreHorizontal
 } from 'lucide-react';
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,8 +42,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/ui/Pagination';
 import {
     Select,
     SelectContent,
@@ -50,13 +58,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import Pagination from '@/components/ui/Pagination';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
@@ -113,7 +114,6 @@ const ESTADOS = [
     { value: 'expirada', label: 'Expirada', color: 'bg-orange-500/10 text-orange-600 border-orange-200' },
 ];
 
-import { BulkActions } from '@/components/shared/BulkActions';
 
 export default function Index({
     cotizaciones,

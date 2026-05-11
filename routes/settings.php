@@ -13,6 +13,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('settings/profile/onboarding', [ProfileController::class, 'disableOnboarding'])->name('profile.onboarding.disable');
 
     Route::get('mi-informacion', [UserProfileController::class, 'show'])->name('mi-informacion.show');
     Route::patch('mi-informacion', [UserProfileController::class, 'update'])->name('mi-informacion.update');

@@ -521,10 +521,10 @@ export default function TareasIndex({
                                                                                 prod
                                                                             ) {
                                                                                 const valor =
-                                                                                    (prod.cantidad_medida ||
-                                                                                        (prod.medida_pesable
-                                                                                            ? 1
-                                                                                            : 0)) *
+                                                                                    (prod.medida_pesable
+                                                                                        ? prod.cantidad_medida ||
+                                                                                          0
+                                                                                        : 0) *
                                                                                     item.cantidad;
                                                                                 if (
                                                                                     prod.tipo_medida ===
@@ -548,7 +548,8 @@ export default function TareasIndex({
                                                                                 0 && (
                                                                                 <span className="flex items-center gap-1">
                                                                                     <Scale className="h-3 w-3" />
-                                                                                    Total: {totalKilos.toFixed(
+                                                                                    Total:{' '}
+                                                                                    {totalKilos.toFixed(
                                                                                         2,
                                                                                     )}{' '}
                                                                                     kg
@@ -558,7 +559,8 @@ export default function TareasIndex({
                                                                                 0 && (
                                                                                 <span className="flex items-center gap-1">
                                                                                     <Droplets className="h-3 w-3" />
-                                                                                    Total: {totalLitros.toFixed(
+                                                                                    Total:{' '}
+                                                                                    {totalLitros.toFixed(
                                                                                         2,
                                                                                     )}{' '}
                                                                                     L

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Categoria;
+use App\Models\PaymentConfig;
 use App\Models\Producto;
 use App\Models\PublicProfile;
 use App\Models\StoreReaction;
@@ -53,9 +54,18 @@ class MarketplaceController extends Controller
                 ->first();
         }
 
+        $paymentConfig = PaymentConfig::withoutGlobalScope(OwnerScope::class)
+            ->where('owner_id', $publicProfile->user_id)
+            ->first();
+
         return Inertia::render('marketplace/show', [
             'store' => $publicProfile,
             'userReaction' => $userReaction,
+            'paymentConfig' => $paymentConfig ? [
+                'is_active' => (bool) $paymentConfig->is_active,
+                'paypal_active' => (bool) $paymentConfig->paypal_active,
+                'mercadopago_active' => (bool) $paymentConfig->mercadopago_active,
+            ] : null,
         ]);
     }
 
@@ -155,11 +165,20 @@ class MarketplaceController extends Controller
             ->limit(4)
             ->get();
 
+        $paymentConfig = PaymentConfig::withoutGlobalScope(OwnerScope::class)
+            ->where('owner_id', $publicProfile->user_id)
+            ->first();
+
         return Inertia::render('marketplace/category', [
             'store' => $publicProfile,
             'categoria' => $categoria,
             'productos' => $productos,
             'randomProductos' => $randomProductos,
+            'paymentConfig' => $paymentConfig ? [
+                'is_active' => (bool) $paymentConfig->is_active,
+                'paypal_active' => (bool) $paymentConfig->paypal_active,
+                'mercadopago_active' => (bool) $paymentConfig->mercadopago_active,
+            ] : null,
         ]);
     }
 }

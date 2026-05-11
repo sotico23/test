@@ -2,6 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { Pencil, Plus, Trash2, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { useMemo } from 'react';
+import { BulkActions } from '@/components/shared/BulkActions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,7 +25,6 @@ import Pagination from '@/components/ui/Pagination';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyCLP, formatDateCLP } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
-import { BulkActions } from '@/components/shared/BulkActions';
 
 interface Nomina {
     id: number;

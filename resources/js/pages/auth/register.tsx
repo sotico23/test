@@ -4,6 +4,7 @@ import { SocialLoginButtons } from '@/components/social-login-buttons';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/auth-layout';
@@ -62,9 +63,8 @@ export default function Register() {
 
                             <div className="grid gap-2">
                                 <Label htmlFor="password">Contraseña</Label>
-                                <Input
+                                <PasswordInput
                                     id="password"
-                                    type="password"
                                     required
                                     tabIndex={3}
                                     autoComplete="new-password"
@@ -78,9 +78,8 @@ export default function Register() {
                                 <Label htmlFor="password_confirmation">
                                     Confirmar contraseña
                                 </Label>
-                                <Input
+                                <PasswordInput
                                     id="password_confirmation"
-                                    type="password"
                                     required
                                     tabIndex={4}
                                     autoComplete="new-password"
