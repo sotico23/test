@@ -23,6 +23,10 @@ Route::post('conductores/import', [ConductorController::class, 'importCsv'])->na
 Route::post('conductores/import-excel', [ConductorController::class, 'importExcel'])->name('conductores.importExcel');
 Route::post('conductores/{conductor}/simular', [ConductorController::class, 'simularTracking'])->name('conductores.simular');
 Route::post('conductores/{conductor}/limpiar', [ConductorController::class, 'limpiarTracking'])->name('conductores.limpiar');
+Route::get('entregas/export', [EntregaController::class, 'exportCsv'])->name('entregas.export');
+Route::get('entregas/export-excel', [EntregaController::class, 'exportExcel'])->name('entregas.exportExcel');
+Route::post('entregas/import', [EntregaController::class, 'importCsv'])->name('entregas.import');
+Route::post('entregas/import-excel', [EntregaController::class, 'importExcel'])->name('entregas.importExcel');
 Route::resource('entregas', EntregaController::class);
 Route::resource('cargas-diarias', CargaDiariaController::class)->parameters(['cargas-diarias' => 'cargaDiaria']);
 Route::resource('grupos-trabajo', GrupoTrabajoController::class)->parameters(['grupos-trabajo' => 'grupoTrabajo']);

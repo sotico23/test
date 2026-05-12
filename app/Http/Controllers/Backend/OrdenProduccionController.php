@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\OrdenProduccionExport;
 use App\Http\Controllers\Controller;
+use App\Imports\OrdenProduccionImport;
 use App\Models\OrdenProduccion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class OrdenProduccionController extends Controller
 {
@@ -67,5 +70,35 @@ class OrdenProduccionController extends Controller
         $ordenesProduccion->delete();
 
         return redirect()->route('ordenes-produccion.index');
+    }
+
+    public function exportCsv(Request $request)
+    {
+        return Excel::download(new OrdenProduccionExport, 'ordenes_produccion_'.now()->format('Ymd_His').'.csv', \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        return Excel::download(new OrdenProduccionExport, 'ordenes_produccion_'.now()->format('Ymd_His').'.xlsx');
+    }
+
+    public function importCsv(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:csv,txt,xlsx,xls',
+        ]);
+
+        try {
+            Excel::import(new OrdenProduccionImport, $request->file('archivo'));
+
+            return redirect()->back()->with('success', 'Órdenes de producción importadas correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al importar: '.$e->getMessage());
+        }
+    }
+
+    public function importExcel(Request $request): RedirectResponse
+    {
+        return $this->importCsv($request);
     }
 }

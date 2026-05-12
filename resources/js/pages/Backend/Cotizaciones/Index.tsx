@@ -1,14 +1,14 @@
 import { Head, useForm, router } from '@inertiajs/react';
-import { 
-    Check, 
-    Pencil, 
-    Plus, 
-    Trash2, 
-    Search, 
-    X, 
-    Download, 
-    Upload, 
-    FileSpreadsheet, 
+import {
+    Check,
+    Pencil,
+    Plus,
+    Trash2,
+    Search,
+    X,
+    Download,
+    Upload,
+    FileSpreadsheet,
     FileText,
     Eye,
     Calculator,
@@ -21,7 +21,7 @@ import {
     Printer,
     ClipboardList,
     DollarSign,
-    MoreHorizontal
+    MoreHorizontal,
 } from 'lucide-react';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { BulkActions } from '@/components/shared/BulkActions';
@@ -107,13 +107,32 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const ESTADOS = [
-    { value: 'borrador', label: 'Borrador', color: 'bg-gray-500/10 text-gray-600 border-gray-200' },
-    { value: 'enviada', label: 'Enviada', color: 'bg-blue-500/10 text-blue-600 border-blue-200' },
-    { value: 'aceptada', label: 'Aceptada', color: 'bg-green-500/10 text-green-600 border-green-200' },
-    { value: 'rechazada', label: 'Rechazada', color: 'bg-red-500/10 text-red-600 border-red-200' },
-    { value: 'expirada', label: 'Expirada', color: 'bg-orange-500/10 text-orange-600 border-orange-200' },
+    {
+        value: 'borrador',
+        label: 'Borrador',
+        color: 'bg-gray-500/10 text-gray-600 border-gray-200',
+    },
+    {
+        value: 'enviada',
+        label: 'Enviada',
+        color: 'bg-blue-500/10 text-blue-600 border-blue-200',
+    },
+    {
+        value: 'aceptada',
+        label: 'Aceptada',
+        color: 'bg-green-500/10 text-green-600 border-green-200',
+    },
+    {
+        value: 'rechazada',
+        label: 'Rechazada',
+        color: 'bg-red-500/10 text-red-600 border-red-200',
+    },
+    {
+        value: 'expirada',
+        label: 'Expirada',
+        color: 'bg-orange-500/10 text-orange-600 border-orange-200',
+    },
 ];
-
 
 export default function Index({
     cotizaciones,
@@ -138,7 +157,9 @@ export default function Index({
     const [viendo, setViendo] = useState<Cotizacion | null>(null);
 
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [clienteFilter, setClienteFilter] = useState(filters.cliente_id || 'all');
+    const [clienteFilter, setClienteFilter] = useState(
+        filters.cliente_id || 'all',
+    );
     const [estadoFilter, setEstadoFilter] = useState(filters.estado || 'all');
 
     const {
@@ -162,7 +183,8 @@ export default function Index({
         estado: 'borrador',
         notas: '',
         detalles: [] as CotizacionDetalle[],
-        condiciones: 'Condiciones de pago: 50% al aprobar, 50% contra entrega.\nValidez de la oferta: 15 días.',
+        condiciones:
+            'Condiciones de pago: 50% al aprobar, 50% contra entrega.\nValidez de la oferta: 15 días.',
         iva_personalizado: 19,
         descuento_tipo: null as 'monto' | 'porcentaje' | null,
         descuento_monto: 0,
@@ -196,12 +218,20 @@ export default function Index({
         let descuentoAplicado = 0;
         if (data.descuento_tipo === 'monto' && data.descuento_monto) {
             descuentoAplicado = Math.round(Number(data.descuento_monto));
-        } else if (data.descuento_tipo === 'porcentaje' && data.descuento_monto) {
-            descuentoAplicado = Math.round(nSubtotal * (Number(data.descuento_monto) / 100));
+        } else if (
+            data.descuento_tipo === 'porcentaje' &&
+            data.descuento_monto
+        ) {
+            descuentoAplicado = Math.round(
+                nSubtotal * (Number(data.descuento_monto) / 100),
+            );
         }
 
         const nNeto = Math.round(nSubtotal - descuentoAplicado);
-        const porcIva = Number(data.iva_personalizado) >= 0 ? Number(data.iva_personalizado) : 19;
+        const porcIva =
+            Number(data.iva_personalizado) >= 0
+                ? Number(data.iva_personalizado)
+                : 19;
         const nImpuesto = Math.round(nNeto * (porcIva / 100));
         const nTotal = nNeto + nImpuesto;
 
@@ -211,18 +241,23 @@ export default function Index({
             impuesto: nImpuesto,
             total: nTotal,
         }));
-    }, [data.detalles, data.descuento_tipo, data.descuento_monto, data.iva_personalizado]);
+    }, [
+        data.detalles,
+        data.descuento_tipo,
+        data.descuento_monto,
+        data.iva_personalizado,
+    ]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const payload = {
             ...data,
             cliente_id: Number(data.cliente_id),
-            detalles: data.detalles.map(d => ({
+            detalles: data.detalles.map((d) => ({
                 ...d,
-                producto_id: d.producto_id ? Number(d.producto_id) : null
-            }))
+                producto_id: d.producto_id ? Number(d.producto_id) : null,
+            })),
         };
 
         if (editando) {
@@ -249,7 +284,9 @@ export default function Index({
             numero: cot.numero,
             cliente_id: String(cot.cliente_id),
             fecha: cot.fecha ? cot.fecha.substring(0, 10) : '',
-            fecha_validez: cot.fecha_validez ? cot.fecha_validez.substring(0, 10) : '',
+            fecha_validez: cot.fecha_validez
+                ? cot.fecha_validez.substring(0, 10)
+                : '',
             subtotal: Number(cot.subtotal) || 0,
             impuesto: Number(cot.impuesto) || 0,
             total: Number(cot.total) || 0,
@@ -295,14 +332,20 @@ export default function Index({
         ]);
     };
 
-    const updateDetalle = (index: number, field: keyof CotizacionDetalle, value: any) => {
+    const updateDetalle = (
+        index: number,
+        field: keyof CotizacionDetalle,
+        value: any,
+    ) => {
         const newDetalles = [...data.detalles];
         newDetalles[index] = { ...newDetalles[index], [field]: value };
 
         if (field === 'producto_id' && value) {
-            const prod = productos.find(p => p.id === Number(value));
+            const prod = productos.find((p) => p.id === Number(value));
             if (prod) {
-                newDetalles[index].descripcion = prod.nombre + (prod.descripcion ? ` - ${prod.descripcion}` : '');
+                newDetalles[index].descripcion =
+                    prod.nombre +
+                    (prod.descripcion ? ` - ${prod.descripcion}` : '');
                 newDetalles[index].precio = Number(prod.precio_venta) || 0;
             }
         }
@@ -310,97 +353,148 @@ export default function Index({
     };
 
     const removeDetalle = (index: number) => {
-        setData('detalles', data.detalles.filter((_, i) => i !== index));
+        setData(
+            'detalles',
+            data.detalles.filter((_, i) => i !== index),
+        );
     };
 
     const getEstadoConfig = (val: string) => {
-        return ESTADOS.find(e => e.value === val) || { label: val, color: 'bg-gray-500/10 text-gray-600 border-gray-200' };
+        return (
+            ESTADOS.find((e) => e.value === val) || {
+                label: val,
+                color: 'bg-gray-500/10 text-gray-600 border-gray-200',
+            }
+        );
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Presupuestos y Cotizaciones" />
-            
+
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8">
                 {/* Header Section */}
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="mb-1 flex items-center gap-2">
                             <FileCheck className="h-5 w-5 text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Sales Management System</span>
+                            <span className="text-[10px] font-black tracking-widest text-primary/70 uppercase">
+                                Sales Management System
+                            </span>
                         </div>
-                        <h1 className="text-3xl font-black tracking-tight text-foreground">Cotizaciones</h1>
+                        <h1 className="text-3xl font-black tracking-tight text-foreground">
+                            Cotizaciones
+                        </h1>
                         <p className="text-sm font-medium text-muted-foreground">
-                            Cree y gestione presupuestos profesionales para sus clientes
+                            Cree y gestione presupuestos profesionales para sus
+                            clientes
                         </p>
                     </div>
-                    
-                    <div className="flex flex-wrap gap-2 items-center">
-                        <BulkActions 
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <BulkActions
                             baseUrl="/cotizaciones"
-                            filters={{ 
-                                search: searchTerm, 
-                                cliente_id: clienteFilter, 
-                                estado: estadoFilter 
+                            filters={{
+                                search: searchTerm,
+                                cliente_id: clienteFilter,
+                                estado: estadoFilter,
                             }}
                             modelName="Cotizaciones"
                         />
-                        
-                        <Button onClick={handleNew} className="h-9 px-5 bg-primary shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all font-bold rounded-full">
+
+                        <Button
+                            onClick={handleNew}
+                            className="h-9 rounded-full bg-primary px-5 font-bold shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
+                        >
                             <Plus className="mr-2 h-4 w-4" /> Nueva Cotización
                         </Button>
                     </div>
                 </div>
 
                 <div className="grid gap-6">
-                    <Card className="border-none shadow-xl shadow-foreground/5 overflow-hidden">
+                    <Card className="overflow-hidden border-none shadow-xl shadow-foreground/5">
                         <CardHeader className="bg-gradient-to-r from-muted/50 to-transparent pb-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <ShoppingCart className="h-5 w-5 text-primary" />
-                                    <CardTitle>Historial de Presupuestos</CardTitle>
+                                    <CardTitle>
+                                        Historial de Presupuestos
+                                    </CardTitle>
                                 </div>
-                                <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                                    {cotizaciones.meta?.total || cotizaciones.data.length} Cotizaciones
+                                <div className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
+                                    {cotizaciones.meta?.total ||
+                                        cotizaciones.data.length}{' '}
+                                    Cotizaciones
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
                             {/* Filters Bar */}
-                            <div className="flex flex-col p-4 gap-4 md:flex-row md:items-center bg-muted/20 border-b border-muted/30">
+                            <div className="flex flex-col gap-4 border-b border-muted/30 bg-muted/20 p-4 md:flex-row md:items-center">
                                 <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <Input
                                         placeholder="Buscar por número, cliente o notas..."
                                         value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="h-10 pl-10 border-none bg-background/50 focus-visible:ring-primary/20"
+                                        onChange={(e) =>
+                                            setSearchTerm(e.target.value)
+                                        }
+                                        className="h-10 border-none bg-background/50 pl-10 focus-visible:ring-primary/20"
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <Select value={clienteFilter} onValueChange={setClienteFilter}>
+                                    <Select
+                                        value={clienteFilter}
+                                        onValueChange={setClienteFilter}
+                                    >
                                         <SelectTrigger className="h-10 w-[200px] border-none bg-background/50">
                                             <SelectValue placeholder="Cliente" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">Todos los clientes</SelectItem>
+                                            <SelectItem value="all">
+                                                Todos los clientes
+                                            </SelectItem>
                                             {clientes.map((c) => (
-                                                <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>
+                                                <SelectItem
+                                                    key={c.id}
+                                                    value={c.id.toString()}
+                                                >
+                                                    {c.nombre}
+                                                </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+                                    <Select
+                                        value={estadoFilter}
+                                        onValueChange={setEstadoFilter}
+                                    >
                                         <SelectTrigger className="h-10 w-[160px] border-none bg-background/50">
                                             <SelectValue placeholder="Estado" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">Todos los estados</SelectItem>
+                                            <SelectItem value="all">
+                                                Todos los estados
+                                            </SelectItem>
                                             {ESTADOS.map((e) => (
-                                                <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                                                <SelectItem
+                                                    key={e.value}
+                                                    value={e.value}
+                                                >
+                                                    {e.label}
+                                                </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Button variant="outline" size="icon" className="h-10 w-10 border-none bg-background/50" onClick={() => { setSearchTerm(''); setClienteFilter('all'); setEstadoFilter('all'); }}>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-10 w-10 border-none bg-background/50"
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            setClienteFilter('all');
+                                            setEstadoFilter('all');
+                                        }}
+                                    >
                                         <X className="h-4 w-4" />
                                     </Button>
                                 </div>
@@ -409,62 +503,135 @@ export default function Index({
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className="bg-muted/5 border-b text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                            <th className="px-6 py-4 text-left">Número / Vence</th>
-                                            <th className="px-6 py-4 text-left">Cliente</th>
-                                            <th className="px-6 py-4 text-right">Total (CLP)</th>
-                                            <th className="px-6 py-4 text-center">Estado</th>
-                                            <th className="px-6 py-4 text-right">Acciones</th>
+                                        <tr className="border-b bg-muted/5 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                                            <th className="px-6 py-4 text-left">
+                                                Número / Vence
+                                            </th>
+                                            <th className="px-6 py-4 text-left">
+                                                Cliente
+                                            </th>
+                                            <th className="px-6 py-4 text-right">
+                                                Total (CLP)
+                                            </th>
+                                            <th className="px-6 py-4 text-center">
+                                                Estado
+                                            </th>
+                                            <th className="px-6 py-4 text-right">
+                                                Acciones
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-muted/50">
                                         {cotizaciones.data.map((c) => (
-                                            <tr key={c.id} className="group transition-colors hover:bg-muted/30">
+                                            <tr
+                                                key={c.id}
+                                                className="group transition-colors hover:bg-muted/30"
+                                            >
                                                 <td className="px-6 py-4">
                                                     <div>
-                                                        <div className="font-bold text-sm tracking-tight text-foreground">{c.numero}</div>
-                                                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                        <div className="text-sm font-bold tracking-tight text-foreground">
+                                                            {c.numero}
+                                                        </div>
+                                                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                                                             <Calendar className="h-2.5 w-2.5" />
-                                                            {formatDateCLP(c.fecha)}
+                                                            {formatDateCLP(
+                                                                c.fecha,
+                                                            )}
                                                             {c.fecha_validez && (
-                                                                <span className="text-orange-500 ml-1">Vence: {formatDateCLP(c.fecha_validez)}</span>
+                                                                <span className="ml-1 text-orange-500">
+                                                                    Vence:{' '}
+                                                                    {formatDateCLP(
+                                                                        c.fecha_validez,
+                                                                    )}
+                                                                </span>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
-                                                            {c.cliente?.nombre.charAt(0).toUpperCase()}
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-[10px] font-black text-primary">
+                                                            {c.cliente?.nombre
+                                                                .charAt(0)
+                                                                .toUpperCase()}
                                                         </div>
-                                                        <span className="text-xs font-bold text-foreground">{c.cliente?.nombre || 'General'}</span>
+                                                        <span className="text-xs font-bold text-foreground">
+                                                            {c.cliente
+                                                                ?.nombre ||
+                                                                'General'}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="font-black text-sm text-primary">
-                                                        {formatCurrencyCLP(c.total)}
+                                                    <div className="text-sm font-black text-primary">
+                                                        {formatCurrencyCLP(
+                                                            c.total,
+                                                        )}
                                                     </div>
-                                                    <div className="text-[10px] text-muted-foreground block">Imp: {formatCurrencyCLP(c.impuesto)}</div>
+                                                    <div className="block text-[10px] text-muted-foreground">
+                                                        Imp:{' '}
+                                                        {formatCurrencyCLP(
+                                                            c.impuesto,
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <Badge variant="outline" className={`${getEstadoConfig(c.estado).color} border text-[9px] uppercase font-black px-2 py-0.5 rounded-full`}>
-                                                        {getEstadoConfig(c.estado).label}
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={`${getEstadoConfig(c.estado).color} rounded-full border px-2 py-0.5 text-[9px] font-black uppercase`}
+                                                    >
+                                                        {
+                                                            getEstadoConfig(
+                                                                c.estado,
+                                                            ).label
+                                                        }
                                                     </Badge>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <a href={`/cotizaciones/${c.id}/pdf`} target="_blank" rel="noreferrer">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50">
+                                                    <div className="flex justify-end gap-1">
+                                                        <a
+                                                            href={`/cotizaciones/${c.id}/pdf`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                        >
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                                                            >
                                                                 <Printer className="h-4 w-4" />
                                                             </Button>
                                                         </a>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-muted" onClick={() => handleView(c)}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                                            onClick={() =>
+                                                                handleView(c)
+                                                            }
+                                                        >
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10" onClick={() => handleEdit(c)}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-primary hover:bg-primary/10"
+                                                            onClick={() =>
+                                                                handleEdit(c)
+                                                            }
+                                                        >
                                                             <Pencil className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(c.id)}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                            onClick={() =>
+                                                                handleDelete(
+                                                                    c.id,
+                                                                )
+                                                            }
+                                                        >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -474,9 +641,12 @@ export default function Index({
                                     </tbody>
                                 </table>
                             </div>
-                            
-                            <div className="p-4 border-t border-muted/50">
-                                <Pagination links={cotizaciones.links} meta={cotizaciones.meta} />
+
+                            <div className="border-t border-muted/50 p-4">
+                                <Pagination
+                                    links={cotizaciones.links}
+                                    meta={cotizaciones.meta}
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -485,41 +655,91 @@ export default function Index({
 
             {/* Create/Edit dialog */}
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-w-[95vw] md:max-w-5xl border-none shadow-2xl p-0 overflow-hidden">
+                <DialogContent className="max-w-[95vw] overflow-hidden border-none p-0 shadow-2xl md:max-w-5xl">
                     <DialogHeader className="bg-gradient-to-r from-primary/10 to-transparent p-6 pb-2 text-left">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="mb-1 flex items-center gap-2">
                             <Calculator className="h-5 w-5 text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Financial Document</span>
+                            <span className="text-[10px] font-black tracking-widest text-primary/70 uppercase">
+                                Financial Document
+                            </span>
                         </div>
                         <DialogTitle className="text-2xl font-black tracking-tight text-primary">
-                            {editando ? `Editar Cotización ${editando.numero}` : 'Nueva Cotización de Venta'}
+                            {editando
+                                ? `Editar Cotización ${editando.numero}`
+                                : 'Nueva Cotización de Venta'}
                         </DialogTitle>
                     </DialogHeader>
-                    
-                    <form onSubmit={handleSubmit} className="p-6 pt-2 overflow-y-auto max-h-[85vh]">
+
+                    <form
+                        onSubmit={handleSubmit}
+                        className="max-h-[85vh] overflow-y-auto p-6 pt-2"
+                    >
                         <div className="grid gap-6 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Número de Documento</Label>
-                                    <Input value={data.numero} onChange={(e) => setData('numero', e.target.value)} required className="h-10 border-none bg-muted/30 font-mono font-bold" />
+                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                        Número de Documento
+                                    </Label>
+                                    <Input
+                                        value={data.numero}
+                                        onChange={(e) =>
+                                            setData('numero', e.target.value)
+                                        }
+                                        required
+                                        className="h-10 border-none bg-muted/30 font-mono font-bold"
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Fecha Emisión</Label>
-                                    <Input type="date" value={data.fecha} onChange={(e) => setData('fecha', e.target.value)} required className="h-10 border-none bg-muted/30 font-bold" />
+                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                        Fecha Emisión
+                                    </Label>
+                                    <Input
+                                        type="date"
+                                        value={data.fecha}
+                                        onChange={(e) =>
+                                            setData('fecha', e.target.value)
+                                        }
+                                        required
+                                        className="h-10 border-none bg-muted/30 font-bold"
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Vencimiento</Label>
-                                    <Input type="date" value={data.fecha_validez} onChange={(e) => setData('fecha_validez', e.target.value)} className="h-10 border-none bg-muted/30 font-bold" />
+                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                        Vencimiento
+                                    </Label>
+                                    <Input
+                                        type="date"
+                                        value={data.fecha_validez}
+                                        onChange={(e) =>
+                                            setData(
+                                                'fecha_validez',
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="h-10 border-none bg-muted/30 font-bold"
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Estado</Label>
-                                    <Select value={data.estado} onValueChange={(v) => setData('estado', v)}>
+                                    <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                        Estado
+                                    </Label>
+                                    <Select
+                                        value={data.estado}
+                                        onValueChange={(v) =>
+                                            setData('estado', v)
+                                        }
+                                    >
                                         <SelectTrigger className="h-10 border-none bg-muted/30 font-bold">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {ESTADOS.map((e) => (
-                                                <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                                                <SelectItem
+                                                    key={e.value}
+                                                    value={e.value}
+                                                >
+                                                    {e.label}
+                                                </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -527,14 +747,26 @@ export default function Index({
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Cliente Asignado *</Label>
-                                <Select value={data.cliente_id.toString()} onValueChange={(v) => setData('cliente_id', v)}>
-                                    <SelectTrigger className="h-11 border-none bg-muted/30 font-bold text-lg">
+                                <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                    Cliente Asignado *
+                                </Label>
+                                <Select
+                                    value={data.cliente_id.toString()}
+                                    onValueChange={(v) =>
+                                        setData('cliente_id', v)
+                                    }
+                                >
+                                    <SelectTrigger className="h-11 border-none bg-muted/30 text-lg font-bold">
                                         <SelectValue placeholder="Seleccione un cliente..." />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {clientes.map((c) => (
-                                            <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>
+                                            <SelectItem
+                                                key={c.id}
+                                                value={c.id.toString()}
+                                            >
+                                                {c.nombre}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -543,62 +775,138 @@ export default function Index({
                             {/* Detalle de Productos */}
                             <div className="space-y-4 border-t pt-6">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                                        <Package className="h-4 w-4" /> Líneas de Cotización
+                                    <h3 className="flex items-center gap-2 text-xs font-black tracking-widest text-primary uppercase">
+                                        <Package className="h-4 w-4" /> Líneas
+                                        de Cotización
                                     </h3>
-                                    <Button type="button" variant="outline" size="sm" onClick={addDetalle} className="h-8 px-4 rounded-full font-bold border-primary/20 text-primary hover:bg-primary/5">
-                                        <Plus className="mr-2 h-3 w-3" /> Agregar Item
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={addDetalle}
+                                        className="h-8 rounded-full border-primary/20 px-4 font-bold text-primary hover:bg-primary/5"
+                                    >
+                                        <Plus className="mr-2 h-3 w-3" />{' '}
+                                        Agregar Item
                                     </Button>
                                 </div>
 
                                 <div className="space-y-3">
                                     {data.detalles.map((detalle, idx) => (
-                                        <div key={idx} className="group relative grid grid-cols-12 gap-3 p-4 rounded-2xl bg-muted/20 border border-transparent hover:border-primary/20 transition-all">
-                                            <div className="col-span-12 md:col-span-5 space-y-1">
-                                                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Producto / Descripción</Label>
+                                        <div
+                                            key={idx}
+                                            className="group relative grid grid-cols-12 gap-3 rounded-2xl border border-transparent bg-muted/20 p-4 transition-all hover:border-primary/20"
+                                        >
+                                            <div className="col-span-12 space-y-1 md:col-span-5">
+                                                <Label className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                    Producto / Descripción
+                                                </Label>
                                                 <div className="flex gap-2">
-                                                    <Select value={detalle.producto_id?.toString() || ''} onValueChange={(v) => updateDetalle(idx, 'producto_id', v)}>
+                                                    <Select
+                                                        value={
+                                                            detalle.producto_id?.toString() ||
+                                                            ''
+                                                        }
+                                                        onValueChange={(v) =>
+                                                            updateDetalle(
+                                                                idx,
+                                                                'producto_id',
+                                                                v,
+                                                            )
+                                                        }
+                                                    >
                                                         <SelectTrigger className="h-9 border-none bg-background/50 font-medium">
                                                             <SelectValue placeholder="Seleccionar producto..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="none">Manual / Sin producto</SelectItem>
-                                                            {productos.map((p) => (
-                                                                <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                                                            ))}
+                                                            <SelectItem value="none">
+                                                                Manual / Sin
+                                                                producto
+                                                            </SelectItem>
+                                                            {productos.map(
+                                                                (p) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            p.id
+                                                                        }
+                                                                        value={p.id.toString()}
+                                                                    >
+                                                                        {
+                                                                            p.nombre
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
                                                         </SelectContent>
                                                     </Select>
-                                                    <Input 
-                                                        value={detalle.descripcion} 
-                                                        onChange={(e) => updateDetalle(idx, 'descripcion', e.target.value)}
+                                                    <Input
+                                                        value={
+                                                            detalle.descripcion
+                                                        }
+                                                        onChange={(e) =>
+                                                            updateDetalle(
+                                                                idx,
+                                                                'descripcion',
+                                                                e.target.value,
+                                                            )
+                                                        }
                                                         placeholder="Descripción personalizada..."
                                                         className="h-9 border-none bg-background/50 font-medium"
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="col-span-4 md:col-span-2 space-y-1">
-                                                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Cant.</Label>
-                                                <Input 
-                                                    type="number" 
-                                                    value={detalle.cantidad} 
-                                                    onChange={(e) => updateDetalle(idx, 'cantidad', parseFloat(e.target.value))}
+                                            <div className="col-span-4 space-y-1 md:col-span-2">
+                                                <Label className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                    Cant.
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    value={detalle.cantidad}
+                                                    onChange={(e) =>
+                                                        updateDetalle(
+                                                            idx,
+                                                            'cantidad',
+                                                            parseFloat(
+                                                                e.target.value,
+                                                            ),
+                                                        )
+                                                    }
                                                     className="h-9 border-none bg-background/50 font-bold"
                                                 />
                                             </div>
-                                            <div className="col-span-4 md:col-span-3 space-y-1">
-                                                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Precio Unit.</Label>
+                                            <div className="col-span-4 space-y-1 md:col-span-3">
+                                                <Label className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                    Precio Unit.
+                                                </Label>
                                                 <div className="relative">
-                                                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                                    <Input 
-                                                        type="number" 
-                                                        value={detalle.precio} 
-                                                        onChange={(e) => updateDetalle(idx, 'precio', parseFloat(e.target.value))}
-                                                        className="h-9 pl-6 border-none bg-background/50 font-bold"
+                                                    <DollarSign className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                                                    <Input
+                                                        type="number"
+                                                        value={detalle.precio}
+                                                        onChange={(e) =>
+                                                            updateDetalle(
+                                                                idx,
+                                                                'precio',
+                                                                parseFloat(
+                                                                    e.target
+                                                                        .value,
+                                                                ),
+                                                            )
+                                                        }
+                                                        className="h-9 border-none bg-background/50 pl-6 font-bold"
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="col-span-3 md:col-span-1 flex items-end justify-end pb-1">
-                                                <Button type="button" variant="ghost" size="icon" onClick={() => removeDetalle(idx)} className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full">
+                                            <div className="col-span-3 flex items-end justify-end pb-1 md:col-span-1">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() =>
+                                                        removeDetalle(idx)
+                                                    }
+                                                    className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
+                                                >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>
@@ -608,85 +916,157 @@ export default function Index({
                             </div>
 
                             {/* Totales y Notas */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t pt-8">
+                            <div className="grid grid-cols-1 gap-8 border-t pt-8 md:grid-cols-2">
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                                            <ClipboardList className="h-4 w-4" /> Términos y Condiciones
+                                        <Label className="flex items-center gap-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                            <ClipboardList className="h-4 w-4" />{' '}
+                                            Términos y Condiciones
                                         </Label>
                                         <textarea
                                             value={data.condiciones || ''}
-                                            onChange={(e) => setData('condiciones', e.target.value)}
-                                            className="flex min-h-[100px] w-full rounded-xl border-none bg-muted/30 px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary/20 outline-none"
+                                            onChange={(e) =>
+                                                setData(
+                                                    'condiciones',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            className="flex min-h-[100px] w-full rounded-xl border-none bg-muted/30 px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                                            <AlertCircle className="h-4 w-4" /> Notas Internas
+                                        <Label className="flex items-center gap-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                                            <AlertCircle className="h-4 w-4" />{' '}
+                                            Notas Internas
                                         </Label>
                                         <textarea
                                             value={data.notas || ''}
-                                            onChange={(e) => setData('notas', e.target.value)}
-                                            className="flex min-h-[80px] w-full rounded-xl border-none bg-muted/30 px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary/20 outline-none"
+                                            onChange={(e) =>
+                                                setData('notas', e.target.value)
+                                            }
+                                            className="flex min-h-[80px] w-full rounded-xl border-none bg-muted/30 px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="bg-muted/10 rounded-3xl p-6 space-y-4 border border-muted/50">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Subtotal Neto</span>
-                                        <span className="font-mono font-bold">{formatCurrencyCLP(data.subtotal)}</span>
+                                <div className="space-y-4 rounded-3xl border border-muted/50 bg-muted/10 p-6">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                                            Subtotal Neto
+                                        </span>
+                                        <span className="font-mono font-bold">
+                                            {formatCurrencyCLP(data.subtotal)}
+                                        </span>
                                     </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-4 items-center">
+
+                                    <div className="grid grid-cols-2 items-center gap-4">
                                         <div className="flex items-center gap-2">
-                                            <span className="font-bold text-muted-foreground uppercase tracking-widest text-[10px]">Descuento</span>
-                                            <Select value={data.descuento_tipo || 'none'} onValueChange={(v) => setData('descuento_tipo', v === 'none' ? null : v as any)}>
+                                            <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                                                Descuento
+                                            </span>
+                                            <Select
+                                                value={
+                                                    data.descuento_tipo ||
+                                                    'none'
+                                                }
+                                                onValueChange={(v) =>
+                                                    setData(
+                                                        'descuento_tipo',
+                                                        v === 'none'
+                                                            ? null
+                                                            : (v as any),
+                                                    )
+                                                }
+                                            >
                                                 <SelectTrigger className="h-7 w-24 border-none bg-background py-0 text-[10px] font-black">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="none">Sin Desc.</SelectItem>
-                                                    <SelectItem value="monto">$ CLP</SelectItem>
-                                                    <SelectItem value="porcentaje">% Porc.</SelectItem>
+                                                    <SelectItem value="none">
+                                                        Sin Desc.
+                                                    </SelectItem>
+                                                    <SelectItem value="monto">
+                                                        $ CLP
+                                                    </SelectItem>
+                                                    <SelectItem value="porcentaje">
+                                                        % Porc.
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Input 
-                                            type="number" 
-                                            value={data.descuento_monto || 0} 
+                                        <Input
+                                            type="number"
+                                            value={data.descuento_monto || 0}
                                             disabled={!data.descuento_tipo}
-                                            onChange={(e) => setData('descuento_monto', parseFloat(e.target.value))}
-                                            className="h-8 border-none bg-background text-right font-bold text-xs"
+                                            onChange={(e) =>
+                                                setData(
+                                                    'descuento_monto',
+                                                    parseFloat(e.target.value),
+                                                )
+                                            }
+                                            className="h-8 border-none bg-background text-right text-xs font-bold"
                                         />
                                     </div>
 
-                                    <div className="flex justify-between items-center text-sm pt-2 border-t border-dashed">
+                                    <div className="flex items-center justify-between border-t border-dashed pt-2 text-sm">
                                         <div className="flex items-center gap-2">
-                                            <span className="font-bold text-muted-foreground uppercase tracking-widest text-[10px]">IVA</span>
-                                            <Input 
-                                                type="number" 
-                                                value={data.iva_personalizado || 0} 
-                                                onChange={(e) => setData('iva_personalizado', parseFloat(e.target.value))}
-                                                className="h-7 w-16 border-none bg-background py-0 text-center font-black text-[10px]"
+                                            <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                                                IVA
+                                            </span>
+                                            <Input
+                                                type="number"
+                                                value={
+                                                    data.iva_personalizado || 0
+                                                }
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'iva_personalizado',
+                                                        parseFloat(
+                                                            e.target.value,
+                                                        ),
+                                                    )
+                                                }
+                                                className="h-7 w-16 border-none bg-background py-0 text-center text-[10px] font-black"
                                             />
-                                            <span className="text-[10px] font-black">%</span>
+                                            <span className="text-[10px] font-black">
+                                                %
+                                            </span>
                                         </div>
-                                        <span className="font-mono font-bold text-muted-foreground">{formatCurrencyCLP(data.impuesto)}</span>
+                                        <span className="font-mono font-bold text-muted-foreground">
+                                            {formatCurrencyCLP(data.impuesto)}
+                                        </span>
                                     </div>
 
-                                    <div className="flex justify-between items-center pt-4 border-t-2 border-primary/20">
-                                        <span className="text-xs font-black uppercase tracking-widest text-primary">Total Final</span>
-                                        <span className="text-2xl font-black text-primary font-mono">{formatCurrencyCLP(data.total)}</span>
+                                    <div className="flex items-center justify-between border-t-2 border-primary/20 pt-4">
+                                        <span className="text-xs font-black tracking-widest text-primary uppercase">
+                                            Total Final
+                                        </span>
+                                        <span className="font-mono text-2xl font-black text-primary">
+                                            {formatCurrencyCLP(data.total)}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <DialogFooter className="gap-2 border-t pt-6">
-                            <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} className="font-bold rounded-full px-8">Cancelar</Button>
-                            <Button type="submit" disabled={processing} className="rounded-full px-12 font-bold bg-primary shadow-lg shadow-primary/20 hover:bg-primary/90">
-                                <Check className="mr-2 h-4 w-4" /> {editando ? 'Guardar Cambios' : 'Confirmar y Crear Cotización'}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setIsOpen(false)}
+                                className="rounded-full px-8 font-bold"
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={processing}
+                                className="rounded-full bg-primary px-12 font-bold shadow-lg shadow-primary/20 hover:bg-primary/90"
+                            >
+                                <Check className="mr-2 h-4 w-4" />{' '}
+                                {editando
+                                    ? 'Guardar Cambios'
+                                    : 'Confirmar y Crear Cotización'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -695,92 +1075,158 @@ export default function Index({
 
             {/* View dialog */}
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-                <DialogContent className="max-w-[95vw] md:max-w-4xl border-none shadow-2xl p-0 overflow-hidden">
+                <DialogContent className="max-w-[95vw] overflow-hidden border-none p-0 shadow-2xl md:max-w-4xl">
                     {viendo && (
                         <>
-                            <DialogHeader className="bg-slate-950 p-10 text-left relative overflow-hidden">
+                            <DialogHeader className="relative overflow-hidden bg-slate-950 p-10 text-left">
                                 <div className="absolute top-0 right-0 p-10 opacity-10">
                                     <ShoppingCart className="h-40 w-40 rotate-12 text-white" />
                                 </div>
                                 <div className="relative z-10">
-                                    <div className="flex gap-3 items-center mb-4">
-                                        <Badge className="bg-primary text-white border-none text-[10px] font-black uppercase tracking-widest px-4 py-1">PRESUPUESTO {viendo.numero}</Badge>
-                                        <Badge variant="outline" className={`${getEstadoConfig(viendo.estado).color} border-none text-[10px] font-black uppercase px-4 py-1`}>
-                                            {getEstadoConfig(viendo.estado).label}
+                                    <div className="mb-4 flex items-center gap-3">
+                                        <Badge className="border-none bg-primary px-4 py-1 text-[10px] font-black tracking-widest text-white uppercase">
+                                            PRESUPUESTO {viendo.numero}
+                                        </Badge>
+                                        <Badge
+                                            variant="outline"
+                                            className={`${getEstadoConfig(viendo.estado).color} border-none px-4 py-1 text-[10px] font-black uppercase`}
+                                        >
+                                            {
+                                                getEstadoConfig(viendo.estado)
+                                                    .label
+                                            }
                                         </Badge>
                                     </div>
-                                    <DialogTitle className="text-4xl font-black tracking-tight text-white mb-2">Resumen de Cotización</DialogTitle>
-                                    <div className="flex items-center gap-6 text-slate-400 text-xs font-bold uppercase tracking-widest">
-                                        <span className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Emitida: {formatDateCLP(viendo.fecha)}</span>
-                                        {viendo.fecha_validez && <span className="flex items-center gap-2 text-orange-400"><AlertCircle className="h-4 w-4" /> Vence: {formatDateCLP(viendo.fecha_validez)}</span>}
+                                    <DialogTitle className="mb-2 text-4xl font-black tracking-tight text-white">
+                                        Resumen de Cotización
+                                    </DialogTitle>
+                                    <div className="flex items-center gap-6 text-xs font-bold tracking-widest text-slate-400 uppercase">
+                                        <span className="flex items-center gap-2">
+                                            <Calendar className="h-4 w-4" />{' '}
+                                            Emitida:{' '}
+                                            {formatDateCLP(viendo.fecha)}
+                                        </span>
+                                        {viendo.fecha_validez && (
+                                            <span className="flex items-center gap-2 text-orange-400">
+                                                <AlertCircle className="h-4 w-4" />{' '}
+                                                Vence:{' '}
+                                                {formatDateCLP(
+                                                    viendo.fecha_validez,
+                                                )}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </DialogHeader>
-                            
-                            <div className="p-10 space-y-10">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+
+                            <div className="space-y-10 p-10">
+                                <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
                                     <div className="space-y-4">
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Información del Cliente</h3>
-                                        <div className="p-6 rounded-3xl bg-muted/20 border border-muted/50 space-y-2">
-                                            <p className="text-xl font-black text-foreground">{viendo.cliente?.nombre || 'General'}</p>
+                                        <h3 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase">
+                                            Información del Cliente
+                                        </h3>
+                                        <div className="space-y-2 rounded-3xl border border-muted/50 bg-muted/20 p-6">
+                                            <p className="text-xl font-black text-foreground">
+                                                {viendo.cliente?.nombre ||
+                                                    'General'}
+                                            </p>
                                             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground italic">
-                                                <User className="h-3.5 w-3.5" /> Registro Maestro de Clientes
+                                                <User className="h-3.5 w-3.5" />{' '}
+                                                Registro Maestro de Clientes
                                             </div>
                                         </div>
                                     </div>
                                     <div className="space-y-4 text-right">
-                                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Consolidado Financiero</h3>
-                                        <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 space-y-1">
-                                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Monto Total a Facturar</p>
-                                            <p className="text-3xl font-black text-primary font-mono">{formatCurrencyCLP(viendo.total)}</p>
+                                        <h3 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase">
+                                            Consolidado Financiero
+                                        </h3>
+                                        <div className="space-y-1 rounded-3xl border border-primary/10 bg-primary/5 p-6">
+                                            <p className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">
+                                                Monto Total a Facturar
+                                            </p>
+                                            <p className="font-mono text-3xl font-black text-primary">
+                                                {formatCurrencyCLP(
+                                                    viendo.total,
+                                                )}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="space-y-4">
-                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Detalle de Partidas</h3>
-                                    <div className="rounded-3xl border border-muted/50 overflow-hidden shadow-sm">
+                                    <h3 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase">
+                                        Detalle de Partidas
+                                    </h3>
+                                    <div className="overflow-hidden rounded-3xl border border-muted/50 shadow-sm">
                                         <table className="w-full text-sm">
-                                            <thead className="bg-muted/50 text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-muted/50">
+                                            <thead className="border-b border-muted/50 bg-muted/50 text-[10px] font-black tracking-widest text-muted-foreground uppercase">
                                                 <tr>
-                                                    <th className="px-6 py-4 text-left">Descripción del Item</th>
-                                                    <th className="px-6 py-4 text-center">Cant.</th>
-                                                    <th className="px-6 py-4 text-right">Unitario</th>
-                                                    <th className="px-6 py-4 text-right">Subtotal</th>
+                                                    <th className="px-6 py-4 text-left">
+                                                        Descripción del Item
+                                                    </th>
+                                                    <th className="px-6 py-4 text-center">
+                                                        Cant.
+                                                    </th>
+                                                    <th className="px-6 py-4 text-right">
+                                                        Unitario
+                                                    </th>
+                                                    <th className="px-6 py-4 text-right">
+                                                        Subtotal
+                                                    </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-muted/30">
-                                                {viendo.detalles?.map((d, i) => (
-                                                    <tr key={i} className="hover:bg-muted/10 transition-colors">
-                                                        <td className="px-6 py-4 font-bold text-foreground">{d.descripcion}</td>
-                                                        <td className="px-6 py-4 text-center font-mono font-bold text-muted-foreground">{d.cantidad}</td>
-                                                        <td className="px-6 py-4 text-right font-mono text-muted-foreground">{formatCurrencyCLP(d.precio)}</td>
-                                                        <td className="px-6 py-4 text-right font-mono font-bold text-primary">{formatCurrencyCLP(d.cantidad * d.precio)}</td>
-                                                    </tr>
-                                                ))}
+                                                {viendo.detalles?.map(
+                                                    (d, i) => (
+                                                        <tr
+                                                            key={i}
+                                                            className="transition-colors hover:bg-muted/10"
+                                                        >
+                                                            <td className="px-6 py-4 font-bold text-foreground">
+                                                                {d.descripcion}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center font-mono font-bold text-muted-foreground">
+                                                                {d.cantidad}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right font-mono text-muted-foreground">
+                                                                {formatCurrencyCLP(
+                                                                    d.precio,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right font-mono font-bold text-primary">
+                                                                {formatCurrencyCLP(
+                                                                    d.cantidad *
+                                                                        d.precio,
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ),
+                                                )}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
 
                                 {(viendo.condiciones || viendo.notas) && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 border-t pt-10">
+                                    <div className="grid grid-cols-1 gap-10 border-t pt-10 md:grid-cols-2">
                                         {viendo.condiciones && (
                                             <div className="space-y-3">
-                                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                                                    <FileCheck className="h-4 w-4" /> Condiciones de Venta
+                                                <h3 className="flex items-center gap-2 text-[10px] font-black tracking-[0.2em] text-primary uppercase">
+                                                    <FileCheck className="h-4 w-4" />{' '}
+                                                    Condiciones de Venta
                                                 </h3>
-                                                <p className="text-xs font-medium text-slate-600 leading-relaxed italic bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                                                <p className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 text-xs leading-relaxed font-medium text-slate-600 italic">
                                                     "{viendo.condiciones}"
                                                 </p>
                                             </div>
                                         )}
                                         {viendo.notas && (
                                             <div className="space-y-3">
-                                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                                                    <MoreHorizontal className="h-4 w-4" /> Notas Adicionales
+                                                <h3 className="flex items-center gap-2 text-[10px] font-black tracking-[0.2em] text-muted-foreground uppercase">
+                                                    <MoreHorizontal className="h-4 w-4" />{' '}
+                                                    Notas Adicionales
                                                 </h3>
-                                                <p className="text-xs font-medium text-slate-500 leading-relaxed">
+                                                <p className="text-xs leading-relaxed font-medium text-slate-500">
                                                     {viendo.notas}
                                                 </p>
                                             </div>
@@ -788,16 +1234,28 @@ export default function Index({
                                     </div>
                                 )}
                             </div>
-                            
-                            <DialogFooter className="p-10 border-t bg-muted/10 items-center justify-between">
-                                <p className="text-[10px] font-bold text-muted-foreground italic flex items-center gap-2">
-                                    <AlertCircle className="h-3 w-3" /> Validéz legal según normativa vigente.
+
+                            <DialogFooter className="items-center justify-between border-t bg-muted/10 p-10">
+                                <p className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground italic">
+                                    <AlertCircle className="h-3 w-3" /> Validéz
+                                    legal según normativa vigente.
                                 </p>
                                 <div className="flex gap-3">
-                                    <Button variant="outline" onClick={() => setIsViewOpen(false)} className="rounded-full px-10 font-black h-11">Cerrar</Button>
-                                    <a href={`/cotizaciones/${viendo.id}/pdf`} target="_blank" rel="noreferrer">
-                                        <Button className="rounded-full px-10 font-black h-11 bg-primary">
-                                            <Printer className="mr-2 h-4 w-4" /> Imprimir Documento
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setIsViewOpen(false)}
+                                        className="h-11 rounded-full px-10 font-black"
+                                    >
+                                        Cerrar
+                                    </Button>
+                                    <a
+                                        href={`/cotizaciones/${viendo.id}/pdf`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        <Button className="h-11 rounded-full bg-primary px-10 font-black">
+                                            <Printer className="mr-2 h-4 w-4" />{' '}
+                                            Imprimir Documento
                                         </Button>
                                     </a>
                                 </div>

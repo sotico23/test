@@ -725,489 +725,543 @@ export default function Index({
                     open={isOpen}
                     onOpenChange={(open) => !open && handleClose()}
                 >
-                    <DialogContent className="max-h-[90vh] max-w-[95vw] overflow-y-auto rounded-2xl p-4 md:max-w-3xl md:p-6">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {editando ? 'Editar Venta' : 'Nueva Venta'}
-                            </DialogTitle>
-                            <DialogDescription>
-                                Complete los datos de la venta
-                            </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleSubmit}>
-                            {Object.keys(errors).length > 0 && (
-                                <div className="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                                    <p className="font-semibold">
-                                        Por favor corrija los siguientes
-                                        errores:
-                                    </p>
-                                    <ul className="list-inside list-disc">
-                                        {Object.values(errors).map((err, i) => (
-                                            <li key={i}>{err}</li>
-                                        ))}
-                                    </ul>
+                    <DialogContent
+                        className="max-w-[calc(100%-1rem)] overflow-hidden rounded-xl border-none p-0 shadow-2xl sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl"
+                        style={{ maxHeight: '95vh', height: 'auto' }}
+                    >
+                        <DialogHeader className="border-b bg-background p-4 pb-3 md:p-6 md:pb-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <DialogTitle className="text-lg font-black md:text-xl">
+                                        {editando
+                                            ? 'Editar Venta'
+                                            : 'Nueva Venta'}
+                                    </DialogTitle>
+                                    <DialogDescription className="text-sm">
+                                        Complete los datos de la venta
+                                    </DialogDescription>
                                 </div>
-                            )}
-                            <div className="grid gap-3 py-3 md:gap-4 md:py-4">
-                                <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
-                                    <div className="grid gap-2">
-                                        <Label>No. Factura</Label>
-                                        <Input
-                                            value={data.numero_factura}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'numero_factura',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            required
-                                        />
+                            </div>
+                        </DialogHeader>
+                        <form
+                            onSubmit={handleSubmit}
+                            className="flex flex-col overflow-hidden"
+                            style={{ maxHeight: 'calc(95vh - 140px)' }}
+                        >
+                            <div className="flex-1 overflow-y-auto px-4 py-3 md:px-6 md:py-4">
+                                {Object.keys(errors).length > 0 && (
+                                    <div className="mb-3 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                                        <p className="font-semibold">
+                                            Por favor corrija los siguientes
+                                            errores:
+                                        </p>
+                                        <ul className="list-inside list-disc">
+                                            {Object.values(errors).map(
+                                                (err, i) => (
+                                                    <li key={i}>{err}</li>
+                                                ),
+                                            )}
+                                        </ul>
+                                    </div>
+                                )}
+                                <div className="space-y-3 md:space-y-4">
+                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
+                                        <div className="grid gap-2">
+                                            <Label>No. Factura</Label>
+                                            <Input
+                                                value={data.numero_factura}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'numero_factura',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                required
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>Cliente</Label>
+                                            <Select
+                                                value={data.cliente_id}
+                                                onValueChange={(v) =>
+                                                    setData('cliente_id', v)
+                                                }
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccionar" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {clientes.map((c) => (
+                                                        <SelectItem
+                                                            key={c.id}
+                                                            value={c.id.toString()}
+                                                        >
+                                                            {c.nombre}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>Fecha</Label>
+                                            <Input
+                                                type="date"
+                                                value={data.fecha}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        'fecha',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                required
+                                            />
+                                        </div>
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label>Cliente</Label>
+                                        <Label>Estado</Label>
                                         <Select
-                                            value={data.cliente_id}
+                                            value={data.estado}
                                             onValueChange={(v) =>
-                                                setData('cliente_id', v)
+                                                setData(
+                                                    'estado',
+                                                    v as
+                                                        | 'pendiente'
+                                                        | 'pagada'
+                                                        | 'cancelada',
+                                                )
                                             }
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Seleccionar" />
+                                                <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {clientes.map((c) => (
-                                                    <SelectItem
-                                                        key={c.id}
-                                                        value={c.id.toString()}
-                                                    >
-                                                        {c.nombre}
-                                                    </SelectItem>
-                                                ))}
+                                                <SelectItem value="pendiente">
+                                                    Pendiente
+                                                </SelectItem>
+                                                <SelectItem value="pagada">
+                                                    Pagada
+                                                </SelectItem>
+                                                <SelectItem value="cancelada">
+                                                    Cancelada
+                                                </SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="grid gap-2">
-                                        <Label>Fecha</Label>
-                                        <Input
-                                            type="date"
-                                            value={data.fecha}
-                                            onChange={(e) =>
-                                                setData('fecha', e.target.value)
-                                            }
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label>Estado</Label>
-                                    <Select
-                                        value={data.estado}
-                                        onValueChange={(v) =>
-                                            setData(
-                                                'estado',
-                                                v as
-                                                    | 'pendiente'
-                                                    | 'pagada'
-                                                    | 'cancelada',
-                                            )
-                                        }
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="pendiente">
-                                                Pendiente
-                                            </SelectItem>
-                                            <SelectItem value="pagada">
-                                                Pagada
-                                            </SelectItem>
-                                            <SelectItem value="cancelada">
-                                                Cancelada
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
 
-                                <div className="overflow-x-auto rounded-lg border p-3 md:overflow-visible md:border-0 md:p-0">
-                                    <div className="mb-4 flex items-center justify-between">
-                                        <Label className="text-base font-semibold">
-                                            Productos
-                                        </Label>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={addProducto}
-                                        >
-                                            <Plus className="mr-1 h-4 w-4" />
-                                            Agregar Producto
-                                        </Button>
-                                    </div>
+                                    <div className="overflow-x-auto rounded-lg border p-3 md:overflow-visible md:border-0 md:p-0">
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <Label className="text-base font-semibold">
+                                                Productos
+                                            </Label>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={addProducto}
+                                            >
+                                                <Plus className="mr-1 h-4 w-4" />
+                                                Agregar Producto
+                                            </Button>
+                                        </div>
 
-                                    {data.productos.length === 0 ? (
-                                        <p className="py-4 text-center text-sm text-gray-500">
-                                            No hay productos agregados. Haga
-                                            clic en "Agregar Producto"
-                                        </p>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {data.productos.map(
-                                                (producto, index) => {
-                                                    const prod = productos.find(
-                                                        (p) =>
-                                                            p.id ===
-                                                            Number(
-                                                                producto.producto_id,
-                                                            ),
-                                                    );
-                                                    const precio = Math.round(
-                                                        producto.precio_unitario ||
-                                                            prod?.precio_venta ||
-                                                            0,
-                                                    );
-                                                    const subtotalItem =
-                                                        Math.round(
-                                                            producto.cantidad *
-                                                                precio,
-                                                        );
+                                        {data.productos.length === 0 ? (
+                                            <p className="py-4 text-center text-sm text-gray-500">
+                                                No hay productos agregados. Haga
+                                                clic en "Agregar Producto"
+                                            </p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {data.productos.map(
+                                                    (producto, index) => {
+                                                        const prod =
+                                                            productos.find(
+                                                                (p) =>
+                                                                    p.id ===
+                                                                    Number(
+                                                                        producto.producto_id,
+                                                                    ),
+                                                            );
+                                                        const precio =
+                                                            Math.round(
+                                                                producto.precio_unitario ||
+                                                                    prod?.precio_venta ||
+                                                                    0,
+                                                            );
+                                                        const subtotalItem =
+                                                            Math.round(
+                                                                producto.cantidad *
+                                                                    precio,
+                                                            );
 
-                                                    return (
-                                                        <div
-                                                            key={index}
-                                                            className="grid grid-cols-1 items-end gap-3 rounded-md border border-dashed p-3 md:grid-cols-12 md:border-0 md:p-0"
-                                                        >
-                                                            <div className="md:col-span-5">
-                                                                <Label className="md:text-xs">
-                                                                    Producto
-                                                                </Label>
-                                                                <Select
-                                                                    value={
-                                                                        producto.producto_id
-                                                                    }
-                                                                    onValueChange={(
-                                                                        v,
-                                                                    ) =>
-                                                                        updateProducto(
-                                                                            index,
-                                                                            'producto_id',
+                                                        return (
+                                                            <div
+                                                                key={index}
+                                                                className="grid grid-cols-1 items-end gap-3 rounded-md border border-dashed p-3 md:grid-cols-12 md:border-0 md:p-0"
+                                                            >
+                                                                <div className="md:col-span-5">
+                                                                    <Label className="md:text-xs">
+                                                                        Producto
+                                                                    </Label>
+                                                                    <Select
+                                                                        value={
+                                                                            producto.producto_id
+                                                                        }
+                                                                        onValueChange={(
                                                                             v,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <SelectTrigger>
-                                                                        <SelectValue>
-                                                                            {productos.find(
+                                                                        ) =>
+                                                                            updateProducto(
+                                                                                index,
+                                                                                'producto_id',
+                                                                                v,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <SelectTrigger>
+                                                                            <SelectValue>
+                                                                                {productos.find(
+                                                                                    (
+                                                                                        p,
+                                                                                    ) =>
+                                                                                        p.id ===
+                                                                                        Number(
+                                                                                            producto.producto_id,
+                                                                                        ),
+                                                                                )
+                                                                                    ?.nombre ||
+                                                                                    'Seleccionar'}
+                                                                            </SelectValue>
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {productos.map(
                                                                                 (
                                                                                     p,
-                                                                                ) =>
-                                                                                    p.id ===
-                                                                                    Number(
-                                                                                        producto.producto_id,
-                                                                                    ),
-                                                                            )
-                                                                                ?.nombre ||
-                                                                                'Seleccionar'}
-                                                                        </SelectValue>
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        {productos.map(
-                                                                            (
-                                                                                p,
-                                                                            ) => (
-                                                                                <SelectItem
-                                                                                    key={
-                                                                                        p.id
-                                                                                    }
-                                                                                    value={p.id.toString()}
-                                                                                >
-                                                                                    {
-                                                                                        p.nombre
-                                                                                    }{' '}
-                                                                                    (
-                                                                                    {
-                                                                                        p.codigo
-                                                                                    }
+                                                                                ) => (
+                                                                                    <SelectItem
+                                                                                        key={
+                                                                                            p.id
+                                                                                        }
+                                                                                        value={p.id.toString()}
+                                                                                    >
+                                                                                        {
+                                                                                            p.nombre
+                                                                                        }{' '}
+                                                                                        (
+                                                                                        {
+                                                                                            p.codigo
+                                                                                        }
 
-                                                                                    )
-                                                                                </SelectItem>
-                                                                            ),
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
-                                                            <div className="grid grid-cols-2 gap-2 md:col-span-6 md:grid-cols-12">
-                                                                <div className="md:col-span-4">
-                                                                    <Label className="md:text-xs">
-                                                                        Cant.
-                                                                    </Label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="1"
-                                                                        value={
-                                                                            producto.cantidad
-                                                                        }
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) =>
-                                                                            updateProducto(
+                                                                                        )
+                                                                                    </SelectItem>
+                                                                                ),
+                                                                            )}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-2 md:col-span-6 md:grid-cols-12">
+                                                                    <div className="md:col-span-4">
+                                                                        <Label className="md:text-xs">
+                                                                            Cant.
+                                                                        </Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            min="1"
+                                                                            value={
+                                                                                producto.cantidad
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateProducto(
+                                                                                    index,
+                                                                                    'cantidad',
+                                                                                    parseInt(
+                                                                                        e
+                                                                                            .target
+                                                                                            .value,
+                                                                                    ) ||
+                                                                                        1,
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                    <div className="md:col-span-4">
+                                                                        <Label className="md:text-xs">
+                                                                            Precio
+                                                                        </Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            step="1"
+                                                                            value={
+                                                                                producto.precio_unitario
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) =>
+                                                                                updateProducto(
+                                                                                    index,
+                                                                                    'precio_unitario',
+                                                                                    parseFloat(
+                                                                                        e
+                                                                                            .target
+                                                                                            .value,
+                                                                                    ) ||
+                                                                                        0,
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                    <div className="md:col-span-4">
+                                                                        <Label className="md:text-xs">
+                                                                            Subt.
+                                                                        </Label>
+                                                                        <Input
+                                                                            value={formatCurrencyCLP(
+                                                                                subtotalItem,
+                                                                            )}
+                                                                            disabled
+                                                                            className="h-9 bg-gray-50"
+                                                                        />
+                                                                        {prod &&
+                                                                            ((
+                                                                                prod as any
+                                                                            )
+                                                                                .medida_pesable ||
+                                                                                (
+                                                                                    prod as any
+                                                                                )
+                                                                                    .unidad_medida !==
+                                                                                    'unidad' ||
+                                                                                (
+                                                                                    prod as any
+                                                                                )
+                                                                                    .peso_base >
+                                                                                    0) && (
+                                                                                <div className="mt-1 flex justify-between px-1 text-[10px] font-bold text-blue-600">
+                                                                                    <span>
+                                                                                        Total{' '}
+                                                                                        {(
+                                                                                            prod as any
+                                                                                        )
+                                                                                            .unidad_medida ===
+                                                                                        'lt'
+                                                                                            ? 'Litros'
+                                                                                            : 'Kg'}
+
+                                                                                        :
+                                                                                    </span>
+                                                                                    <span>
+                                                                                        {(() => {
+                                                                                            const contenido =
+                                                                                                Number(
+                                                                                                    (
+                                                                                                        prod as any
+                                                                                                    )
+                                                                                                        .contenido_por_unidad,
+                                                                                                ) ||
+                                                                                                1;
+                                                                                            const tara =
+                                                                                                Number(
+                                                                                                    (
+                                                                                                        prod as any
+                                                                                                    )
+                                                                                                        .peso_base,
+                                                                                                ) ||
+                                                                                                0;
+                                                                                            const total =
+                                                                                                producto.cantidad *
+                                                                                                    contenido +
+                                                                                                producto.cantidad *
+                                                                                                    tara;
+                                                                                            return total.toFixed(
+                                                                                                2,
+                                                                                            );
+                                                                                        })()}{' '}
+                                                                                        {(
+                                                                                            prod as any
+                                                                                        )
+                                                                                            .unidad_medida ===
+                                                                                        'lt'
+                                                                                            ? 'L'
+                                                                                            : 'Kg'}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex justify-end md:col-span-1">
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="destructive"
+                                                                        size="icon"
+                                                                        onClick={() =>
+                                                                            removeProducto(
                                                                                 index,
-                                                                                'cantidad',
-                                                                                parseInt(
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                ) ||
-                                                                                    1,
                                                                             )
                                                                         }
-                                                                    />
-                                                                </div>
-                                                                <div className="md:col-span-4">
-                                                                    <Label className="md:text-xs">
-                                                                        Precio
-                                                                    </Label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        step="1"
-                                                                        value={
-                                                                            producto.precio_unitario
-                                                                        }
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) =>
-                                                                            updateProducto(
-                                                                                index,
-                                                                                'precio_unitario',
-                                                                                parseFloat(
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
-                                                                                ) ||
-                                                                                    0,
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <div className="md:col-span-4">
-                                                                    <Label className="md:text-xs">
-                                                                        Subt.
-                                                                    </Label>
-                                                                    <Input
-                                                                        value={formatCurrencyCLP(
-                                                                            subtotalItem,
-                                                                        )}
-                                                                        disabled
-                                                                        className="h-9 bg-gray-50"
-                                                                    />
-                                                                    {prod &&
-                                                                        ((prod as any).medida_pesable ||
-                                                                            (prod as any).unidad_medida !== 'unidad' ||
-                                                                            (prod as any).peso_base > 0) && (
-                                                                            <div className="mt-1 flex justify-between px-1 text-[10px] font-bold text-blue-600">
-                                                                                <span>
-                                                                                    Total{' '}
-                                                                                    {(prod as any).unidad_medida === 'lt'
-                                                                                        ? 'Litros'
-                                                                                        : 'Kg'}
-                                                                                    :
-                                                                                </span>
-                                                                                <span>
-                                                                                    {(() => {
-                                                                                        const contenido =
-                                                                                            Number(
-                                                                                                (prod as any)
-                                                                                                    .contenido_por_unidad,
-                                                                                            ) || 1;
-                                                                                        const tara =
-                                                                                            Number((prod as any).peso_base) ||
-                                                                                            0;
-                                                                                        const total =
-                                                                                            producto.cantidad * contenido +
-                                                                                            producto.cantidad * tara;
-                                                                                        return total.toFixed(2);
-                                                                                    })()}{' '}
-                                                                                    {(prod as any).unidad_medida === 'lt'
-                                                                                        ? 'L'
-                                                                                        : 'Kg'}
-                                                                                </span>
-                                                                            </div>
-                                                                        )}
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex justify-end md:col-span-1">
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="destructive"
-                                                                    size="icon"
-                                                                    onClick={() =>
-                                                                        removeProducto(
-                                                                            index,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                },
-                                            )}
+                                                        );
+                                                    },
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-2">
+                                        <div className="flex items-center justify-between space-x-2">
+                                            <div className="flex flex-col gap-1">
+                                                <Label className="font-semibold text-gray-700">
+                                                    Impuesto IVA (19%)
+                                                </Label>
+                                                <span className="text-[10px] text-gray-500">
+                                                    ¿Incluye cálculo de
+                                                    impuestos en el total?
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`text-[10px] font-bold uppercase ${data.incluye_iva ? 'text-green-600' : 'text-gray-400'}`}
+                                                >
+                                                    {data.incluye_iva
+                                                        ? 'Activado'
+                                                        : 'Desactivado'}
+                                                </span>
+                                                <input
+                                                    type="checkbox"
+                                                    className="h-5 w-10 cursor-pointer appearance-none rounded-full bg-gray-200 transition-colors checked:bg-indigo-600"
+                                                    checked={data.incluye_iva}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'incluye_iva',
+                                                            e.target.checked,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4 rounded-lg border p-4 md:grid-cols-2">
-                                    <div className="flex items-center justify-between space-x-2">
-                                        <div className="flex flex-col gap-1">
+                                        <div className="grid grid-cols-1 gap-3">
                                             <Label className="font-semibold text-gray-700">
-                                                Impuesto IVA (19%)
+                                                Descuento Aplicado
                                             </Label>
-                                            <span className="text-[10px] text-gray-500">
-                                                ¿Incluye cálculo de impuestos en
-                                                el total?
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span
-                                                className={`text-[10px] font-bold uppercase ${data.incluye_iva ? 'text-green-600' : 'text-gray-400'}`}
-                                            >
-                                                {data.incluye_iva
-                                                    ? 'Activado'
-                                                    : 'Desactivado'}
-                                            </span>
-                                            <input
-                                                type="checkbox"
-                                                className="h-5 w-10 cursor-pointer appearance-none rounded-full bg-gray-200 transition-colors checked:bg-indigo-600"
-                                                checked={data.incluye_iva}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        'incluye_iva',
-                                                        e.target.checked,
-                                                    )
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        <Label className="font-semibold text-gray-700">
-                                            Descuento Aplicado
-                                        </Label>
-                                        <div className="flex gap-2">
-                                            <Select
-                                                value={data.tipo_descuento}
-                                                onValueChange={(v) =>
-                                                    setData(
-                                                        'tipo_descuento',
-                                                        v as
-                                                            | 'monto'
-                                                            | 'porcentaje',
-                                                    )
-                                                }
-                                            >
-                                                <SelectTrigger className="w-[110px]">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="monto">
-                                                        Monto $
-                                                    </SelectItem>
-                                                    <SelectItem value="porcentaje">
-                                                        Porc. %
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                value={data.valor_descuento}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        'valor_descuento',
-                                                        parseFloat(
-                                                            e.target.value,
-                                                        ) || 0,
-                                                    )
-                                                }
-                                                className="flex-1"
-                                                placeholder={
-                                                    data.tipo_descuento ===
-                                                    'monto'
-                                                        ? 'Ej: 5000'
-                                                        : 'Ej: 10'
-                                                }
-                                            />
+                                            <div className="flex gap-2">
+                                                <Select
+                                                    value={data.tipo_descuento}
+                                                    onValueChange={(v) =>
+                                                        setData(
+                                                            'tipo_descuento',
+                                                            v as
+                                                                | 'monto'
+                                                                | 'porcentaje',
+                                                        )
+                                                    }
+                                                >
+                                                    <SelectTrigger className="w-[110px]">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="monto">
+                                                            Monto $
+                                                        </SelectItem>
+                                                        <SelectItem value="porcentaje">
+                                                            Porc. %
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    value={data.valor_descuento}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            'valor_descuento',
+                                                            parseFloat(
+                                                                e.target.value,
+                                                            ) || 0,
+                                                        )
+                                                    }
+                                                    className="flex-1"
+                                                    placeholder={
+                                                        data.tipo_descuento ===
+                                                        'monto'
+                                                            ? 'Ej: 5000'
+                                                            : 'Ej: 10'
+                                                    }
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="rounded-lg border bg-gray-50 p-4">
-                                    <div className="flex justify-between text-sm">
-                                        <span>Subtotal Bruto:</span>
-                                        <span className="font-medium">
-                                            {formatCurrencyCLP(
-                                                calcularTotales.subtotal,
-                                            )}
-                                        </span>
-                                    </div>
-                                    {calcularTotales.montoDescuento > 0 && (
-                                        <div className="mt-1 flex justify-between text-sm text-red-600">
-                                            <span>
-                                                Descuento (
-                                                {data.tipo_descuento ===
-                                                'porcentaje'
-                                                    ? `${data.valor_descuento}%`
-                                                    : 'Monto'}
-                                                ):
-                                            </span>
+                                    <div className="rounded-lg border bg-gray-50 p-4">
+                                        <div className="flex justify-between text-sm">
+                                            <span>Subtotal Bruto:</span>
                                             <span className="font-medium">
-                                                -
                                                 {formatCurrencyCLP(
-                                                    calcularTotales.montoDescuento,
+                                                    calcularTotales.subtotal,
                                                 )}
                                             </span>
                                         </div>
-                                    )}
-                                    <div className="mt-1 flex justify-between border-t border-dashed pt-1 text-sm">
-                                        <span>Base Imponible:</span>
-                                        <span className="font-medium">
-                                            {formatCurrencyCLP(
-                                                calcularTotales.baseImponible,
-                                            )}
-                                        </span>
+                                        {calcularTotales.montoDescuento > 0 && (
+                                            <div className="mt-1 flex justify-between text-sm text-red-600">
+                                                <span>
+                                                    Descuento (
+                                                    {data.tipo_descuento ===
+                                                    'porcentaje'
+                                                        ? `${data.valor_descuento}%`
+                                                        : 'Monto'}
+                                                    ):
+                                                </span>
+                                                <span className="font-medium">
+                                                    -
+                                                    {formatCurrencyCLP(
+                                                        calcularTotales.montoDescuento,
+                                                    )}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="mt-1 flex justify-between border-t border-dashed pt-1 text-sm">
+                                            <span>Base Imponible:</span>
+                                            <span className="font-medium">
+                                                {formatCurrencyCLP(
+                                                    calcularTotales.baseImponible,
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div className="mt-1 flex justify-between text-sm">
+                                            <span>IVA (19%):</span>
+                                            <span
+                                                className={`font-medium ${!data.incluye_iva ? 'text-gray-400 line-through' : ''}`}
+                                            >
+                                                {formatCurrencyCLP(
+                                                    calcularTotales.iva,
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 flex justify-between border-t border-indigo-200 pt-2 text-base font-bold text-indigo-900">
+                                            <span>Total Neto a Pagar:</span>
+                                            <span className="text-xl">
+                                                {formatCurrencyCLP(
+                                                    calcularTotales.total,
+                                                )}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="mt-1 flex justify-between text-sm">
-                                        <span>IVA (19%):</span>
-                                        <span
-                                            className={`font-medium ${!data.incluye_iva ? 'text-gray-400 line-through' : ''}`}
-                                        >
-                                            {formatCurrencyCLP(
-                                                calcularTotales.iva,
-                                            )}
-                                        </span>
-                                    </div>
-                                    <div className="mt-2 flex justify-between border-t border-indigo-200 pt-2 text-base font-bold text-indigo-900">
-                                        <span>Total Neto a Pagar:</span>
-                                        <span className="text-xl">
-                                            {formatCurrencyCLP(
-                                                calcularTotales.total,
-                                            )}
-                                        </span>
-                                    </div>
-                                </div>
 
-                                <div className="grid gap-2">
-                                    <Label>Notas</Label>
-                                    <Input
-                                        value={data.notas}
-                                        onChange={(e) =>
-                                            setData('notas', e.target.value)
-                                        }
-                                    />
+                                    <div className="grid gap-2">
+                                        <Label>Notas</Label>
+                                        <Input
+                                            value={data.notas}
+                                            onChange={(e) =>
+                                                setData('notas', e.target.value)
+                                            }
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <DialogFooter>
+                            <DialogFooter className="shrink-0 border-t bg-background p-4">
                                 <Button
                                     type="button"
                                     variant="outline"

@@ -128,6 +128,8 @@ export default function Index({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [editando, setEditando] = useState<Producto | null>(null);
+    const [isViewOpen, setIsViewOpen] = useState(false);
+    const [viendo, setViendo] = useState<Producto | null>(null);
 
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [categoriaFilter, setCategoriaFilter] = useState(
@@ -260,7 +262,8 @@ export default function Index({
             imagen5: null,
             video: null,
             mostrar_en_perfil: (producto as any).mostrar_en_perfil ?? true,
-            contenido_por_unidad: Number((producto as any).contenido_por_unidad) || 1,
+            contenido_por_unidad:
+                Number((producto as any).contenido_por_unidad) || 1,
             peso_base: Number((producto as any).peso_base) || 0,
         });
         setIsOpen(true);
@@ -487,7 +490,20 @@ export default function Index({
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                                                            onClick={() => {
+                                                                setViendo(p);
+                                                                setIsViewOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
@@ -625,7 +641,10 @@ export default function Index({
                                                 <Select
                                                     value={data.categoria_id}
                                                     onValueChange={(v) =>
-                                                        setData('categoria_id', v)
+                                                        setData(
+                                                            'categoria_id',
+                                                            v,
+                                                        )
                                                     }
                                                 >
                                                     <SelectTrigger className="h-11 border-none bg-muted/30 font-bold">
@@ -677,16 +696,32 @@ export default function Index({
                                                         Unidad de Medida *
                                                     </Label>
                                                     <Select
-                                                        value={data.unidad_medida}
-                                                        onValueChange={(v: any) => setData('unidad_medida', v)}
+                                                        value={
+                                                            data.unidad_medida
+                                                        }
+                                                        onValueChange={(
+                                                            v: any,
+                                                        ) =>
+                                                            setData(
+                                                                'unidad_medida',
+                                                                v,
+                                                            )
+                                                        }
                                                     >
                                                         <SelectTrigger className="h-11 border-none bg-background font-bold">
                                                             <SelectValue placeholder="Seleccione..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="unidad">Unidad (Pza / Cilindro)</SelectItem>
-                                                            <SelectItem value="kg">Kilogramo (KG)</SelectItem>
-                                                            <SelectItem value="lt">Litro (LT)</SelectItem>
+                                                            <SelectItem value="unidad">
+                                                                Unidad (Pza /
+                                                                Cilindro)
+                                                            </SelectItem>
+                                                            <SelectItem value="kg">
+                                                                Kilogramo (KG)
+                                                            </SelectItem>
+                                                            <SelectItem value="lt">
+                                                                Litro (LT)
+                                                            </SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
@@ -694,57 +729,62 @@ export default function Index({
                                                 <div className="flex items-center justify-between pt-6">
                                                     <div>
                                                         <Label className="text-xs font-bold text-blue-600 uppercase">
-                                                            ¿Es pesable / métrico?
+                                                            ¿Es pesable /
+                                                            métrico?
                                                         </Label>
                                                     </div>
                                                     <Switch
-                                                        checked={data.medida_pesable || data.unidad_medida !== 'unidad'}
-                                                        onCheckedChange={(v) => setData('medida_pesable', v)}
-                                                        disabled={data.unidad_medida !== 'unidad'}
+                                                        checked={
+                                                            data.medida_pesable ||
+                                                            data.unidad_medida !==
+                                                            'unidad'
+                                                        }
+                                                        onCheckedChange={(v) =>
+                                                            setData(
+                                                                'medida_pesable',
+                                                                v,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            data.unidad_medida !==
+                                                            'unidad'
+                                                        }
                                                     />
                                                 </div>
                                             </div>
 
-                                            {(data.unidad_medida !== 'unidad' || data.medida_pesable) && (
-                                                <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
-                                                    <div className="space-y-2">
-                                                        <Label className="text-xs font-bold text-blue-600">
-                                                            ¿Cuántos kilos/litros contiene cada unidad?
-                                                        </Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={data.contenido_por_unidad}
-                                                            onChange={(e) =>
-                                                                setData(
-                                                                    'contenido_por_unidad',
-                                                                    parseFloat(e.target.value) || 0,
-                                                                )
-                                                            }
-                                                            className="h-10 border-none bg-background font-black"
-                                                            placeholder="Ej: 15"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-xs font-bold text-blue-600">
-                                                            Peso Base / Envase (Tara)
-                                                        </Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={data.peso_base}
-                                                            onChange={(e) =>
-                                                                setData(
-                                                                    'peso_base',
-                                                                    parseFloat(e.target.value) || 0,
-                                                                )
-                                                            }
-                                                            className="h-10 border-none bg-background font-black"
-                                                            placeholder="Ej: 0.5"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                            {(data.unidad_medida !== 'unidad' ||
+                                                data.medida_pesable) && (
+                                                    <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs font-bold text-blue-600">
+                                                                ¿Cuántos
+                                                                kilos/litros
+                                                                contiene cada
+                                                                unidad?
+                                                            </Label>
+                                                            <Input
+                                                                type="number"
+                                                                value={
+                                                                    data.contenido_por_unidad
+                                                                }
+                                                                onChange={(e) =>
+                                                                    setData(
+                                                                        'contenido_por_unidad',
+                                                                        parseFloat(
+                                                                            e.target
+                                                                                .value,
+                                                                        ) || 0,
+                                                                    )
+                                                                }
+                                                                className="h-10 border-none bg-background font-black"
+                                                                placeholder="Ej: 15"
+                                                            />
+                                                        </div>
 
+                                                    </div>
+                                                )}
+                                        </div>
 
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
@@ -862,19 +902,19 @@ export default function Index({
                                                                 'imagen',
                                                                 e.target
                                                                     .files?.[0] ||
-                                                                    null,
+                                                                null,
                                                             )
                                                         }
                                                     />
                                                     {data.imagen ||
-                                                    (editando &&
-                                                        editando.imagen) ? (
+                                                        (editando &&
+                                                            editando.imagen) ? (
                                                         <img
                                                             src={
                                                                 data.imagen
                                                                     ? URL.createObjectURL(
-                                                                          data.imagen,
-                                                                      )
+                                                                        data.imagen,
+                                                                    )
                                                                     : `/storage/${editando?.imagen}`
                                                             }
                                                             className="h-full w-full object-cover"
@@ -895,7 +935,7 @@ export default function Index({
                                                             `imagen${i}` as keyof typeof data;
                                                         const img =
                                                             (data as any)[
-                                                                key
+                                                            key
                                                             ] ||
                                                             (editando &&
                                                                 (
@@ -918,7 +958,7 @@ export default function Index({
                                                                             e
                                                                                 .target
                                                                                 .files?.[0] ||
-                                                                                null,
+                                                                            null,
                                                                         )
                                                                     }
                                                                 />
@@ -931,12 +971,12 @@ export default function Index({
                                                                                 key
                                                                             ]
                                                                                 ? URL.createObjectURL(
-                                                                                      (
-                                                                                          data as any
-                                                                                      )[
-                                                                                          key
-                                                                                      ],
-                                                                                  )
+                                                                                    (
+                                                                                        data as any
+                                                                                    )[
+                                                                                    key
+                                                                                    ],
+                                                                                )
                                                                                 : `/storage/${(editando as any)[key]}`
                                                                         }
                                                                         className="h-full w-full object-cover"
@@ -975,7 +1015,7 @@ export default function Index({
                                                             'video',
                                                             e.target
                                                                 .files?.[0] ||
-                                                                null,
+                                                            null,
                                                         )
                                                     }
                                                     className="h-8 border-none bg-transparent p-0 text-[10px]"
@@ -1071,6 +1111,164 @@ export default function Index({
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+                <DialogContent className="max-h-[90vh] max-w-3xl overflow-hidden border-none bg-white p-0 shadow-2xl">
+                    <DialogHeader className="relative overflow-hidden px-6 pt-10 pb-16 md:px-8 md:pt-10 md:pb-20">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-950 opacity-100" />
+                        <div className="absolute top-0 right-0 p-6 text-white opacity-20 md:p-8">
+                            <Eye className="h-16 w-16 rotate-12 md:h-24 md:w-24" />
+                        </div>
+
+                        <div className="relative z-10 flex flex-col gap-1 text-white">
+                            <Badge className="w-fit border-none bg-white/20 px-2 py-0.5 text-[8px] font-bold tracking-widest text-white uppercase md:px-3 md:py-1 md:text-[10px]">
+                                Detalle de Producto
+                            </Badge>
+                            <DialogTitle className="text-2xl font-black tracking-tight text-white uppercase md:text-3xl lg:text-4xl">
+                                {viendo?.nombre}
+                            </DialogTitle>
+                            <DialogDescription className="text-base font-medium text-blue-100/80 md:text-lg">
+                                Información del producto y configuración.
+                            </DialogDescription>
+                        </div>
+                    </DialogHeader>
+
+                    {viendo && (
+                        <div className="relative z-20 px-4 pb-6 md:px-8 md:pb-6">
+                            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
+                                {[
+                                    {
+                                        label: 'SKU',
+                                        val: viendo.codigo,
+                                        color: 'border-blue-200 bg-blue-50 text-blue-800',
+                                    },
+                                    {
+                                        label: 'Categoría',
+                                        val:
+                                            viendo.categoria?.nombre ||
+                                            'Sin categoría',
+                                        color: 'border-gray-200 bg-gray-50 text-gray-800',
+                                    },
+                                    {
+                                        label: 'Estado',
+                                        val: viendo.activo
+                                            ? 'ACTIVO'
+                                            : 'INACTIVO',
+                                        color: viendo.activo
+                                            ? 'border-green-200 bg-green-50 text-green-800'
+                                            : 'border-red-200 bg-red-50 text-red-800',
+                                    },
+                                    {
+                                        label: 'Precio Venta',
+                                        val: formatCurrencyCLP(
+                                            viendo.precio_venta || 0,
+                                        ),
+                                        color: 'border-indigo-200 bg-indigo-50 text-indigo-800',
+                                    },
+                                ].map((item, idx) => (
+                                    <div
+                                        key={idx}
+                                        className={`rounded-lg border p-2 md:rounded-xl md:p-4 ${item.color}`}
+                                    >
+                                        <p className="mb-0.5 text-[8px] font-extrabold tracking-wider uppercase opacity-70 md:text-[10px]">
+                                            {item.label}
+                                        </p>
+                                        <p className="truncate text-xs font-semibold md:text-sm">
+                                            {item.val}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                <div>
+                                    {viendo.imagen ? (
+                                        <div className="aspect-video overflow-hidden rounded-xl border bg-gray-50">
+                                            <img
+                                                src={`/storage/${viendo.imagen}`}
+                                                alt={viendo.nombre}
+                                                className="h-full w-full object-contain"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="flex aspect-video flex-col items-center justify-center rounded-xl border bg-gray-50 text-muted-foreground opacity-40">
+                                            <ImageIcon className="h-12 w-12" />
+                                            <span className="mt-2 text-[10px] font-bold tracking-widest uppercase">
+                                                Sin Imagen
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="space-y-4">
+                                    <Card className="border-none bg-gray-50/50 shadow-sm">
+                                        <CardHeader className="border-b border-gray-100 pb-2 md:pb-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="rounded-md bg-blue-100 p-1.5 text-blue-700">
+                                                    <Package className="h-4 w-4" />
+                                                </div>
+                                                <CardTitle className="text-sm font-bold text-gray-800 md:text-base">
+                                                    Descripción
+                                                </CardTitle>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-4 text-xs leading-relaxed font-medium text-gray-600 italic md:text-sm">
+                                            {viendo.descripcion ||
+                                                'Sin descripción'}
+                                        </CardContent>
+                                    </Card>
+
+                                    <div className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+                                        <div className="mt-1 rounded-full bg-amber-200 p-1">
+                                            <Check className="h-3 w-3 text-amber-700" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-bold text-amber-900">
+                                                Detalles
+                                            </p>
+                                            <div className="space-y-1 text-[10px] leading-relaxed font-medium text-amber-800/70">
+                                                <p>
+                                                    Unidad:{' '}
+                                                    <strong>
+                                                        {viendo.unidad_medida?.toUpperCase()}
+                                                    </strong>
+                                                </p>
+                                                <p>
+                                                    Stock Mínimo:{' '}
+                                                    <strong>
+                                                        {viendo.stock_minimo ||
+                                                            0}
+                                                    </strong>
+                                                </p>
+                                                <p>
+                                                    Precio Compra:{' '}
+                                                    <strong>
+                                                        {formatCurrencyCLP(
+                                                            viendo.precio_compra ||
+                                                            0,
+                                                        )}
+                                                    </strong>
+                                                </p>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter className="mt-4 border-t bg-gray-50 p-4 md:p-6">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsViewOpen(false)}
+                            className="w-full font-bold shadow-sm transition-all hover:bg-white hover:text-primary active:scale-95 sm:w-auto"
+                        >
+                            Cerrar
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </AppLayout>

@@ -101,6 +101,8 @@ const ESTADOS = [
     { value: 'cerrado', label: 'Cerrado', color: 'bg-gray-500/10 text-gray-600 border-gray-200' },
 ];
 
+import { BulkActions } from '@/components/shared/BulkActions';
+
 export default function Index({
     tickets,
     clientes,
@@ -120,8 +122,6 @@ export default function Index({
     const [isViewOpen, setIsViewOpen] = useState(false);
     const [editando, setEditando] = useState<Ticket | null>(null);
     const [viendo, setViendo] = useState<Ticket | null>(null);
-    const csvInputRef = useRef<HTMLInputElement>(null);
-    const excelInputRef = useRef<HTMLInputElement>(null);
 
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [estadoFilter, setEstadoFilter] = useState(filters.estado || 'all');
@@ -163,29 +163,6 @@ export default function Index({
 
         return () => clearTimeout(timer);
     }, [searchTerm, estadoFilter, prioridadFilter]);
-
-    const handleExport = (type: 'csv' | 'excel') => {
-        const baseUrl = type === 'csv' ? '/tickets/export' : '/tickets/export-excel';
-        const params = new URLSearchParams();
-        if (searchTerm) params.append('search', searchTerm);
-        if (estadoFilter !== 'all') params.append('estado', estadoFilter);
-        if (prioridadFilter !== 'all') params.append('prioridad', prioridadFilter);
-        window.location.href = `${baseUrl}?${params.toString()}`;
-    };
-
-    const handleImport = (e: React.ChangeEvent<HTMLInputElement>, type: 'csv' | 'excel') => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const formData = new FormData();
-            formData.append('archivo', file);
-            router.post(type === 'csv' ? '/tickets/import' : '/tickets/import-excel', formData, {
-                onSuccess: () => {
-                    if (csvInputRef.current) csvInputRef.current.value = '';
-                    if (excelInputRef.current) excelInputRef.current.value = '';
-                },
-            });
-        }
-    };
 
     const limpiarFiltros = () => {
         setSearchTerm('');
@@ -272,27 +249,15 @@ export default function Index({
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
-                        <input type="file" ref={csvInputRef} className="hidden" accept=".csv" onChange={(e) => handleImport(e, 'csv')} />
-                        <input type="file" ref={excelInputRef} className="hidden" accept=".xlsx,.xls" onChange={(e) => handleImport(e, 'excel')} />
-                        
-                        <div className="flex gap-1 mr-2">
-                            <Button variant="outline" size="sm" className="h-9 px-3 gap-2" onClick={() => csvInputRef.current?.click()}>
-                                <Upload className="h-4 w-4" />
-                                <span className="hidden lg:inline">Importar</span> CSV
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-9 px-3 gap-2" onClick={() => excelInputRef.current?.click()}>
-                                <FileSpreadsheet className="h-4 w-4" />
-                                <span className="hidden lg:inline">Importar</span> Excel
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-9 px-3 gap-2" onClick={() => handleExport('csv')}>
-                                <Download className="h-4 w-4" />
-                                <span className="hidden lg:inline">Exportar</span> CSV
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-9 px-3 gap-2" onClick={() => handleExport('excel')}>
-                                <FileText className="h-4 w-4" />
-                                <span className="hidden lg:inline">Exportar</span> Excel
-                            </Button>
-                        </div>
+                        <BulkActions 
+                            baseUrl="/tickets" 
+                            modelName="Tickets"
+                            filters={{
+                                search: searchTerm,
+                                estado: estadoFilter,
+                                prioridad: prioridadFilter
+                            }}
+                        />
                         
                         <Button onClick={handleNew} className="h-9 px-5 bg-primary shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all font-bold rounded-full">
                             <Plus className="mr-2 h-4 w-4" /> Nuevo Ticket

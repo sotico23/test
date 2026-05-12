@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\PlanificacionExport;
 use App\Http\Controllers\Controller;
+use App\Imports\PlanificacionImport;
 use App\Models\Planificacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PlanificacionController extends Controller
 {
@@ -79,5 +82,35 @@ class PlanificacionController extends Controller
         $planificacion->delete();
 
         return redirect()->route('planificacion.index');
+    }
+
+    public function exportCsv(Request $request)
+    {
+        return Excel::download(new PlanificacionExport, 'planificacion_'.now()->format('Ymd_His').'.csv', \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        return Excel::download(new PlanificacionExport, 'planificacion_'.now()->format('Ymd_His').'.xlsx');
+    }
+
+    public function importCsv(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:csv,txt,xlsx,xls',
+        ]);
+
+        try {
+            Excel::import(new PlanificacionImport, $request->file('archivo'));
+
+            return redirect()->back()->with('success', 'Planificaciones importadas correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al importar: '.$e->getMessage());
+        }
+    }
+
+    public function importExcel(Request $request): RedirectResponse
+    {
+        return $this->importCsv($request);
     }
 }

@@ -32,6 +32,24 @@ class ProductoController extends Controller
         return new ProductosImport;
     }
 
+    public function show(Producto $producto): Response
+    {
+        $producto->load(['categoria', 'inventario.almacen']);
+
+        return Inertia::render('Backend/Productos/Show', [
+            'producto' => $producto,
+        ]);
+    }
+
+    public function ver(Producto $producto): Response
+    {
+        $producto->load(['categoria', 'inventario.almacen']);
+
+        return Inertia::render('Backend/Productos/Show', [
+            'producto' => $producto,
+        ]);
+    }
+
     public function index(Request $request): Response
     {
         $userId = Auth::user()->getOwnerId();

@@ -43,6 +43,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const estados = ['pendiente', 'en_proceso', 'completado', 'cancelado'];
 
+import { BulkActions } from '@/components/shared/BulkActions';
+
 export default function Index({
     ordenes,
 }: {
@@ -179,9 +181,19 @@ export default function Index({
                                 Gestión de producción
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nueva Orden
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <BulkActions 
+                                baseUrl="/ordenes-produccion" 
+                                modelName="Órdenes"
+                                filters={{
+                                    search: filtros.busqueda,
+                                    estado: filtros.estado
+                                }}
+                            />
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nueva Orden
+                            </Button>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>

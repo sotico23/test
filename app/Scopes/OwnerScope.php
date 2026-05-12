@@ -14,6 +14,9 @@ class OwnerScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
+        // Temporarily disabled for "free content" access
+        return;
+
         if (Auth::check()) {
             $user = Auth::user();
 

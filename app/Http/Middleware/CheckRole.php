@@ -13,17 +13,24 @@ class CheckRole
         $user = $request->user();
 
         if (! $user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return redirect()->route('login');
         }
 
-        $hasRole = $user->hasAnyRole($roles);
-
-        if (! $hasRole) {
-            return response()->json([
-                'message' => 'Access denied. Required role: '.implode(' or ', $roles),
-            ], 403);
+        // Super Admin has access to everything
+        if ($user->hasRole('Super Admin')) {
+            return $next($request);
         }
 
-        return $next($request);
+        // Check if user has any of the required roles (supports pipe-separated roles)
+        foreach ($roles as $roleGroup) {
+            $roleArray = explode('|', $roleGroup);
+            foreach ($roleArray as $role) {
+                if ($user->hasRole(trim($role))) {
+                    return $next($request);
+                }
+            }
+        }
+
+        abort(403, 'No tienes permiso para acceder a esta sección.');
     }
 }

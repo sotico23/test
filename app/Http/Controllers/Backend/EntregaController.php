@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\EntregasExport;
 use App\Http\Controllers\Controller;
+use App\Imports\EntregasImport;
 use App\Models\Cliente;
 use App\Models\Conductor;
 use App\Models\Entrega;
@@ -14,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class EntregaController extends Controller
 {
@@ -131,5 +134,35 @@ class EntregaController extends Controller
         $entrega->delete();
 
         return redirect()->route('entregas.index');
+    }
+
+    public function exportCsv(Request $request)
+    {
+        return Excel::download(new EntregasExport, 'entregas_'.now()->format('Ymd_His').'.csv', \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        return Excel::download(new EntregasExport, 'entregas_'.now()->format('Ymd_His').'.xlsx');
+    }
+
+    public function importCsv(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:csv,txt,xlsx,xls',
+        ]);
+
+        try {
+            Excel::import(new EntregasImport, $request->file('archivo'));
+
+            return redirect()->back()->with('success', 'Entregas importadas correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al importar: '.$e->getMessage());
+        }
+    }
+
+    public function importExcel(Request $request): RedirectResponse
+    {
+        return $this->importCsv($request);
     }
 }

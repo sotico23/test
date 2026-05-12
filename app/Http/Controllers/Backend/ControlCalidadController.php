@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\CalidadExport;
 use App\Http\Controllers\Controller;
+use App\Imports\CalidadImport;
 use App\Models\ControlCalidad;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ControlCalidadController extends Controller
 {
@@ -57,5 +60,35 @@ class ControlCalidadController extends Controller
         $calidad->delete();
 
         return redirect()->route('calidad.index');
+    }
+
+    public function exportCsv(Request $request)
+    {
+        return Excel::download(new CalidadExport, 'control_calidad_'.now()->format('Ymd_His').'.csv', \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        return Excel::download(new CalidadExport, 'control_calidad_'.now()->format('Ymd_His').'.xlsx');
+    }
+
+    public function importCsv(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:csv,txt,xlsx,xls',
+        ]);
+
+        try {
+            Excel::import(new CalidadImport, $request->file('archivo'));
+
+            return redirect()->back()->with('success', 'Registros de calidad importados correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error al importar: '.$e->getMessage());
+        }
+    }
+
+    public function importExcel(Request $request): RedirectResponse
+    {
+        return $this->importCsv($request);
     }
 }

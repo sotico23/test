@@ -45,6 +45,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 const estados = ['pendiente', 'en_progreso', 'completado', 'cancelado'];
 const prioridades = ['baja', 'media', 'alta', 'urgente'];
 
+import { BulkActions } from '@/components/shared/BulkActions';
+
 export default function Index({
     planificaciones,
 }: {
@@ -188,9 +190,19 @@ export default function Index({
                                 Gestión de planificación
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <BulkActions 
+                                baseUrl="/planificacion" 
+                                modelName="Planificaciones"
+                                filters={{
+                                    search: filtros.busqueda,
+                                    estado: filtros.estado
+                                }}
+                            />
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo
+                            </Button>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>

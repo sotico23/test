@@ -60,6 +60,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { BulkActions } from '@/components/shared/BulkActions';
 import type { BreadcrumbItem } from '@/types';
 
 interface EntregaItem {
@@ -191,35 +192,6 @@ export default function Index({
         busqueda: '',
         estado: '',
     });
-
-    const csvInputRef = useRef<HTMLInputElement>(null);
-    const excelInputRef = useRef<HTMLInputElement>(null);
-
-    const handleImportCSV = () => {
-        csvInputRef.current?.click();
-    };
-
-    const handleImportExcel = () => {
-        excelInputRef.current?.click();
-    };
-
-    const handleFileChange = (
-        e: React.ChangeEvent<HTMLInputElement>,
-        type: 'csv' | 'excel',
-    ) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        router.post('/entregas/importar', formData, {
-            forceFormData: true,
-            onSuccess: () => {
-                e.target.value = '';
-            },
-        });
-    };
 
     const entregasFiltradas = useMemo(() => {
         return (entregas.data || []).filter((e: Entrega) => {
@@ -430,12 +402,16 @@ export default function Index({
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
+                            <BulkActions
+                                baseUrl="/entregas"
+                                modelName="Entregas"
+                                filters={filters}
+                            />
                             <Button
                                 onClick={handleNew}
                                 className="h-11 rounded-xl px-6 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
                             >
-                                <Truck className="mr-2 h-5 w-5" /> Nuevo
-                                Despacho
+                                <Truck className="mr-2 h-5 w-5" /> Nuevo Despacho
                             </Button>
                         </div>
                     </div>
@@ -1422,20 +1398,6 @@ export default function Index({
                 </DialogContent>
             </Dialog>
 
-            <input
-                ref={csvInputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={(e) => handleFileChange(e, 'csv')}
-            />
-            <input
-                ref={excelInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => handleFileChange(e, 'excel')}
-            />
         </>
     );
 }

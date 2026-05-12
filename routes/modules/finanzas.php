@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 
 // Route::get('configuracion/transbank', [TransbankController::class, 'configuracion'])->name('config.transbank');
 
-Route::middleware(['role:Administrador'])->group(function () {
+Route::middleware(['role:Super Admin|Administrador|Contador'])->group(function () {
     Route::resource('cobranzas', CobranzaController::class)->except(['show']);
     Route::get('cobranzas/export', [CobranzaController::class, 'exportCsv'])->name('cobranzas.export');
     Route::get('cobranzas/export-excel', [CobranzaController::class, 'exportExcel'])->name('cobranzas.exportExcel');
@@ -23,7 +23,7 @@ Route::middleware(['role:Administrador'])->group(function () {
     Route::post('pagos/import', [PagoController::class, 'importCsv'])->name('pagos.import');
     Route::post('pagos/import-excel', [PagoController::class, 'importExcel'])->name('pagos.importExcel');
     Route::resource('tesoreria', TesoreriaController::class);
-    Route::resource('contabilidad', ContabilidadController::class)->except(['show']);
+    Route::resource('contabilidad', ContabilidadController::class)->except(['show'])->parameters(['contabilidad' => 'asiento']);
     Route::get('contabilidad/export', [ContabilidadController::class, 'exportCsv'])->name('contabilidad.export');
     Route::get('contabilidad/export-excel', [ContabilidadController::class, 'exportExcel'])->name('contabilidad.exportExcel');
     Route::post('contabilidad/import', [ContabilidadController::class, 'importCsv'])->name('contabilidad.import');

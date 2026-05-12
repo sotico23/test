@@ -44,6 +44,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const resultados = ['aprobado', 'rechazado', 'pendiente'];
 
+import { BulkActions } from '@/components/shared/BulkActions';
+
 export default function Index({
     controles,
 }: {
@@ -183,9 +185,19 @@ export default function Index({
                                 Gestión de calidad
                             </p>
                         </div>
-                        <Button onClick={handleNew}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo Control
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <BulkActions 
+                                baseUrl="/calidad" 
+                                modelName="Controles"
+                                filters={{
+                                    search: filtros.busqueda,
+                                    resultado: filtros.resultado
+                                }}
+                            />
+                            <Button onClick={handleNew}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo Control
+                            </Button>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>
