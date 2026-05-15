@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
     Check,
     Pencil,
@@ -127,6 +127,14 @@ export default function Index({
     const [viendo, setViendo] = useState<Categoria | null>(null);
     const [imagenPreview, setImagenPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    // Auth permissions setup
+    const { auth } = usePage().props as any;
+    const userPermissions: string[] = auth?.user?.permissions || [];
+    const hasAll = userPermissions.includes('*');
+    const canCreate = hasAll || userPermissions.includes('comercial.categorias.create');
+    const canEdit = hasAll || userPermissions.includes('comercial.categorias.edit');
+    const canDelete = hasAll || userPermissions.includes('comercial.categorias.delete');
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -317,10 +325,12 @@ export default function Index({
                             filters={{ search: searchTerm, tipo: tipoFilter }}
                             modelName="Categorías"
                         />
-                        <Button onClick={openNew}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Nueva Categoría
-                        </Button>
+                        {canCreate && (
+                            <Button onClick={openNew}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Nueva Categoría
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -503,30 +513,34 @@ export default function Index({
                                                         >
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0"
-                                                            onClick={() =>
-                                                                handleEdit(
-                                                                    categoria,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                            onClick={() =>
-                                                                handleDelete(
-                                                                    categoria.id,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                        {canEdit && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0"
+                                                                onClick={() =>
+                                                                    handleEdit(
+                                                                        categoria,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                        {canDelete && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                                onClick={() =>
+                                                                    handleDelete(
+                                                                        categoria.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

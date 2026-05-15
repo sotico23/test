@@ -9,157 +9,248 @@ use Spatie\Permission\PermissionRegistrar;
 
 class PermissionsSeeder extends Seeder
 {
+    /** @var list<string> */
+    private const ACTIONS = ['viewAny', 'view', 'create', 'edit', 'delete', 'import', 'export'];
+
     public function run(): void
     {
-        // Limpiamos la caché
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Todos los permisos organizados por módulo
-        $permissions = [
-            // General
+        $modules = $this->getModuleDefinitions();
+
+        // Generate all granular permissions
+        $allPermissions = [];
+
+        foreach ($modules as $module => $submodules) {
+            foreach ($submodules as $submodule) {
+                foreach (self::ACTIONS as $action) {
+                    $allPermissions[] = "{$module}.{$submodule}.{$action}";
+                }
+            }
+        }
+
+        // Legacy / special permissions (backward compat + marketplace)
+        $specialPermissions = [
             'ver dashboard',
-            'ver rh',
             'acceso completo',
-
-            // CRM
-            'acceso crm',
-            'gestionar prospectos',
-            'gestionar oportunidades',
-            'gestionar clientes',
-            'gestionar productos',
-            'gestionar categorias',
-            'gestionar cotizaciones',
-            'gestionar pedidos',
-            'gestionar campanas',
-            'gestionar tickets',
-            'gestionar perfil publico',
-
-            // SCM
-            'acceso scm',
-            'gestionar proveedores',
-            'gestionar compras',
-            'gestionar inventario',
-            'gestionar almacenes',
-            'gestionar movimientos',
-            'gestionar lotes',
-            'gestionar vacios',
-
-            // MRP
-            'acceso mrp',
-            'gestionar boms',
-            'gestionar produccion',
-            'gestionar calidad',
-            'gestionar planificacion',
-
-            // Finanzas
-            'acceso fin',
-            'gestionar facturacion',
-            'gestionar cobranzas',
-            'gestionar pagos',
-            'gestionar tesoreria',
-            'gestionar contabilidad',
-            'gestionar impuestos',
-
-            // RRHH
-            'acceso rrhh',
-            'gestionar empleados',
-            'gestionar nominas',
-            'gestionar asistencia',
-            'gestionar reclutamiento',
-            'gestionar evaluaciones',
-            'gestionar tareas',
-
-            // Proyectos
-            'acceso pms',
-            'gestionar proyectos',
-            'gestionar hitos',
-            'gestionar timesheets',
-            'gestionar gastos proyecto',
-
-            // BI y Admin
-            'acceso bi',
-            'gestionar configuracion',
-            'gestionar usuarios',
-            'gestionar roles',
-
-            // Flota
-            'acceso flota',
-            'gestionar vehiculos',
-            'gestionar conductores',
-            'gestionar entregas',
-            'gestionar grupos trabajo',
-            'ver grupos trabajo',
-            'ver lista pendientes',
-
-            // POS
-            'acceso pos',
-            'ver reportes pos',
-            'gestionar cierre caja',
-            'gestionar facturacion pos',
-            'gestionar promociones pos',
-
-            // Call Center
-            'acceso call center',
-            'gestionar llamadas',
-            'gestionar contactos',
-
-            // LMS
-            'acceso lms',
-            'gestionar cursos',
-            'gestionar lecciones',
-            'gestionar alumnos',
-
-            // SII (Facturación Electrónica Chile)
-            'acceso sii',
-            'gestionar dte',
-            'configurar sii',
-
-            // Rifas
-            'acceso rifas',
-            'gestionar rifas',
-            'gestionar sorteos',
-
-            // Uptime
-            'acceso uptime',
-            'gestionar monitores',
-            'gestionar alertas uptime',
-
-            // Pasarelas de Pago
-            'gestionar pagos online',
-
-            // Citas y Reservas
-            'acceso citas',
-            'gestionar citas',
-            'gestionar servicios',
-
-            // Cliente Marketplace
             'hacer pedidos',
             'ver sus pedidos',
         ];
 
-        // Crear o actualizar todos los permisos
-        foreach ($permissions as $permission) {
+        $allPermissions = array_merge($allPermissions, $specialPermissions);
+
+        // Create all permissions
+        foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
         }
 
-        // --- CREACIÓN DE ROLES y asignación ---
+        // --- ROLE CREATION WITH LEVELS ---
 
-        // 1. Super Admin
+        // 0. Master (Level 0) — full control
+        $roleMaster = Role::firstOrCreate(['name' => 'Master']);
+        $roleMaster->level = 0;
+        $roleMaster->save();
+        $roleMaster->syncPermissions(Permission::all());
+
+        // 1. Super Admin (Level 1) — full control via Gate::before
         $roleSuperAdmin = Role::firstOrCreate(['name' => 'Super Admin']);
-        // Obtiene todos los permisos implícitamente mediante el Gate (AuthServiceProvider), pero se los damos también por BD (opcional)
+        $roleSuperAdmin->level = 1;
+        $roleSuperAdmin->save();
         $roleSuperAdmin->syncPermissions(Permission::all());
 
-        // 2. Administrador
+        // 2. Administrador (Level 2) — everything except admin-sensitive resources
         $roleAdmin = Role::firstOrCreate(['name' => 'Administrador']);
-        // Al administrador le damos todo excepto configuración avanzada/roles
-        $roleAdmin->syncPermissions(Permission::whereNotIn('name', ['gestionar configuracion', 'gestionar roles'])->get());
+        $roleAdmin->level = 2;
+        $roleAdmin->save();
 
-        // 3. Empleado (Role base)
+        $adminExcluded = [
+            'admin.roles.create',
+            'admin.roles.edit',
+            'admin.roles.delete',
+            'admin.web-settings.create',
+            'admin.web-settings.edit',
+            'admin.web-settings.delete',
+            'admin.mail-templates.create',
+            'admin.mail-templates.edit',
+            'admin.mail-templates.delete',
+            'admin.email-config.create',
+            'admin.email-config.edit',
+            'admin.email-config.delete',
+        ];
+        $roleAdmin->syncPermissions(
+            Permission::whereNotIn('name', $adminExcluded)->get()
+        );
+
+        // 3. Empleado (Level 3) — base dashboard + assigned modules
         $roleEmpleado = Role::firstOrCreate(['name' => 'Empleado']);
-        $roleEmpleado->syncPermissions(['ver dashboard']);
+        $roleEmpleado->level = 3;
+        $roleEmpleado->save();
 
-        // 4. Cliente
+        $empleadoPermissions = [
+            'ver dashboard',
+            // Comercial — view & create
+            'comercial.prospectos.viewAny',
+            'comercial.prospectos.view',
+            'comercial.prospectos.create',
+            'comercial.prospectos.edit',
+            'comercial.oportunidades.viewAny',
+            'comercial.oportunidades.view',
+            'comercial.oportunidades.create',
+            'comercial.oportunidades.edit',
+            'comercial.clientes.viewAny',
+            'comercial.clientes.view',
+            'comercial.clientes.create',
+            'comercial.clientes.edit',
+            'comercial.productos.viewAny',
+            'comercial.productos.view',
+            'comercial.cotizaciones.viewAny',
+            'comercial.cotizaciones.view',
+            'comercial.cotizaciones.create',
+            'comercial.cotizaciones.edit',
+            'comercial.tickets.viewAny',
+            'comercial.tickets.view',
+            'comercial.tickets.create',
+            // Inventario — view only
+            'inventario.inventarios.viewAny',
+            'inventario.inventarios.view',
+            'inventario.almacenes.viewAny',
+            'inventario.almacenes.view',
+            // Flota — view + entregas
+            'flota.vehiculos.viewAny',
+            'flota.vehiculos.view',
+            'flota.conductores.viewAny',
+            'flota.conductores.view',
+            'flota.entregas.viewAny',
+            'flota.entregas.view',
+            'flota.entregas.create',
+            'flota.entregas.edit',
+            'flota.cargas.viewAny',
+            'flota.cargas.view',
+            'flota.grupos-trabajo.viewAny',
+            'flota.grupos-trabajo.view',
+            // POS
+            'ventas.pos.viewAny',
+            'ventas.pos.view',
+            'ventas.pos.create',
+        ];
+        $roleEmpleado->syncPermissions($empleadoPermissions);
+
+        // 4. Cliente (Level 3) — marketplace only
         $roleCliente = Role::firstOrCreate(['name' => 'Cliente']);
-        $roleCliente->syncPermissions(['hacer pedidos', 'ver sus pedidos']);
+        $roleCliente->level = 3;
+        $roleCliente->save();
+
+        $clientePermissions = [
+            'hacer pedidos',
+            'ver sus pedidos',
+            'comercial.productos.viewAny',
+            'comercial.productos.view',
+            'lms.cursos.viewAny',
+            'lms.cursos.view',
+            'lms.alumnos.viewAny',
+            'lms.alumnos.view',
+            'citas.citas.viewAny',
+            'citas.citas.create',
+        ];
+        $roleCliente->syncPermissions($clientePermissions);
+
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+    }
+
+    /**
+     * Define all modules and their submodules.
+     *
+     * @return array<string, list<string>>
+     */
+    private function getModuleDefinitions(): array
+    {
+        return [
+            'comercial' => [
+                'prospectos',
+                'oportunidades',
+                'clientes',
+                'productos',
+                'categorias',
+                'cotizaciones',
+                'campanas',
+                'tickets',
+                'call-center',
+            ],
+            'inventario' => [
+                'proveedores',
+                'compras',
+                'inventarios',
+                'almacenes',
+                'lotes',
+                'movimientos',
+                'vacios',
+            ],
+            'mrp' => [
+                'boms',
+                'produccion',
+                'calidad',
+                'planificacion',
+            ],
+            'finanzas' => [
+                'facturacion',
+                'cobranzas',
+                'pagos',
+                'tesoreria',
+                'contabilidad',
+                'impuestos',
+                'sii',
+            ],
+            'rrhh' => [
+                'empleados',
+                'nominas',
+                'asistencia',
+                'reclutamiento',
+                'evaluaciones',
+            ],
+            'proyectos' => [
+                'proyectos',
+                'hitos',
+                'timesheets',
+                'gastos',
+            ],
+            'flota' => [
+                'vehiculos',
+                'conductores',
+                'entregas',
+                'cargas',
+                'grupos-trabajo',
+            ],
+            'ventas' => [
+                'ventas',
+                'pos',
+                'variantes',
+            ],
+            'lms' => [
+                'cursos',
+                'lecciones',
+                'alumnos',
+            ],
+            'rifas' => [
+                'rifas',
+                'sorteos',
+            ],
+            'uptime' => [
+                'monitores',
+                'alertas',
+            ],
+            'admin' => [
+                'configuracion',
+                'usuarios',
+                'roles',
+                'reportes',
+                'web-settings',
+                'mail-templates',
+                'email-config',
+            ],
+            'citas' => [
+                'citas',
+                'servicios',
+            ],
+        ];
     }
 }

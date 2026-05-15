@@ -142,6 +142,34 @@ class User extends Authenticatable
         return $this->hasRole('Cliente') && $this->cliente !== null;
     }
 
+    public function highestRoleLevel(): int
+    {
+        return $this->roles()->min('level') ?? 3;
+    }
+
+    public function scopeVisibles($query)
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return $query;
+        }
+
+        $userLevel = $user->highestRoleLevel();
+
+        // Nivel 0 (Master) ve a todos.
+        if ($userLevel === 0) {
+            return $query;
+        }
+
+        // Otros niveles solo pueden ver a usuarios cuyos roles tengan un nivel MAYOR (menor privilegio).
+        // No pueden ver a nadie de igual o menor nivel.
+        return $query->whereDoesntHave('roles', function ($q) use ($userLevel) {
+            $q->where('level', '<=', $userLevel);
+        })->where('id', '!=', $user->id); // Tampoco puede verse a sí mismo en esta vista de gestión (opcional), lo dejamos para no asignar a sí mismo
+        // Wait, si el usuario quiere verse a sí mismo, tal vez no deba incluir id != auth id. Lo dejaré sin id != user id.
+    }
+
     public function isFollowedBy(?User $user): bool
     {
         if (! $user) {

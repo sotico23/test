@@ -59,6 +59,7 @@ interface Producto {
     codigo: string;
     nombre: string;
     precio_venta: number;
+    inventario?: Array<{ cantidad: number }>;
 }
 interface DetalleVenta {
     id: number;
@@ -201,6 +202,11 @@ export default function Index({
     } = useForm({
         numero_factura: '',
         cliente_id: '' as string,
+        cliente_tipo: 'existente' as 'existente' | 'generico',
+        cliente_nombre: '',
+        cliente_rut: '',
+        cliente_telefono: '',
+        cliente_direccion: '',
         fecha: new Date().toISOString().split('T')[0],
         estado: 'pendiente' as 'pendiente' | 'pagada' | 'cancelada',
         notas: '',
@@ -277,12 +283,43 @@ export default function Index({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Validate stock before submitting
+        const stockWarnings: string[] = [];
+        data.productos.forEach((p: any) => {
+            const producto = productos.find(
+                (prod: any) => prod.id === Number(p.producto_id),
+            );
+            if (producto && producto.inventario) {
+                const stockTotal = producto.inventario.reduce(
+                    (sum: number, inv: any) => sum + (inv.cantidad || 0),
+                    0,
+                );
+                if (p.cantidad > stockTotal) {
+                    stockWarnings.push(
+                        `• ${producto.nombre}: Stock ${stockTotal} < Solicitado ${p.cantidad}`,
+                    );
+                }
+            }
+        });
+
+        if (stockWarnings.length > 0) {
+            const continuar = confirm(
+                `⚠️ STOCK INSUFICIENTE\n\n${stockWarnings.join('\n')}\n\n¿Desea continuar con la venta de todas formas?`,
+            );
+            if (!continuar) {
+                return; // Cancel submission
+            }
+        }
+
         const { subtotal, iva, total } = calcularTotales;
 
         // Use Inertia's transform to modify data before sending
         const transformData = (data: any) => ({
             ...data,
-            cliente_id: Number(data.cliente_id),
+            cliente_id:
+                data.cliente_tipo === 'existente'
+                    ? Number(data.cliente_id)
+                    : null,
             subtotal,
             iva,
             total,
@@ -359,6 +396,11 @@ export default function Index({
         setEditando(null);
         reset();
         setData('productos', []);
+        setData('cliente_tipo', 'existente');
+        setData('cliente_nombre', '');
+        setData('cliente_rut', '');
+        setData('cliente_telefono', '');
+        setData('cliente_direccion', '');
     };
 
     const getEstadoBadge = (estado: string) => {
@@ -781,6 +823,53 @@ export default function Index({
                                         </div>
                                         <div className="grid gap-2">
                                             <Label>Cliente</Label>
+                                            <div className="flex gap-2 text-xs">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setData(
+                                                            'cliente_tipo',
+                                                            'existente',
+                                                        );
+                                                        setData(
+                                                            'cliente_id',
+                                                            '',
+                                                        );
+                                                    }}
+                                                    className={`flex-1 rounded-md px-3 py-2 text-center font-medium transition-colors ${
+                                                        data.cliente_tipo ===
+                                                        'existente'
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                                    }`}
+                                                >
+                                                    Cliente Existente
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setData(
+                                                            'cliente_tipo',
+                                                            'generico',
+                                                        );
+                                                        setData(
+                                                            'cliente_id',
+                                                            '',
+                                                        );
+                                                    }}
+                                                    className={`flex-1 rounded-md px-3 py-2 text-center font-medium transition-colors ${
+                                                        data.cliente_tipo ===
+                                                        'generico'
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                                    }`}
+                                                >
+                                                    Cliente Genérico
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {data.cliente_tipo === 'existente' ? (
                                             <Select
                                                 value={data.cliente_id}
                                                 onValueChange={(v) =>
@@ -788,7 +877,7 @@ export default function Index({
                                                 }
                                             >
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Seleccionar" />
+                                                    <SelectValue placeholder="Seleccionar cliente" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {clientes.map((c) => (
@@ -801,7 +890,90 @@ export default function Index({
                                                     ))}
                                                 </SelectContent>
                                             </Select>
-                                        </div>
+                                        ) : (
+                                            <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground uppercase">
+                                                            Nombre/Razón Social
+                                                        </Label>
+                                                        <Input
+                                                            value={
+                                                                data.cliente_nombre
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    'cliente_nombre',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            placeholder="Ej: Juan Pérez"
+                                                            className="h-9"
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground uppercase">
+                                                            RUT (opcional)
+                                                        </Label>
+                                                        <Input
+                                                            value={
+                                                                data.cliente_rut
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    'cliente_rut',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            placeholder="12.345.678-9"
+                                                            className="h-9"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground uppercase">
+                                                            Teléfono
+                                                        </Label>
+                                                        <Input
+                                                            value={
+                                                                data.cliente_telefono
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    'cliente_telefono',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            placeholder="+56 9 1234 5678"
+                                                            className="h-9"
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground uppercase">
+                                                            Dirección
+                                                        </Label>
+                                                        <Input
+                                                            value={
+                                                                data.cliente_direccion
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    'cliente_direccion',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            placeholder="Av. Principal 123"
+                                                            className="h-9"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="grid gap-2">
                                             <Label>Fecha</Label>
                                             <Input

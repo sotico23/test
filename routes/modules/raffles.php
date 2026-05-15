@@ -4,7 +4,7 @@ use App\Http\Controllers\Backend\RaffleController;
 use App\Http\Controllers\RafflePublicController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'permission:rifas.rifas.viewAny'])->group(function () {
     Route::get('raffles/draws', [RaffleController::class, 'drawsIndex'])->name('raffles.draws.index');
     Route::get('raffles/export', [RaffleController::class, 'exportCsv'])->name('raffles.bulk.export');
     Route::get('raffles/export-excel', [RaffleController::class, 'exportExcel'])->name('raffles.bulk.exportExcel');
@@ -21,6 +21,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('raffles/{raffle}/draw-room', [RaffleController::class, 'drawRoom'])->name('raffles.draw-room');
 });
 
+// Public routes — no permission needed
 Route::get('rifa/{slug}', [RafflePublicController::class, 'show'])->name('raffles.public.show');
 Route::post('rifa/{slug}/participate', [RafflePublicController::class, 'participate'])->name('raffles.public.participate');
 Route::post('rifa/{slug}/buy-numbers', [RafflePublicController::class, 'buyNumbers'])->name('raffles.public.buy-numbers');

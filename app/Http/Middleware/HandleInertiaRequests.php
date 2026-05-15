@@ -39,7 +39,9 @@ class HandleInertiaRequests extends Middleware
                 'public_profile' => $user->publicProfile,
                 'show_onboarding' => $user->show_onboarding,
                 'roles' => array_unique(array_merge($user->getRoleNames()->toArray(), ['Admin'])),
-                'permissions' => ['*'], // Bypass for frontend checks
+                'permissions' => ($user->hasRole('Master') || $user->hasRole('Super Admin'))
+                    ? ['*']
+                    : $user->getAllPermissions()->pluck('name')->toArray(),
                 'unread_messages' => $unreadMessages,
                 'pending_orders' => $pendingOrders,
                 'unread_notifications' => $user->unreadNotifications->count(),

@@ -1,5 +1,6 @@
 import { Head, useForm, router } from '@inertiajs/react';
 import {
+    Eye,
     Pencil,
     Plus,
     Trash2,
@@ -73,183 +74,18 @@ interface PublicProfile {
     user: {
         id: number;
         name: string;
-    }
+    };
 }
 
 interface Props {
     usuarios: User[];
     roles: Role[];
     permisos: Permission[];
+    grouped_permissions: Record<string, Record<string, { id: number; name: string; friendly_name: string }[]>>;
     usuariosRoles: UsuarioRol[];
     publicProfiles: PublicProfile[];
 }
 
-const GRUPO_PERMISOS = {
-    general: {
-        titulo: 'General',
-        icon: '⚙️',
-        permisos: ['ver dashboard', 'ver rh', 'acceso completo'],
-    },
-    crm: {
-        titulo: 'CRM',
-        icon: '👥',
-        permisos: [
-            'acceso crm',
-            'gestionar prospectos',
-            'gestionar oportunidades',
-            'gestionar clientes',
-            'gestionar productos',
-            'gestionar categorias',
-            'gestionar cotizaciones',
-            'gestionar pedidos',
-            'gestionar campanas',
-            'gestionar tickets',
-        ],
-    },
-    scm: {
-        titulo: 'SCM',
-        icon: '📦',
-        permisos: [
-            'acceso scm',
-            'gestionar proveedores',
-            'gestionar compras',
-            'gestionar inventario',
-            'gestionar almacenes',
-            'gestionar movimientos',
-            'gestionar lotes',
-            'gestionar vacios',
-        ],
-    },
-    mrp: {
-        titulo: 'MRP',
-        icon: '🏭',
-        permisos: [
-            'acceso mrp',
-            'gestionar boms',
-            'gestionar produccion',
-            'gestionar calidad',
-            'gestionar planificacion',
-        ],
-    },
-    finanzas: {
-        titulo: 'Finanzas',
-        icon: '💰',
-        permisos: [
-            'acceso fin',
-            'gestionar facturacion',
-            'gestionar cobranzas',
-            'gestionar pagos',
-            'gestionar tesoreria',
-            'gestionar contabilidad',
-            'gestionar impuestos',
-        ],
-    },
-    rrhh: {
-        titulo: 'RRHH',
-        icon: '👨‍💼',
-        permisos: [
-            'acceso rrhh',
-            'gestionar empleados',
-            'gestionar nominas',
-            'gestionar asistencia',
-            'gestionar reclutamiento',
-            'gestionar evaluaciones',
-            'gestionar tareas',
-        ],
-    },
-    proyectos: {
-        titulo: 'Proyectos',
-        icon: '📋',
-        permisos: [
-            'acceso pms',
-            'gestionar proyectos',
-            'gestionar hitos',
-            'gestionar timesheets',
-            'gestionar gastos proyecto',
-        ],
-    },
-    bi: {
-        titulo: 'BI y Admin',
-        icon: '📊',
-        permisos: [
-            'acceso bi',
-            'gestionar configuracion',
-            'gestionar usuarios',
-            'gestionar roles',
-        ],
-    },
-    flota: {
-        titulo: 'Flota',
-        icon: '🚚',
-        permisos: [
-            'acceso flota',
-            'gestionar vehiculos',
-            'gestionar conductores',
-            'gestionar entregas',
-            'gestionar grupos trabajo',
-            'ver grupos trabajo',
-            'ver lista pendientes',
-        ],
-    },
-    pos: {
-        titulo: 'POS',
-        icon: '🛒',
-        permisos: [
-            'acceso pos',
-            'ver reportes pos',
-            'gestionar cierre caja',
-            'gestionar facturacion pos',
-            'gestionar promociones pos',
-        ],
-    },
-    cliente: {
-        titulo: 'Cliente',
-        icon: '🏢',
-        permisos: ['hacer pedidos', 'ver sus pedidos'],
-    },
-};
-
-function obtenerPermisosPorGrupo(permisos: { id: number; name: string }[]) {
-    const grupos: Record<
-        string,
-        {
-            titulo: string;
-            icon: string;
-            permisos: { id: number; name: string }[];
-        }
-    > = {};
-
-    for (const [key, grupo] of Object.entries(GRUPO_PERMISOS)) {
-        const permisosDelGrupo = permisos.filter((p) =>
-            grupo.permisos.includes(p.name),
-        );
-        if (permisosDelGrupo.length > 0) {
-            grupos[key] = {
-                titulo: grupo.titulo,
-                icon: grupo.icon,
-                permisos: permisosDelGrupo,
-            };
-        }
-    }
-
-    // Agregar permisos que no estén en ningún grupo
-    const permisosNoAgrupados = permisos.filter(
-        (p) =>
-            !Object.values(GRUPO_PERMISOS).some((g) =>
-                g.permisos.includes(p.name),
-            ),
-    );
-
-    if (permisosNoAgrupados.length > 0) {
-        grupos['otros'] = {
-            titulo: 'Otros',
-            icon: '📌',
-            permisos: permisosNoAgrupados,
-        };
-    }
-
-    return grupos;
-}
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -261,9 +97,42 @@ export default function Index({
     usuarios,
     roles,
     permisos,
+    grouped_permissions,
     usuariosRoles,
     publicProfiles,
 }: Props) {
+    function filterGroupedPermissions(selectedIds: number[]) {
+        const result: Record<string, Record<string, { id: number; name: string; friendly_name: string }[]>> = {};
+        for (const [moduleName, submodules] of Object.entries(grouped_permissions)) {
+            let moduleHasPerms = false;
+            const subResult: Record<string, any[]> = {};
+            for (const [subName, perms] of Object.entries(submodules)) {
+                const filtered = perms.filter(p => selectedIds.includes(p.id));
+                if (filtered.length > 0) {
+                    subResult[subName] = filtered;
+                    moduleHasPerms = true;
+                }
+            }
+            if (moduleHasPerms) {
+                result[moduleName] = subResult;
+            }
+        }
+        return result;
+    }
+
+    function getModuleSummary(selectedIds: number[]): string[] {
+        const result: string[] = [];
+        for (const [moduleName, submodules] of Object.entries(grouped_permissions)) {
+            let count = 0;
+            for (const perms of Object.values(submodules)) {
+                count += perms.filter(p => selectedIds.includes(p.id)).length;
+            }
+            if (count > 0) {
+                result.push(`${moduleName} (${count})`);
+            }
+        }
+        return result;
+    }
     const [activeTab, setActiveTab] = useState<
         'asignaciones' | 'roles' | 'permisos' | 'tiendas'
     >('asignaciones');
@@ -272,23 +141,12 @@ export default function Index({
     const [isAsignacionOpen, setIsAsignacionOpen] = useState(false);
     const [isRolOpen, setIsRolOpen] = useState(false);
     const [isPermisoOpen, setIsPermisoOpen] = useState(false);
+    const [viewingRole, setViewingRole] = useState<Role | null>(null);
 
     // Editing states
     const [editingRole, setEditingRole] = useState<Role | null>(null);
-    const [editingPermission, setEditingPermission] =
-        useState<Permission | null>(null);
-    const [gruposExpandidos, setGruposExpandidos] = useState<
-        Record<string, boolean>
-    >({});
-
-    // Inicializar todos los grupos como expandidos
-    const inicializarGrupos = () => {
-        const grupos: Record<string, boolean> = {};
-        Object.keys(GRUPO_PERMISOS).forEach((key) => {
-            grupos[key] = true;
-        });
-        setGruposExpandidos(grupos);
-    };
+    const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
+    const [gruposExpandidos, setGruposExpandidos] = useState<Record<string, boolean>>({});
 
     const toggleGrupo = (key: string) => {
         setGruposExpandidos((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -296,7 +154,7 @@ export default function Index({
 
     const toggleTodosLosGrupos = (expandir: boolean) => {
         const grupos: Record<string, boolean> = {};
-        Object.keys(GRUPO_PERMISOS).forEach((key) => {
+        Object.keys(grouped_permissions).forEach((key) => {
             grupos[key] = expandir;
         });
         setGruposExpandidos(grupos);
@@ -414,7 +272,7 @@ export default function Index({
             name: role.name,
             permissions: role.permissions.map((p) => p.id),
         });
-        inicializarGrupos();
+        setGruposExpandidos({});
         setIsRolOpen(true);
     };
 
@@ -447,9 +305,13 @@ export default function Index({
     };
 
     const handleToggleOfficial = (profileId: number) => {
-        router.patch(route('usuarios-roles.toggle-official', profileId), {}, {
-            preserveScroll: true,
-        });
+        router.patch(
+            route('usuarios-roles.toggle-official', profileId),
+            {},
+            {
+                preserveScroll: true,
+            },
+        );
     };
 
     return (
@@ -645,24 +507,16 @@ export default function Index({
                                                     </CardHeader>
                                                     <CardContent className="pt-0">
                                                         <div className="space-y-2">
-                                                            {usuario.roles.map(
-                                                                (ur) => {
-                                                                    const gruposAsignacion =
-                                                                        obtenerPermisosPorGrupo(
-                                                                            ur.permissions as Permission[],
-                                                                        );
-                                                                    const gruposKeys =
-                                                                        Object.keys(
-                                                                            gruposAsignacion,
-                                                                        );
-
-                                                                    return (
-                                                                        <div
-                                                                            key={
-                                                                                ur.id
-                                                                            }
-                                                                            className="rounded-lg border bg-background p-2"
-                                                                        >
+                                                                    {usuario.roles.map(
+                                                                        (ur) => {
+                                                                            const userPermIds = (ur.permissions as Permission[]).map(p => p.id);
+                                                                            const moduleSummaries = getModuleSummary(userPermIds);
+                                                                            
+                                                                            return (
+                                                                                <div
+                                                                                    key={ur.id}
+                                                                                    className="rounded-lg border bg-background p-2"
+                                                                                >
                                                                             <div className="mb-1 flex items-center justify-between">
                                                                                 <Badge
                                                                                     variant="outline"
@@ -672,64 +526,78 @@ export default function Index({
                                                                                         ur.role_name
                                                                                     }
                                                                                 </Badge>
-                                                                                <Button
-                                                                                    variant="ghost"
-                                                                                    size="icon"
-                                                                                    className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                                                                                    onClick={() =>
-                                                                                        handleDeleteAsignacion(
-                                                                                            ur.id,
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    <Trash2 className="h-3 w-3" />
-                                                                                </Button>
+                                                                                <div className="flex gap-0.5">
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-6 w-6 text-muted-foreground hover:bg-muted"
+                                                                                        title="Ver rol"
+                                                                                        onClick={() => {
+                                                                                            const role =
+                                                                                                roles.find(
+                                                                                                    (
+                                                                                                        r,
+                                                                                                    ) =>
+                                                                                                        r.name ===
+                                                                                                        ur.role_name,
+                                                                                                );
+                                                                                            if (
+                                                                                                role
+                                                                                            )
+                                                                                                setViewingRole(
+                                                                                                    role,
+                                                                                                );
+                                                                                        }}
+                                                                                    >
+                                                                                        <Eye className="h-3 w-3" />
+                                                                                    </Button>
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-6 w-6 text-muted-foreground hover:bg-muted"
+                                                                                        title="Editar rol"
+                                                                                        onClick={() => {
+                                                                                            const role =
+                                                                                                roles.find(
+                                                                                                    (
+                                                                                                        r,
+                                                                                                    ) =>
+                                                                                                        r.name ===
+                                                                                                        ur.role_name,
+                                                                                                );
+                                                                                            if (
+                                                                                                role
+                                                                                            )
+                                                                                                openEditRole(
+                                                                                                    role,
+                                                                                                );
+                                                                                        }}
+                                                                                    >
+                                                                                        <Pencil className="h-3 w-3" />
+                                                                                    </Button>
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                                                                        title="Eliminar asignación"
+                                                                                        onClick={() =>
+                                                                                            handleDeleteAsignacion(
+                                                                                                ur.id,
+                                                                                            )
+                                                                                        }
+                                                                                    >
+                                                                                        <Trash2 className="h-3 w-3" />
+                                                                                    </Button>
+                                                                                </div>
                                                                             </div>
                                                                             <div className="flex flex-wrap gap-1">
-                                                                                {gruposKeys
-                                                                                    .slice(
-                                                                                        0,
-                                                                                        4,
-                                                                                    )
-                                                                                    .map(
-                                                                                        (
-                                                                                            key,
-                                                                                        ) => (
-                                                                                            <span
-                                                                                                key={
-                                                                                                    key
-                                                                                                }
-                                                                                                className="rounded bg-muted px-1.5 py-0.5 text-[10px]"
-                                                                                                title={
-                                                                                                    gruposAsignacion[
-                                                                                                        key
-                                                                                                    ]
-                                                                                                        .titulo
-                                                                                                }
-                                                                                            >
-                                                                                                {
-                                                                                                    gruposAsignacion[
-                                                                                                        key
-                                                                                                    ]
-                                                                                                        .icon
-                                                                                                }{' '}
-                                                                                                {
-                                                                                                    gruposAsignacion[
-                                                                                                        key
-                                                                                                    ]
-                                                                                                        .permisos
-                                                                                                        .length
-                                                                                                }
-                                                                                            </span>
-                                                                                        ),
-                                                                                    )}
-                                                                                {gruposKeys.length >
-                                                                                    4 && (
-                                                                                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">
-                                                                                        +
-                                                                                        {gruposKeys.length -
-                                                                                            4}
+                                                                                {moduleSummaries.slice(0, 4).map((summary, idx) => (
+                                                                                    <span key={idx} className="rounded bg-muted px-1.5 py-0.5 text-[10px]" title={summary}>
+                                                                                        {summary.split('(')[0].trim()}
                                                                                     </span>
+                                                                                ))}
+                                                                                {moduleSummaries.length > 4 && (
+                                                                                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">+ {moduleSummaries.length - 4} más</span>
                                                                                 )}
                                                                             </div>
                                                                         </div>
@@ -788,7 +656,7 @@ export default function Index({
                                     onClick={() => {
                                         setEditingRole(null);
                                         rolForm.reset();
-                                        inicializarGrupos();
+                                        setGruposExpandidos({});
                                         setIsRolOpen(true);
                                     }}
                                     className="rounded-lg"
@@ -799,10 +667,8 @@ export default function Index({
 
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 {rolesFiltrados.map((role) => {
-                                    const gruposRol = obtenerPermisosPorGrupo(
-                                        role.permissions,
-                                    );
-                                    const gruposKeys = Object.keys(gruposRol);
+                                    const rolePermIds = role.permissions.map(p => p.id);
+                                    const moduleSummaries = getModuleSummary(rolePermIds);
 
                                     return (
                                         <Card
@@ -822,6 +688,20 @@ export default function Index({
                                                             variant="ghost"
                                                             size="icon"
                                                             className="h-7 w-7"
+                                                            title="Ver detalle"
+                                                            onClick={() =>
+                                                                setViewingRole(
+                                                                    role,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Eye className="h-3 w-3" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7"
+                                                            title="Editar rol"
                                                             onClick={() =>
                                                                 openEditRole(
                                                                     role,
@@ -850,34 +730,18 @@ export default function Index({
                                             </CardHeader>
                                             <CardContent className="pt-0">
                                                 <div className="mt-2 flex flex-wrap gap-1">
-                                                    {gruposKeys
-                                                        .slice(0, 4)
-                                                        .map((key) => (
-                                                            <span
-                                                                key={key}
-                                                                className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[10px]"
-                                                            >
-                                                                {
-                                                                    gruposRol[
-                                                                        key
-                                                                    ].icon
-                                                                }{' '}
-                                                                {
-                                                                    gruposRol[
-                                                                        key
-                                                                    ].permisos
-                                                                        .length
-                                                                }
-                                                            </span>
-                                                        ))}
-                                                    {gruposKeys.length > 4 && (
+                                                    {moduleSummaries.slice(0, 4).map((summary, idx) => (
+                                                        <span key={idx} className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[10px]" title={summary}>
+                                                            {summary.split('(')[0].trim()}
+                                                            <span className="font-bold">({summary.split('(')[1].replace(')', '')})</span>
+                                                        </span>
+                                                    ))}
+                                                    {moduleSummaries.length > 4 && (
                                                         <span className="rounded bg-muted px-2 py-0.5 text-[10px]">
-                                                            +
-                                                            {gruposKeys.length -
-                                                                4}
+                                                            + {moduleSummaries.length - 4} más
                                                         </span>
                                                     )}
-                                                    {gruposKeys.length ===
+                                                    {moduleSummaries.length ===
                                                         0 && (
                                                         <span className="text-[10px] text-muted-foreground">
                                                             Sin permisos
@@ -923,47 +787,49 @@ export default function Index({
                                 </Button>
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                {Object.entries(
-                                    obtenerPermisosPorGrupo(permisosFiltrados),
-                                ).map(([key, grupo]) => (
-                                    <div
-                                        key={key}
-                                        className="rounded-lg border bg-background p-3"
-                                    >
-                                        <div className="mb-2 flex items-center gap-2">
-                                            <span className="text-lg">
-                                                {grupo.icon}
-                                            </span>
-                                            <span className="text-xs font-semibold uppercase">
-                                                {grupo.titulo}
-                                            </span>
-                                            <Badge
-                                                variant="secondary"
-                                                className="ml-auto text-[10px]"
-                                            >
-                                                {grupo.permisos.length}
-                                            </Badge>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1">
-                                            {grupo.permisos.map((p) => (
-                                                <span
-                                                    key={p.id}
-                                                    className="rounded bg-muted px-2 py-0.5 text-[10px]"
-                                                >
-                                                    {p.name
-                                                        .replace(
-                                                            'gestionar ',
-                                                            '',
-                                                        )
-                                                        .replace('ver ', '')
-                                                        .replace('hacer ', '')
-                                                        .replace('acceso ', '')}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="grid grid-cols-1 gap-6 pb-20 md:grid-cols-2 lg:grid-cols-3">
+                                {Object.entries(grouped_permissions).map(([moduleName, submodules]) => {
+                                    const allPerms = Object.values(submodules).flat();
+                                    
+                                    // Handle filtering
+                                    const filteredPerms = allPerms.filter(p => !filtros.permiso || p.name.toLowerCase().includes(filtros.permiso.toLowerCase()) || p.friendly_name.toLowerCase().includes(filtros.permiso.toLowerCase()));
+                                    if (filteredPerms.length === 0 && filtros.permiso) return null;
+
+                                    return (
+                                        <Card key={moduleName} className="overflow-hidden">
+                                            <CardHeader className="bg-muted/30 pb-3 h-full">
+                                                <div className="flex items-center justify-between">
+                                                    <CardTitle className="text-sm font-bold uppercase tracking-wider">{moduleName}</CardTitle>
+                                                    <Badge variant="secondary" className="text-xs">{filteredPerms.length || allPerms.length}</Badge>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="h-64 overflow-y-auto p-0">
+                                                <div className="divide-y">
+                                                    {Object.entries(submodules).map(([subName, perms]) => {
+                                                        const validPerms = perms.filter(p => !filtros.permiso || p.name.toLowerCase().includes(filtros.permiso.toLowerCase()) || p.friendly_name.toLowerCase().includes(filtros.permiso.toLowerCase()));
+                                                        if (validPerms.length === 0) return null;
+                                                        
+                                                        return (
+                                                            <div key={subName} className="p-3">
+                                                                <h4 className="mb-2 text-xs font-semibold text-muted-foreground">{subName}</h4>
+                                                                <div className="space-y-1">
+                                                                    {validPerms.map(p => (
+                                                                        <div key={p.id} className="group flex items-center justify-between rounded-md p-2 hover:bg-muted/50">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-sm font-medium">{p.friendly_name}</span>
+                                                                                <span className="text-[10px] text-muted-foreground font-mono">{p.name}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -989,42 +855,65 @@ export default function Index({
 
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 {publicProfiles
-                                    .filter(p => p.title.toLowerCase().includes(filtros.tienda.toLowerCase()))
+                                    .filter((p) =>
+                                        p.title
+                                            .toLowerCase()
+                                            .includes(
+                                                filtros.tienda.toLowerCase(),
+                                            ),
+                                    )
                                     .map((profile) => (
-                                    <Card
-                                        key={profile.id}
-                                        className="bg-card/50 transition-all hover:ring-primary/50"
-                                    >
-                                        <CardHeader className="pb-3">
-                                            <div className="flex items-center justify-between">
-                                                <Badge variant="outline" className="text-[10px]">Tienda</Badge>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Oficial</span>
-                                                    <Checkbox 
-                                                        checked={profile.is_official}
-                                                        onCheckedChange={() => handleToggleOfficial(profile.id)}
-                                                    />
+                                        <Card
+                                            key={profile.id}
+                                            className="bg-card/50 transition-all hover:ring-primary/50"
+                                        >
+                                            <CardHeader className="pb-3">
+                                                <div className="flex items-center justify-between">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="text-[10px]"
+                                                    >
+                                                        Tienda
+                                                    </Badge>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                            Oficial
+                                                        </span>
+                                                        <Checkbox
+                                                            checked={
+                                                                profile.is_official
+                                                            }
+                                                            onCheckedChange={() =>
+                                                                handleToggleOfficial(
+                                                                    profile.id,
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <CardTitle className="mt-2 text-base font-bold">
-                                                {profile.title}
-                                            </CardTitle>
-                                            <CardDescription className="text-[10px] flex items-center gap-1">
-                                                <Users className="h-3 w-3" /> {profile.user.name}
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="pt-0">
-                                            <div className="flex items-center justify-between">
-                                                 <span className="text-[10px] text-muted-foreground">/{profile.slug}</span>
-                                                 {profile.is_official && (
-                                                     <Badge className="bg-blue-500/10 text-blue-600 border-none px-2 py-0 h-5 text-[9px] font-black uppercase tracking-widest">
-                                                         <CheckCircle2 className="mr-1 h-2.5 w-2.5" /> Oficial
-                                                     </Badge>
-                                                 )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                                <CardTitle className="mt-2 text-base font-bold">
+                                                    {profile.title}
+                                                </CardTitle>
+                                                <CardDescription className="flex items-center gap-1 text-[10px]">
+                                                    <Users className="h-3 w-3" />{' '}
+                                                    {profile.user.name}
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="pt-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] text-muted-foreground">
+                                                        /{profile.slug}
+                                                    </span>
+                                                    {profile.is_official && (
+                                                        <Badge className="h-5 border-none bg-blue-500/10 px-2 py-0 text-[9px] font-black tracking-widest text-blue-600 uppercase">
+                                                            <CheckCircle2 className="mr-1 h-2.5 w-2.5" />{' '}
+                                                            Oficial
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
                             </div>
                         </div>
                     )}
@@ -1033,7 +922,7 @@ export default function Index({
 
             {/* Modal Asignación */}
             <Dialog open={isAsignacionOpen} onOpenChange={setIsAsignacionOpen}>
-                <DialogContent className="rounded-2xl sm:max-w-[425px]">
+                <DialogContent className="mx-4 rounded-2xl border border-border bg-background p-6 shadow-xl sm:mx-auto sm:max-w-[425px]">
                     <DialogHeader className="gap-2">
                         <DialogTitle className="text-2xl font-bold">
                             Asignar Nuevo Rol
@@ -1118,202 +1007,171 @@ export default function Index({
             </Dialog>
             {/* Modal Rol */}
             <Dialog open={isRolOpen} onOpenChange={setIsRolOpen}>
-                <DialogContent className="rounded-2xl sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle className="text-2xl font-bold">
+                <DialogContent className="max-h-[95vh] max-w-[95vw] overflow-hidden rounded-xl p-0 shadow-2xl sm:max-w-[600px]">
+                    <DialogHeader className="border-b px-4 py-3 sm:px-6 sm:py-4">
+                        <DialogTitle className="text-lg font-black sm:text-xl">
                             {editingRole ? 'Editar Rol' : 'Crear Nuevo Rol'}
                         </DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription className="text-sm">
                             {editingRole
                                 ? 'Actualice el nombre y permisos del rol seleccionado.'
                                 : 'Defina un nombre para el rol y asigne permisos iniciales.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleSaveRole} className="space-y-6 pt-4">
-                        <div className="space-y-2">
-                            <Label>Nombre del Rol</Label>
-                            <Input
-                                placeholder="Ej: Supervisor de Ventas"
-                                value={rolForm.data.name}
-                                onChange={(e) =>
-                                    rolForm.setData('name', e.target.value)
-                                }
-                                required
-                            />
-                            <InputError message={rolForm.errors.name} />
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs font-bold text-muted-foreground uppercase">
-                                    Asignar Permisos
-                                </Label>
-                                <div className="flex gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            toggleTodosLosGrupos(true)
+                    <form
+                        onSubmit={handleSaveRole}
+                        className="flex flex-col overflow-hidden"
+                        style={{ maxHeight: 'calc(95vh - 120px)' }}
+                    >
+                        <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+                            <div className="space-y-3 sm:space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium">
+                                        Nombre del Rol
+                                    </Label>
+                                    <Input
+                                        placeholder="Ej: Supervisor de Ventas"
+                                        value={rolForm.data.name}
+                                        onChange={(e) =>
+                                            rolForm.setData(
+                                                'name',
+                                                e.target.value,
+                                            )
                                         }
-                                        className="text-xs text-primary hover:underline"
-                                    >
-                                        Expandir todos
-                                    </button>
-                                    <span className="text-muted-foreground">
-                                        |
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            toggleTodosLosGrupos(false)
-                                        }
-                                        className="text-xs text-primary hover:underline"
-                                    >
-                                        Colapsar todos
-                                    </button>
+                                        required
+                                        className="h-10"
+                                    />
+                                    <InputError message={rolForm.errors.name} />
                                 </div>
-                            </div>
-                            <div className="max-h-80 space-y-3 overflow-y-auto rounded-xl border p-3">
-                                {Object.entries(
-                                    obtenerPermisosPorGrupo(permisos),
-                                ).map(([key, grupo]) => (
-                                    <div
-                                        key={key}
-                                        className="space-y-2 rounded-lg bg-muted/30 p-2"
-                                    >
-                                        <div className="flex items-center justify-between">
+                                <div className="space-y-2">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                            Asignar Permisos
+                                        </Label>
+                                        <div className="flex gap-2 text-xs">
                                             <button
                                                 type="button"
-                                                onClick={() => toggleGrupo(key)}
-                                                className="flex items-center gap-2 text-xs font-bold tracking-wider text-primary uppercase hover:text-primary/80"
+                                                onClick={() =>
+                                                    toggleTodosLosGrupos(true)
+                                                }
+                                                className="text-primary hover:underline"
                                             >
-                                                <span>
-                                                    {gruposExpandidos[key]
-                                                        ? '▼'
-                                                        : '▶'}
-                                                </span>
-                                                <span>{grupo.icon}</span>
-                                                <span>{grupo.titulo}</span>
-                                                <span className="font-normal text-muted-foreground">
-                                                    ({grupo.permisos.length})
-                                                </span>
+                                                Expandir todos
                                             </button>
-                                            <div className="flex items-center gap-1">
-                                                <Checkbox
-                                                    id={`select-all-${key}`}
-                                                    checked={grupo.permisos.every(
-                                                        (p) =>
-                                                            rolForm.data.permissions.includes(
-                                                                p.id,
-                                                            ),
-                                                    )}
-                                                    onCheckedChange={(
-                                                        checked,
-                                                    ) => {
-                                                        const permisosIds =
-                                                            grupo.permisos.map(
-                                                                (p) => p.id,
-                                                            );
-                                                        if (checked) {
-                                                            const nuevosPermisos =
-                                                                [
-                                                                    ...new Set([
-                                                                        ...rolForm
-                                                                            .data
-                                                                            .permissions,
-                                                                        ...permisosIds,
-                                                                    ]),
-                                                                ];
-                                                            rolForm.setData(
-                                                                'permissions',
-                                                                nuevosPermisos,
-                                                            );
-                                                        } else {
-                                                            const permisosRestantes =
-                                                                rolForm.data.permissions.filter(
-                                                                    (id) =>
-                                                                        !permisosIds.includes(
-                                                                            id,
-                                                                        ),
-                                                                );
-                                                            rolForm.setData(
-                                                                'permissions',
-                                                                permisosRestantes,
-                                                            );
-                                                        }
-                                                    }}
-                                                />
-                                                <label
-                                                    htmlFor={`select-all-${key}`}
-                                                    className="cursor-pointer text-[10px] text-muted-foreground"
-                                                >
-                                                    Todos
-                                                </label>
-                                            </div>
+                                            <span className="text-muted-foreground">
+                                                |
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    toggleTodosLosGrupos(false)
+                                                }
+                                                className="text-primary hover:underline"
+                                            >
+                                                Colapsar todos
+                                            </button>
                                         </div>
-                                        {gruposExpandidos[key] && (
-                                            <div className="grid grid-cols-1 gap-1 pl-4 sm:grid-cols-2">
-                                                {grupo.permisos.map((p) => (
-                                                    <div
-                                                        key={p.id}
-                                                        className="flex items-center space-x-2 py-1"
-                                                    >
-                                                        <Checkbox
-                                                            id={`p-${p.id}`}
-                                                            checked={rolForm.data.permissions.includes(
-                                                                p.id,
-                                                            )}
-                                                            onCheckedChange={(
-                                                                checked,
-                                                            ) => {
-                                                                if (checked)
-                                                                    rolForm.setData(
-                                                                        'permissions',
-                                                                        [
-                                                                            ...rolForm
-                                                                                .data
-                                                                                .permissions,
-                                                                            p.id,
-                                                                        ],
-                                                                    );
-                                                                else
-                                                                    rolForm.setData(
-                                                                        'permissions',
-                                                                        rolForm.data.permissions.filter(
-                                                                            (
-                                                                                id,
-                                                                            ) =>
-                                                                                id !==
-                                                                                p.id,
-                                                                        ),
-                                                                    );
-                                                            }}
-                                                        />
-                                                        <label
-                                                            htmlFor={`p-${p.id}`}
-                                                            className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
-                                                        >
-                                                            {p.name
-                                                                .replace(
-                                                                    'gestionar ',
-                                                                    '',
-                                                                )
-                                                                .replace(
-                                                                    'ver ',
-                                                                    '',
-                                                                )
-                                                                .replace(
-                                                                    'hacer ',
-                                                                    '',
-                                                                )}
-                                                        </label>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
-                                ))}
+                                    <div className="max-h-[40vh] space-y-3 overflow-y-auto rounded-xl border p-3">
+                                        {Object.entries(grouped_permissions).map(([moduleName, submodules]) => {
+                                            const modulePerms = Object.values(submodules).flat();
+                                            const allSelected = modulePerms.every(p => rolForm.data.permissions.includes(p.id));
+                                            
+                                            // Optional partial selection state
+                                            const someSelected = modulePerms.some(p => rolForm.data.permissions.includes(p.id));
+
+                                            return (
+                                                <div key={moduleName} className="space-y-2 rounded-lg bg-muted/30 p-2">
+                                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => toggleGrupo(moduleName)}
+                                                            className="flex items-center gap-2 text-xs font-bold tracking-wider text-primary uppercase hover:text-primary/80"
+                                                        >
+                                                            <span>{gruposExpandidos[moduleName] ? '▼' : '▶'}</span>
+                                                            <span>{moduleName}</span>
+                                                            <span className="font-normal text-muted-foreground">({modulePerms.length})</span>
+                                                        </button>
+                                                        <div className="flex items-center gap-1">
+                                                            <Checkbox
+                                                                id={`select-all-${moduleName}`}
+                                                                checked={allSelected}
+                                                                onCheckedChange={(checked) => {
+                                                                    const modulePermIds = modulePerms.map((p) => p.id);
+                                                                    if (checked) {
+                                                                        const nuevosPermisos = [...new Set([...rolForm.data.permissions, ...modulePermIds])];
+                                                                        rolForm.setData('permissions', nuevosPermisos);
+                                                                    } else {
+                                                                        const permisosRestantes = rolForm.data.permissions.filter((id) => !modulePermIds.includes(id));
+                                                                        rolForm.setData('permissions', permisosRestantes);
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <label htmlFor={`select-all-${moduleName}`} className="cursor-pointer text-[10px] text-muted-foreground">
+                                                                Todos
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {gruposExpandidos[moduleName] && (
+                                                        <div className="pl-4 mt-2 grid gap-3 md:grid-cols-2">
+                                                            {Object.entries(submodules).map(([subName, perms]) => {
+                                                                const subAllSelected = perms.every(p => rolForm.data.permissions.includes(p.id));
+                                                                
+                                                                return (
+                                                                    <div key={subName} className="rounded-md bg-background border p-2">
+                                                                        <div className="flex items-center justify-between mb-2 pb-1 border-b">
+                                                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase">{subName}</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <Checkbox
+                                                                                    id={`sub-${subName}`}
+                                                                                    checked={subAllSelected}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        const subPermIds = perms.map((p) => p.id);
+                                                                                        if (checked) {
+                                                                                            const nuevosPermisos = [...new Set([...rolForm.data.permissions, ...subPermIds])];
+                                                                                            rolForm.setData('permissions', nuevosPermisos);
+                                                                                        } else {
+                                                                                            const permisosRestantes = rolForm.data.permissions.filter((id) => !subPermIds.includes(id));
+                                                                                            rolForm.setData('permissions', permisosRestantes);
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="grid grid-cols-1 gap-1">
+                                                                            {perms.map(p => (
+                                                                                <div key={p.id} className="flex items-center space-x-2 py-0.5">
+                                                                                    <Checkbox
+                                                                                        id={`p-${p.id}`}
+                                                                                        checked={rolForm.data.permissions.includes(p.id)}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            if (checked) {
+                                                                                                rolForm.setData('permissions', [...rolForm.data.permissions, p.id]);
+                                                                                            } else {
+                                                                                                rolForm.setData('permissions', rolForm.data.permissions.filter((id) => id !== p.id));
+                                                                                            }
+                                                                                        }}
+                                                                                    />
+                                                                                    <label htmlFor={`p-${p.id}`} className="cursor-pointer text-xs">
+                                                                                        {p.friendly_name}
+                                                                                    </label>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="shrink-0 border-t px-4 py-3 sm:px-6 sm:py-4">
                             <Button
                                 type="submit"
                                 className="h-11 w-full rounded-xl"
@@ -1369,6 +1227,71 @@ export default function Index({
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal Ver Detalle de Rol */}
+            <Dialog
+                open={!!viewingRole}
+                onOpenChange={() => setViewingRole(null)}
+            >
+                <DialogContent className="mx-4 rounded-2xl border border-border bg-background p-6 shadow-xl sm:mx-auto sm:max-w-[500px]">
+                    <DialogHeader className="gap-2">
+                        <DialogTitle className="text-2xl font-bold">
+                            {viewingRole?.name}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Este rol tiene{' '}
+                            {viewingRole?.permissions.length ?? 0} permisos
+                            asignados.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-96 space-y-3 overflow-y-auto pt-4">
+                        {viewingRole &&
+                            Object.entries(filterGroupedPermissions(viewingRole.permissions.map(p => p.id)))
+                            .map(([moduleName, submodules]) => (
+                                <div key={moduleName} className="rounded-lg border bg-muted/30 p-3">
+                                    <div className="mb-2 flex items-center gap-2">
+                                        <span className="text-xs font-semibold uppercase">{moduleName}</span>
+                                        <Badge variant="secondary" className="ml-auto text-[10px]">
+                                            {Object.values(submodules).flat().length}
+                                        </Badge>
+                                    </div>
+                                    <div className="mt-2 space-y-2">
+                                        {Object.entries(submodules).map(([subName, perms]) => (
+                                            <div key={subName} className="rounded bg-background p-2">
+                                                <h4 className="mb-1 text-[10px] font-semibold text-muted-foreground">{subName}</h4>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {perms.map(p => (
+                                                        <Badge key={p.id} variant="outline" className="text-[10px] bg-card" title={p.name}>
+                                                            {p.friendly_name}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        {viewingRole &&
+                            viewingRole.permissions.length === 0 && (
+                                <p className="py-8 text-center text-sm text-muted-foreground">
+                                    Este rol no tiene permisos asignados.
+                                </p>
+                            )}
+                    </div>
+                    <DialogFooter className="pt-4">
+                        <Button
+                            variant="outline"
+                            className="w-full rounded-xl"
+                            onClick={() => {
+                                if (viewingRole) openEditRole(viewingRole);
+                                setViewingRole(null);
+                            }}
+                        >
+                            <Pencil className="mr-2 h-4 w-4" /> Editar Rol
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </AppLayout>

@@ -148,18 +148,26 @@ Route::middleware(['auth'])->group(function () {
     Route::get('conversaciones-pedidos/{conversacion}/mensajes', [ConversacionPedidoController::class, 'getMensajes'])->name('conversaciones-pedidos.mensajes');
     Route::post('conversaciones-pedidos/{conversacion}/mensajes', [ConversacionPedidoController::class, 'enviarMensaje'])->name('conversaciones-pedidos.enviar')->middleware('throttle:messages');
 
-    // Marketplace Chat
-    Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
-    Route::get('/chat/{conversation}', [ChatController::class, 'show'])->name('chat.show');
-    Route::post('/chat/{conversation}/messages', [ChatController::class, 'sendMessage'])->name('chat.send')->middleware('throttle:messages');
+    // Marketplace Chat (requiere al menos poder ver oportunidades)
+    Route::middleware(['permission:comercial.oportunidades.viewAny'])->group(function () {
+        Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
+        Route::get('/chat/{conversation}', [ChatController::class, 'show'])->name('chat.show');
+        Route::post('/chat/{conversation}/messages', [ChatController::class, 'sendMessage'])->name('chat.send')->middleware('throttle:messages');
+    });
+
     // Citas y Reservas
-    Route::get('/appointments/export', [AppointmentController::class, 'exportCsv'])->name('appointments.export');
-    Route::get('/appointments/exportar', [AppointmentController::class, 'exportar'])->name('appointments.exportar');
-    Route::post('/appointments/importar', [AppointmentController::class, 'importar'])->name('appointments.importar');
-    Route::get('/appointments/dashboard', [AppointmentController::class, 'dashboard'])->name('appointments.dashboard');
-    Route::get('/appointments/calendar', [AppointmentController::class, 'calendar'])->name('appointments.calendar');
-    Route::resource('appointments', AppointmentController::class);
-    Route::resource('services', ServiceController::class);
+    Route::middleware(['permission:citas.citas.viewAny'])->group(function () {
+        Route::get('/appointments/export', [AppointmentController::class, 'exportCsv'])->name('appointments.export');
+        Route::get('/appointments/exportar', [AppointmentController::class, 'exportar'])->name('appointments.exportar');
+        Route::post('/appointments/importar', [AppointmentController::class, 'importar'])->name('appointments.importar');
+        Route::get('/appointments/dashboard', [AppointmentController::class, 'dashboard'])->name('appointments.dashboard');
+        Route::get('/appointments/calendar', [AppointmentController::class, 'calendar'])->name('appointments.calendar');
+        Route::resource('appointments', AppointmentController::class);
+    });
+
+    Route::middleware(['permission:citas.servicios.viewAny'])->group(function () {
+        Route::resource('services', ServiceController::class);
+    });
 
     // Búsqueda Global
     Route::get('/api/global-search', [GlobalSearchController::class, 'search'])->name('api.global-search')->middleware('throttle:search');

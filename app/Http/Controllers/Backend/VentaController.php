@@ -34,7 +34,7 @@ class VentaController extends Controller
 
         $ventas = $query->paginate(15);
         $clientes = Cliente::where(fn ($q) => $q->where('activo', true))->get();
-        $productos = Producto::where(fn ($q) => $q->where('activo', true))->get();
+        $productos = Producto::with('inventario')->where(fn ($q) => $q->where('activo', true))->get();
 
         return Inertia::render('Backend/Ventas/Index', [
             'ventas' => $ventas,
@@ -47,7 +47,12 @@ class VentaController extends Controller
     {
         $validated = $request->validate([
             'numero_factura' => 'required|string|max:50|unique:ventas,numero',
-            'cliente_id' => 'required|exists:clientes,id',
+            'cliente_id' => 'nullable|exists:clientes,id',
+            'cliente_tipo' => 'nullable|in:existente,generico',
+            'cliente_nombre' => 'nullable|string|max:255',
+            'cliente_rut' => 'nullable|string|max:20',
+            'cliente_telefono' => 'nullable|string|max:30',
+            'cliente_direccion' => 'nullable|string|max:500',
             'fecha' => 'required|date',
             'estado' => 'required|in:pendiente,pagada,cancelada',
             'notas' => 'nullable|string',
@@ -59,6 +64,24 @@ class VentaController extends Controller
             'productos.*.cantidad' => 'required|integer|min:1',
             'productos.*.precio_unitario' => 'required|numeric|min:0',
         ]);
+
+        // Si es cliente genérico, crear cliente temporal
+        $clienteId = $validated['cliente_id'];
+        if (($validated['cliente_tipo'] ?? 'existente') === 'generico' && ! empty($validated['cliente_nombre'])) {
+            $cliente = Cliente::create([
+                'nombre' => $validated['cliente_nombre'],
+                'rut' => $validated['cliente_rut'] ?? null,
+                'telefono' => $validated['cliente_telefono'] ?? null,
+                'direccion' => $validated['cliente_direccion'] ?? null,
+                'activo' => true,
+            ]);
+            $clienteId = $cliente->id;
+        }
+
+        // Validar que tenga cliente
+        if (! $clienteId) {
+            return back()->withErrors(['cliente_id' => 'Debe seleccionar un cliente o ingresar datos del cliente genérico']);
+        }
 
         $subtotal = 0;
         foreach ($validated['productos'] as $item) {
@@ -82,7 +105,7 @@ class VentaController extends Controller
 
         $venta = Venta::create([
             'numero' => $validated['numero_factura'],
-            'cliente_id' => $validated['cliente_id'],
+            'cliente_id' => $clienteId,
             'fecha' => $validated['fecha'],
             'subtotal' => (int) $subtotal,
             'iva' => (int) $iva,

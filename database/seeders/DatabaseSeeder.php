@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             //  CotizacionSeeder::class ,
             //  ClienteSeeder::class ,
             // ProveedorSeeder::class ,
+            DummyUsersSeeder::class,
         ]);
     }
 }

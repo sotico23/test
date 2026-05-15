@@ -10,13 +10,26 @@ use App\Models\Categoria;
 use App\Models\PublicProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class CategoriaController extends Controller
+class CategoriaController extends Controller implements HasMiddleware
 {
     use HasBulkOperations;
+
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('permission:comercial.categorias.create', only: ['create', 'store']),
+            new Middleware('permission:comercial.categorias.edit', only: ['edit', 'update']),
+            new Middleware('permission:comercial.categorias.delete', only: ['destroy']),
+            new Middleware('permission:comercial.categorias.export', only: ['exportCsv', 'exportExcel']),
+            new Middleware('permission:comercial.categorias.import', only: ['importCsv', 'importExcel']),
+        ];
+    }
 
     protected function getExportClass(array $filters): object
     {

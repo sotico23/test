@@ -15,6 +15,17 @@ class UsersTestSeeder extends Seeder
     {
         $password = Hash::make('password123');
 
+        // Master
+        $master = User::updateOrCreate(
+            ['email' => 'master@erp.com'],
+            [
+                'name' => 'Master Test',
+                'password' => $password,
+                'email_verified_at' => now(),
+            ]
+        );
+        $master->assignRole('Master');
+
         // Super Admin
         $superAdmin = User::updateOrCreate(
             ['email' => 'admin@erp.com'],

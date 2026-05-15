@@ -50,9 +50,11 @@ class AppServiceProvider extends ServiceProvider
             Log::info("AUDIT - Nuevo usuario registrado: {$event->user->email}.");
         });
 
-        // Temporarily disable all role/permission checks
+        // Super Admin and Master bypass all permission checks
         Gate::before(function ($user, $ability) {
-            return true;
+            if ($user->hasRole('Master') || $user->hasRole('Super Admin')) {
+                return true;
+            }
         });
     }
 

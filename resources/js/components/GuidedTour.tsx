@@ -294,36 +294,21 @@ export function GuidedTour() {
     const handleDisableOnboarding = async (checked: boolean) => {
         setDontShowAgain(checked);
         if (checked) {
-            try {
-                const csrfToken = document
-                    .querySelector('meta[name="csrf-token"]')
-                    ?.getAttribute('content');
-                console.log('CSRF Token:', csrfToken);
-
-                const response = await fetch('/settings/profile/onboarding', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken || '',
+            router.patch(
+                '/settings/profile/onboarding',
+                {},
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        setCurrentStep(-1);
+                        setTimeout(() => window.location.reload(), 500);
                     },
-                    body: JSON.stringify({ _method: 'PATCH' }),
-                });
-
-                console.log('Response status:', response.status);
-
-                if (response.ok) {
-                    setCurrentStep(-1);
-                    // Recargar la página después de un pequeño delay para que se actualice la sesión
-                    setTimeout(() => window.location.reload(), 500);
-                } else {
-                    const text = await response.text();
-                    console.error('Error response:', text);
-                    setDontShowAgain(false);
+                    onError: (errors) => {
+                        console.error('Error disabling onboarding:', errors);
+                        setDontShowAgain(false);
+                    },
                 }
-            } catch (error) {
-                console.error('Error disabling onboarding:', error);
-                setDontShowAgain(false);
-            }
+            );
         }
     };
 

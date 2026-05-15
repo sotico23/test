@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Helpers\PermissionHelper;
 use App\Http\Controllers\Controller;
 use App\Models\PublicProfile;
 use App\Models\User;
@@ -19,34 +20,17 @@ class UsuarioRolController extends Controller
         /** @var User $user */
         $user = auth()->user();
 
-        // Jerarquía de roles (4 = más alto, 1 = más bajo)
-        $hierarchy = [
-            'Super Admin' => 4,
-            'Administrador' => 3,
-            'Empleado' => 2,
-            'Cliente' => 1,
-        ];
+        $userLevel = $user->highestRoleLevel();
 
-        // Nivel del usuario actual
-        $userLevel = $user->roles->map(fn ($r) => $hierarchy[$r->name] ?? 0)->max();
-
-        // Obtenemos todos, luego filtramos
-        $usuarios = User::with('roles', 'permissions')->orderBy('name')->get();
+        // Obtenemos todos los usuarios visibles según el scope
+        $usuarios = User::visibles()->with('roles', 'permissions')->orderBy('name')->get();
         $roles = Role::with('permissions')->orderBy('name')->get();
         $permissions = Permission::orderBy('name')->get();
 
-        // Si no es Super Admin, filtramos para que no vea niveles superiores
-        if ($userLevel < 4) {
-            // Solo roles de nuestro nivel o inferior
-            $roles = $roles->filter(function ($role) use ($hierarchy, $userLevel) {
-                return ($hierarchy[$role->name] ?? 0) <= $userLevel;
-            })->values();
-
-            // Solo usuarios que no tengan un rol superior al nuestro
-            $usuarios = $usuarios->filter(function ($u) use ($hierarchy, $userLevel) {
-                $uLevel = $u->roles->map(fn ($r) => $hierarchy[$r->name] ?? 0)->max();
-
-                return $uLevel <= $userLevel;
+        // Si no es Master, filtramos para que no vea roles de nivel igual o superior al suyo (menor número)
+        if ($userLevel > 0) {
+            $roles = $roles->filter(function ($role) use ($userLevel) {
+                return $role->level > $userLevel;
             })->values();
         }
 
@@ -75,6 +59,7 @@ class UsuarioRolController extends Controller
             'usuarios' => $usuarios,
             'roles' => $roles,
             'permisos' => $permissions,
+            'grouped_permissions' => PermissionHelper::getGroupedPermissions(),
             'usuariosRoles' => $asignaciones,
             'publicProfiles' => PublicProfile::with('user')->orderBy('title')->get(),
         ]);
@@ -101,9 +86,18 @@ class UsuarioRolController extends Controller
         ]);
 
         $user = User::findOrFail($validated['usuario_id']);
+        $currentUserLevel = auth()->user()->highestRoleLevel();
+
+        // Prevenir edición a usuarios de mayor o igual nivel
+        if ($currentUserLevel > 0 && $user->highestRoleLevel() <= $currentUserLevel) {
+            abort(403, 'No tienes permiso para modificar a un usuario de este nivel.');
+        }
 
         if (! empty($validated['rol_id'])) {
             $role = Role::findById($validated['rol_id']);
+            if ($currentUserLevel > 0 && $role->level <= $currentUserLevel) {
+                abort(403, 'No tienes permiso para asignar este rol.');
+            }
             $user->assignRole($role);
         }
 
@@ -194,7 +188,12 @@ class UsuarioRolController extends Controller
         if (count($parts) === 2) {
             $user = User::find($parts[0]);
             $role = Role::findById($parts[1]);
+            $currentUserLevel = auth()->user()->highestRoleLevel();
+
             if ($user && $role) {
+                if ($currentUserLevel > 0 && ($user->highestRoleLevel() <= $currentUserLevel || $role->level <= $currentUserLevel)) {
+                    abort(403, 'No tienes permiso para quitar este rol o modificar a este usuario.');
+                }
                 $user->removeRole($role);
             }
         }

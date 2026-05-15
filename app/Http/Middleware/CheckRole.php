@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
 {
-    public function handle(Request $request, Closure $next, string ...$roles): Response
+    public function handle(Request $request, Closure $next, string ...$parameters): Response
     {
         $user = $request->user();
 
@@ -16,16 +16,41 @@ class CheckRole
             return redirect()->route('login');
         }
 
-        // Super Admin has access to everything
-        if ($user->hasRole('Super Admin')) {
+        // Master and Super Admin have access to everything
+        if ($user->hasRole('Master') || $user->hasRole('Super Admin')) {
             return $next($request);
         }
 
-        // Check if user has any of the required roles (supports pipe-separated roles)
-        foreach ($roles as $roleGroup) {
-            $roleArray = explode('|', $roleGroup);
-            foreach ($roleArray as $role) {
+        // Parse parameters - can be roles (role:xxx) or permissions (permission:xxx)
+        $roles = [];
+        $permissions = [];
+
+        foreach ($parameters as $param) {
+            if (str_starts_with($param, 'role:')) {
+                $roleList = str_replace('role:', '', $param);
+                $roles = array_merge($roles, explode('|', $roleList));
+            } elseif (str_starts_with($param, 'permission:')) {
+                $permList = str_replace('permission:', '', $param);
+                $permissions = array_merge($permissions, explode('|', $permList));
+            } else {
+                // Assume it's a role if no prefix
+                $roles = array_merge($roles, explode('|', $param));
+            }
+        }
+
+        // Check roles first
+        if (! empty($roles)) {
+            foreach ($roles as $role) {
                 if ($user->hasRole(trim($role))) {
+                    return $next($request);
+                }
+            }
+        }
+
+        // Then check permissions if no role matched
+        if (! empty($permissions)) {
+            foreach ($permissions as $permission) {
+                if ($user->can(trim($permission))) {
                     return $next($request);
                 }
             }
